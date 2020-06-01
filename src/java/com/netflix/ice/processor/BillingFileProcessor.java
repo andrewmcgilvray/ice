@@ -293,6 +293,9 @@ public class BillingFileProcessor extends Poller {
     	ReadWriteData usageData = data.getUsage(product);
     	ReadWriteData costData = data.getCost(product);
     	
+    	if (usageData == null || costData == null)
+    		return;
+    	
     	double edpDiscount = config.getDiscount(startMilli);
         
     	/*
