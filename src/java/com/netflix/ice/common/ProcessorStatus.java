@@ -25,6 +25,9 @@ import org.joda.time.DateTimeZone;
 import com.google.gson.Gson;
 
 public class ProcessorStatus {
+	public static final String prefix = "processorStatus_";
+	public static final String suffix = ".json";
+	
 	public String month;
 	public Collection<Report> reports;
 	public String lastProcessed;

@@ -41,14 +41,12 @@ public class LastProcessedPoller extends Poller {
 	
     private final WorkBucketConfig workBucketConfig;
     private DateTime startDate;
-    private final String dbName;
     private DateTime lastProcessed;
     private List<ProcessorStatus> status;
 
 	public LastProcessedPoller(DateTime startDate, WorkBucketConfig workBucketConfig) {
 		this.startDate = startDate;
 		this.workBucketConfig = workBucketConfig;
-		this.dbName = "processorStatus";
 		this.lastProcessed = new DateTime(0);
 		this.status = null;
 		
@@ -86,7 +84,7 @@ public class LastProcessedPoller extends Poller {
 	}
 	
     private ProcessorStatus getProcessorStatusForMonth(DateTime monthDate) {
-    	String filename = dbName + "_" + AwsUtils.monthDateFormat.print(monthDate);
+    	String filename = ProcessorStatus.prefix + AwsUtils.monthDateFormat.print(monthDate) + ProcessorStatus.suffix;
     	
         AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
         InputStream in = null;

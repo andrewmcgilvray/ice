@@ -336,7 +336,7 @@ public class BillingFileProcessor extends Poller {
     }
 
     private ProcessorStatus getProcessorStatus(String timeStr) {
-    	String filename = "processorStatus_" + timeStr;
+    	String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
     	
         AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
         InputStream in = null;
@@ -364,7 +364,7 @@ public class BillingFileProcessor extends Poller {
     }
 
     private void saveProcessorStatus(String timeStr, ProcessorStatus status) {
-    	String filename = "processorStatus_" + timeStr;
+    	String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
     	
         AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
         String statusStr = status.toJSON();
