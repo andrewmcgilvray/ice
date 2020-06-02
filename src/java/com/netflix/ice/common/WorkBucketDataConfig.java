@@ -20,6 +20,7 @@ package com.netflix.ice.common;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.netflix.ice.common.Config.TagCoverage;
 import com.netflix.ice.tag.Account;
@@ -69,7 +70,7 @@ public class WorkBucketDataConfig {
 	}
 
 	public List<String> getUserTags() {
-		return userTags;
+		return userTags == null ? Lists.<String>newArrayList() : userTags;
 	}
 
 	public TagCoverage getTagCoverage() {
