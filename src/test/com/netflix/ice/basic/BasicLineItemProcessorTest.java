@@ -1287,7 +1287,15 @@ public class BasicLineItemProcessorTest {
 		line.setSavingsPlanCoveredUsageFields("2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.0083", "AllUpfront", "0.0116");
 		tag = new String[] { "us-east-1", "us-east-1a", "EC2 Instance", "SavingsPlan Bonus - All Upfront", "t2.micro" };
 		test = new ProcessTest(line, tag, 1.0, 0.0083, Result.hourly, 31, 0.0, 0.0033);
-		test.run(Which.cau, "2019-12-01T00:00:00Z", "2019-01-01T00:00:00Z");	
+		test.run(Which.cau, "2019-12-01T00:00:00Z", "2019-01-01T00:00:00Z");
+		
+		// No Upfront Lambda
+		line = new Line(LineItemType.SavingsPlanCoveredUsage, "ap-northeast-1", "", "AWS Lambda", "APN1-Lambda-GB-Second", "Invoke", "AWS Lambda - Total Compute - Asia Pacific (Tokyo)", PricingTerm.onDemand, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "2.4", "0.00004", "");
+		line.setSavingsPlanCoveredUsageFields("2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.000036", "NoUpfront", "0.00004");
+		tag = new String[] { "ap-northeast-1", null, "Lambda", "SavingsPlan Bonus - No Upfront", "Lambda-GB-Second" };
+		test = new ProcessTest(line, tag, 2.4, 0.000036, Result.hourly, 31, 0.0, 0.000004);
+		test.run(Which.cau, "2019-12-01T00:00:00Z", "2019-01-01T00:00:00Z");
+		
 	}
 	
 	@Test

@@ -233,7 +233,12 @@ public class BillingFileProcessor extends Poller {
         	}
         	savingsPlanProcessor.process(prod);
     	}
+    	// Process SPs for Lambda
+    	Product lambda = config.productService.getProduct(Product.Code.Lambda);
+    	if (costAndUsageData.getCost(lambda) != null)
+    		savingsPlanProcessor.process(lambda);
     	
+    	// Process non-resource version of data for RIs and SPs
     	reservationProcessor.process(reservationService, costAndUsageData, null, month, prices);
     	savingsPlanProcessor.process(null);
     	            

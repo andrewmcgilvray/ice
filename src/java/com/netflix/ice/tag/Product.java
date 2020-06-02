@@ -79,7 +79,8 @@ public class Product extends Tag {
 	    Ebs("Amazon Elastic Block Store", "EBS", true),
 	    Ec2Instance("EC2 Instance", "EC2Instance", true),
 	    Eip("Elastic IP", "EIP", false),
-	    RdsInstance("RDS Instance", "RDSInstance", true);
+	    RdsInstance("RDS Instance", "RDSInstance", true),
+		Lambda("AWS Lambda", "AWSLambda", true);
 		
 		final public String serviceName;
 		final public String serviceCode;
