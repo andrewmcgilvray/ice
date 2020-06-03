@@ -243,7 +243,8 @@ public abstract class LineItem {
 		SavingsPlanUpfrontFee,
 		SavingsPlanRecurringFee,
 		SavingsPlanCoveredUsage,
-		SavingsPlanNegation;
+		SavingsPlanNegation,
+		PrivateRateDiscount;
 	}
 	
 	public LineItemType getLineItemType() {
