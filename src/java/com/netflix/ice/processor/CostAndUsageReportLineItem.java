@@ -198,7 +198,7 @@ public class CostAndUsageReportLineItem extends LineItem {
         try {
         	lineItemType = LineItemType.valueOf(items[lineItemTypeIndex]);
         } catch (Exception e) {
-        	logger.error("Unknown lineItemType: " + items[lineItemTypeIndex]);
+        	logger.error("Unknown lineItemType: " + items[lineItemTypeIndex] + ", " + toString());
         	lineItemType = null;
         }
     }

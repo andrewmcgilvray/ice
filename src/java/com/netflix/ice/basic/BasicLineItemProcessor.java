@@ -175,8 +175,9 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         	logger.info(fileName + " Support: " + lineItem);
         }
         
-        if (lineItem instanceof CostAndUsageReportLineItem) {
-	        switch (lineItem.getLineItemType()) {
+        LineItemType lit = lineItem.getLineItemType();
+        if (lit != null) {
+	        switch (lit) {
 	        case Credit:
 	        	// Most credits have end times that are one second into the next hour
 	        	// Truncate partial seconds end time.

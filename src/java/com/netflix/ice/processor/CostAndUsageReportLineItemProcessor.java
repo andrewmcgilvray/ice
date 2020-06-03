@@ -78,7 +78,8 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
     	if (lit == LineItemType.EdpDiscount ||
     		lit == LineItemType.RiVolumeDiscount ||
     		lit == LineItemType.SavingsPlanNegation ||
-    		lit == LineItemType.SavingsPlanUpfrontFee) {
+    		lit == LineItemType.SavingsPlanUpfrontFee ||
+    		lit == LineItemType.PrivateRateDiscount) {
     		return true;
     	}
     	
