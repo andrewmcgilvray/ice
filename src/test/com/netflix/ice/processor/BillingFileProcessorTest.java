@@ -199,7 +199,7 @@ public class BillingFileProcessorTest {
 			}
 		}
 		
-		ResourceService resourceService = new BasicResourceService(productService, new String[]{}, new String[]{}, false);
+		ResourceService resourceService = new BasicResourceService(productService, new String[]{}, false);
 		
 		ProcessorConfig config = new TestProcessorConfig(
 										properties,

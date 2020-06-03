@@ -24,24 +24,25 @@ import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.netflix.ice.common.Config.TagCoverage;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.UserTagKey;
 
 /**
  * Work bucket data-dependent configuration items used by the reader
  */
 public class WorkBucketDataConfig {
 	private final String startMonth;
-	private final List<String> userTags;
+	private final List<UserTagKey> userTagKeys;
     private final List<Account> accounts;
     private final Map<String, List<String>> zones;
     private final TagCoverage tagCoverage;
     private final Map<String, Map<String, TagConfig>> tagConfigs;
 	
-	public WorkBucketDataConfig(String startMonth, List<Account> accounts, Map<String, List<String>> zones, List<String> userTags,
+	public WorkBucketDataConfig(String startMonth, List<Account> accounts, Map<String, List<String>> zones, List<UserTagKey> userTags,
 			TagCoverage tagCoverage, Map<String, Map<String, TagConfig>> tagConfigs) {
 		this.startMonth = startMonth;
 		this.accounts = accounts;
 		this.zones = zones;
-		this.userTags = userTags;
+		this.userTagKeys = userTags;
 		this.tagCoverage = tagCoverage;
 		this.tagConfigs = tagConfigs;
 	}
@@ -52,7 +53,7 @@ public class WorkBucketDataConfig {
 		this.startMonth = c.startMonth;
 		this.accounts = c.accounts;
 		this.zones = c.zones;
-		this.userTags = c.userTags;
+		this.userTagKeys = c.userTagKeys;
 		this.tagCoverage = c.tagCoverage;
 		this.tagConfigs = c.tagConfigs;
 	}
@@ -69,8 +70,8 @@ public class WorkBucketDataConfig {
 		return zones;
 	}
 
-	public List<String> getUserTags() {
-		return userTags == null ? Lists.<String>newArrayList() : userTags;
+	public List<UserTagKey> getUserTagKeys() {
+		return userTagKeys == null ? Lists.<UserTagKey>newArrayList() : userTagKeys;
 	}
 
 	public TagCoverage getTagCoverage() {

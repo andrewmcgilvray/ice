@@ -174,7 +174,6 @@ class BootStrap {
 				properties.setProperty(IceOptions.RESERVATION_CAPACITY_POLLER, prop.getProperty(IceOptions.RESERVATION_CAPACITY_POLLER, "false"));
 					
                 properties.setProperty(IceOptions.CUSTOM_TAGS, prop.getProperty(IceOptions.CUSTOM_TAGS, ""));
-				properties.setProperty(IceOptions.ADDITIONAL_TAGS, prop.getProperty(IceOptions.ADDITIONAL_TAGS, ""));
 				properties.setProperty(IceOptions.RESERVATION_ID_TAGS, prop.getProperty(IceOptions.RESERVATION_ID_TAGS, "false"));
 				
                 properties.setProperty(IceOptions.RESOURCE_GROUP_COST, prop.getProperty(IceOptions.RESOURCE_GROUP_COST, "modeled"));

@@ -48,6 +48,7 @@ import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 
 public class BasicResourceServiceTest {
     private static final String resourcesDir = "src/test/resources";
@@ -75,7 +76,7 @@ public class BasicResourceServiceTest {
 				"TagKey2", "TagKey4", "VirtualTagKey"
 			};
 		BasicAccountService as = new BasicAccountService();
-		ResourceService rs = new BasicResourceService(ps, customTags, new String[]{}, false);
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.initHeader(li.getResourceTagsHeader(), "123456789012");
 		Map<String, String> defaultTags = Maps.newHashMap();
 		defaultTags.put("VirtualTagKey", "1234");
@@ -94,9 +95,9 @@ public class BasicResourceServiceTest {
 		String[] customTags = new String[]{
 				"Environment", "Product"
 			};
-		ResourceService rs = new BasicResourceService(ps, customTags, new String[]{}, false);
-		List<String> userTags = rs.getUserTags();
-		assertEquals("userTags list length is incorrect", 2, userTags.size());
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
+		List<UserTagKey> userTagKeys = rs.getUserTagKeys();
+		assertEquals("userTags list length is incorrect", 2, userTagKeys.size());
 	}
 	
 	@Test
@@ -121,7 +122,7 @@ public class BasicResourceServiceTest {
 		tagValues.put("QA", Lists.newArrayList("test", "quality assurance"));
 		TagConfig tc = new TagConfig("Environment", null, tagValues);
 		
-		ResourceService rs = new BasicResourceService(ps, customTags, new String[]{}, false);
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		List<TagConfig> configs = Lists.newArrayList();
 		configs.add(tc);
 		rs.setTagConfigs("234567890123", configs);
@@ -160,22 +161,22 @@ public class BasicResourceServiceTest {
 		
 		// Check for value in alias list
 		rs.initHeader(li.getResourceTagsHeader(), "234567890123");		
-		String tagValue = rs.getUserTagValue(li, rs.getUserTags().get(0));
+		String tagValue = rs.getUserTagValue(li, rs.getUserTagKeys().get(0).name);
 		assertEquals("Incorrect tag value alias", "Prod", tagValue);
 		
 		// Check for non-matching-case version of value
 		item[item.length - 1] = "prod";
-		tagValue = rs.getUserTagValue(li, rs.getUserTags().get(0));
+		tagValue = rs.getUserTagValue(li, rs.getUserTagKeys().get(0).name);
 		assertEquals("Incorrect tag value alias", "Prod", tagValue);
 		
 		// Check for tag with leading/trailing white space
 		item[item.length - 1] = " pr od ";
-		tagValue = rs.getUserTagValue(li, rs.getUserTags().get(0));
+		tagValue = rs.getUserTagValue(li, rs.getUserTagKeys().get(0).name);
 		assertEquals("Incorrect tag value alias when leading/trailing white space", "Prod", tagValue);
 		
 		// Check for tag with embedded white space in alias config
 		item[item.length - 1] = "qualityassurance";
-		tagValue = rs.getUserTagValue(li, rs.getUserTags().get(0));
+		tagValue = rs.getUserTagValue(li, rs.getUserTagKeys().get(0).name);
 		assertEquals("Incorrect tag value alias when config had a space in the value", "QA", tagValue);
 	}
 	
@@ -202,7 +203,7 @@ public class BasicResourceServiceTest {
 		Map<String, String> defaultTags = Maps.newHashMap();
 		defaultTags.put("Environment", "Prod");
 		
-		ResourceService rs = new BasicResourceService(ps, customTags, new String[]{}, false);
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.putDefaultTags("12345", defaultTags);
 		rs.initHeader(li.getResourceTagsHeader(), "12345");		
 		
@@ -320,12 +321,12 @@ public class BasicResourceServiceTest {
 				return "123456789012";
 			}
 		}
-		ResourceService rs = new BasicResourceService(ps, customTags, new String[]{}, false);
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.initHeader(new String[]{ "user:Email", "user:Department", "user:Environment" }, "1234");
 		LineItem lineItem = new TestLineItem(new String[]{ "joe@company.com", "1234", "" });
 		boolean[] coverage = rs.getUserTagCoverage(lineItem);
 		
-		assertEquals("Environment isn't first user tag", "Environment", rs.getUserTags().get(0));
+		assertEquals("Environment isn't first user tag", "Environment", rs.getUserTagKeys().get(0).name);
 		assertFalse("Environment is set", coverage[0]);
 		assertTrue("Department not set", coverage[1]);
 		assertTrue("Email not set", coverage[2]);
@@ -339,7 +340,7 @@ public class BasicResourceServiceTest {
 		
 		BasicAccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
-		ResourceService rs = new BasicResourceService(ps, customTags, new String[]{}, false);
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.setTagConfigs(payerAccount, tagConfigs);
 		
 		rs.putDefaultTags(payerAccount, payerDefaultTags);

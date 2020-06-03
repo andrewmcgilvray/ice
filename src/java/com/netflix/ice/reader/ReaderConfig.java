@@ -23,7 +23,7 @@ import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.common.*;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
-import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
 import org.joda.time.DateTime;
@@ -62,7 +62,7 @@ public class ReaderConfig extends Config {
     public final ThroughputMetricService throughputMetricService;
     public final Managers managers;
     public final int monthlyCacheSize;
-    public final List<String> userTags;
+    public final List<UserTagKey> userTagKeys;
     public final String dashboardNotice;
     public Map<String, Map<String, TagConfig>> tagConfigs;
 
@@ -88,7 +88,7 @@ public class ReaderConfig extends Config {
                 
         WorkBucketDataConfig dataConfig = readWorkBucketDataConfig();
         this.startDate = new DateTime(dataConfig.getStartMonth(), DateTimeZone.UTC);
-        this.userTags = dataConfig.getUserTags();
+        this.userTagKeys = dataConfig.getUserTagKeys();
         this.tagConfigs = dataConfig.getTagConfigs();
         
         // update tagCoverage to level supported by processor
@@ -140,11 +140,7 @@ public class ReaderConfig extends Config {
 
     	// Prime the data caches
         Managers managers = ReaderConfig.getInstance().managers;
-        Collection<Product> products = managers.getProducts();
-        List<UserTag> userTagList = Lists.newArrayList();
-        for (String ut: userTags)
-        	userTagList.add(UserTag.get(ut));
-        
+        Collection<Product> products = managers.getProducts();        
     	ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     	List<Future<Void>> futures = Lists.newArrayList();
 
@@ -162,7 +158,7 @@ public class ReaderConfig extends Config {
             	futures.add(readData(product, consolidateType, interval, managers.getUsageManager(product, consolidateType), null, pool));
                 // Prime the tag coverage cache
                 if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
-                	futures.add(readData(product, consolidateType, interval, managers.getTagCoverageManager(product, consolidateType), userTagList, pool));
+                	futures.add(readData(product, consolidateType, interval, managers.getTagCoverageManager(product, consolidateType), userTagKeys, pool));
                 }
             }
         }
@@ -172,7 +168,7 @@ public class ReaderConfig extends Config {
 		}
     }
         
-    public Future<Void> readData(final Product product, final ConsolidateType consolidateType, final Interval interval, final DataManager dataManager, final List<UserTag> userTagList, ExecutorService pool) {
+    public Future<Void> readData(final Product product, final ConsolidateType consolidateType, final Interval interval, final DataManager dataManager, final List<UserTagKey> userTagList, ExecutorService pool) {
     	return pool.submit(new Callable<Void>() {
     		@Override
     		public Void call() throws Exception {
@@ -188,7 +184,7 @@ public class ReaderConfig extends Config {
         instance.managers.shutdown();
     }
 
-    private void readData(Product product, DataManager dataManager, Interval interval, ConsolidateType consolidateType, UsageUnit usageUnit, List<UserTag> userTagList) {
+    private void readData(Product product, DataManager dataManager, Interval interval, ConsolidateType consolidateType, UsageUnit usageUnit, List<UserTagKey> userTagList) {
         if (consolidateType == ConsolidateType.hourly) {
             DateTime start = interval.getStart().withDayOfMonth(1).withMillisOfDay(0);
             do {
@@ -210,7 +206,7 @@ public class ReaderConfig extends Config {
         	if (userTagList == null)
         		dataManager.getData(interval, new TagLists(), null, AggregateType.both, null, usageUnit, 0);
         	else
-        		dataManager.getData(interval, new TagLists(), null, AggregateType.both, 0, userTagList);
+        		dataManager.getData(interval, new TagLists(), null, AggregateType.both, 0, userTagKeys);
         }
     }
     

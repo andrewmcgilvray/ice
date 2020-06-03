@@ -326,7 +326,7 @@ public class BillingFileProcessor extends Poller {
     
 
     void init(long startMilli) {
-    	costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTags(),
+    	costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(),
     			config.getTagCoverage(), config.accountService, config.productService);
         instances = new Instances(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
     }

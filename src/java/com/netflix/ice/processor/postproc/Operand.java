@@ -111,7 +111,7 @@ public class Operand {
 		userTagFilters = Maps.newHashMap();
 		userTagFilterIndeces = Maps.newHashMap();
 		if (opConfig.getUserTags() != null) {
-			List<String> customTags = resourceService.getUserTags();
+			List<String> customTags = resourceService.getCustomTags();
 			for (String key: opConfig.getUserTags().keySet()) {
 				if (!customTags.contains(key))
 					throw new Exception("Invalid user tag key name: \"" + key + "\"");

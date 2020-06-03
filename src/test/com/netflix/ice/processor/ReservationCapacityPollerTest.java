@@ -214,7 +214,7 @@ public class ReservationCapacityPollerTest {
 		reservationsFromApi.put(new ReservationKey(ri1.getAccountId(), ri1.getRegion(), ri1.getReservationId()), ri1);
 		poller.updateReservations(reservationsFromApi, as,
 				DateTime.parse("2018-01-01T00:00:00Z").getMillis(), ps,
-				new BasicResourceService(ps, new String[]{}, new String[]{}, false), reservationService);
+				new BasicResourceService(ps, new String[]{}, false), reservationService);
 		assertEquals("Wrong number of reservations", reservationsFromApi.size(), reservationService.getReservations().size());
 	}
 }

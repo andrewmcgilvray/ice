@@ -22,6 +22,7 @@ import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
+import com.netflix.ice.tag.UserTagKey;
 
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,7 @@ public abstract class ResourceService {
     abstract public void init();
     
     abstract public List<String> getCustomTags();
-    abstract public List<String> getUserTags();
+    abstract public List<UserTagKey> getUserTagKeys();
 
     abstract public Map<String, Map<String, TagConfig>> getTagConfigs();
     

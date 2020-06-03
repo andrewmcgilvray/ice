@@ -149,11 +149,6 @@ public class IceOptions {
     public static final String CUSTOM_TAGS = "ice.customTags";
 
     /**
-     * User can configure their additional tags to add to custom tags displayed in tag coverage dashboard.
-     */
-    public static final String ADDITIONAL_TAGS = "ice.additionalTags";
-
-    /**
      * Boolean flag to indicated whether to include reservation IDs as an additional custom tag.
      */
     public static final String RESERVATION_ID_TAGS = "ice.reservationIdTags";

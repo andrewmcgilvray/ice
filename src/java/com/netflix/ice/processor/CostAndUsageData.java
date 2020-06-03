@@ -54,6 +54,7 @@ import com.netflix.ice.reader.InstanceMetrics;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ReservationArn;
+import com.netflix.ice.tag.UserTagKey;
 
 public class CostAndUsageData {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -65,14 +66,14 @@ public class CostAndUsageData {
     private final AccountService accountService;
     private final ProductService productService;
     private Map<Product, ReadWriteTagCoverageData> tagCoverage;
-    private List<String> userTags;
+    private List<UserTagKey> userTagKeys;
     private boolean collectTagCoverageWithUserTags;
     private Map<ReservationArn, Reservation> reservations;
     private Map<String, SavingsPlan> savingsPlans;
     
-	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<String> userTags, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
+	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
-        this.userTags = userTags;
+        this.userTagKeys = userTagKeys;
 		this.usageDataByProduct = Maps.newHashMap();
 		this.costDataByProduct = Maps.newHashMap();
         this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
@@ -82,7 +83,7 @@ public class CostAndUsageData {
         this.productService = productService;
         this.tagCoverage = null;
         this.collectTagCoverageWithUserTags = tagCoverage == TagCoverage.withUserTags;
-        if (userTags != null && tagCoverage != TagCoverage.none) {
+        if (userTagKeys != null && tagCoverage != TagCoverage.none) {
     		this.tagCoverage = Maps.newHashMap();
         	this.tagCoverage.put(null, new ReadWriteTagCoverageData(getNumUserTags()));
         }
@@ -95,7 +96,7 @@ public class CostAndUsageData {
 	}
 	
 	public int getNumUserTags() {
-		return userTags == null ? 0 : userTags.size();
+		return userTagKeys == null ? 0 : userTagKeys.size();
 	}
 	
 	public ReadWriteData getUsage(Product product) {
@@ -225,7 +226,7 @@ public class CostAndUsageData {
     	
     	ReadWriteTagCoverageData data = tagCoverage.get(product);
     	if (data == null) {
-    		data = new ReadWriteTagCoverageData(userTags == null ? 0 : getNumUserTags());
+    		data = new ReadWriteTagCoverageData(userTagKeys == null ? 0 : getNumUserTags());
     		tagCoverage.put(product, data);
     	}
     	
@@ -353,7 +354,7 @@ public class CostAndUsageData {
     	        String filename = writeJsonFiles.name() + "_all_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".json";
     	        try {
 	    	        DataJsonWriter writer = new DataJsonWriter(filename,
-	    	        		monthDateTime, userTags, writeJsonFiles, costDataByProduct, usageDataByProduct, instanceMetrics, priceListService, workBucketConfig);
+	    	        		monthDateTime, userTagKeys, writeJsonFiles, costDataByProduct, usageDataByProduct, instanceMetrics, priceListService, workBucketConfig);
 	    	        writer.archive();
     	        }
     	        catch (Exception e) {
@@ -635,7 +636,7 @@ public class CostAndUsageData {
     		@Override
     		public Status call() {
     			try {
-	    	        int numUserTags = userTags == null ? 0 : getNumUserTags();
+	    	        int numUserTags = userTagKeys == null ? 0 : getNumUserTags();
 	                Collection<TagGroup> tagGroups = data.getTagGroups();
 	
 	                // init daily, weekly and monthly

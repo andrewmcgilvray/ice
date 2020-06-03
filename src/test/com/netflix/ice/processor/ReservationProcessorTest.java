@@ -133,7 +133,7 @@ public class ReservationProcessorTest {
 
 		productService = new BasicProductService();
 
-		resourceService = new BasicResourceService(productService, new String[]{"TagKeyA"}, new String[]{}, false);
+		resourceService = new BasicResourceService(productService, new String[]{"TagKeyA"}, false);
 	}
 	
 	@Test

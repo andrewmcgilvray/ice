@@ -44,13 +44,14 @@ import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.UsageType;
+import com.netflix.ice.tag.UserTagKey;
 
 public class CostAndUsageDataTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
     static private ProductService ps;
 	static private AccountService as;
-	static private List<String> userTags;
+	static private List<UserTagKey> userTagKeys;
 	static private TagGroup tg;
 	static private TagGroup staleDataTagGroup;
 	
@@ -58,7 +59,9 @@ public class CostAndUsageDataTest {
 	static public void init() {
 		ps = new BasicProductService();
 		as = new BasicAccountService();
-		userTags = Lists.newArrayList(new String[]{ "Email, Environment" });
+		userTagKeys = Lists.newArrayList();
+		userTagKeys.add(UserTagKey.get("Email"));
+		userTagKeys.add(UserTagKey.get("Environment"));
         tg = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
         staleDataTagGroup = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_1, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
 	}
@@ -66,7 +69,7 @@ public class CostAndUsageDataTest {
 
 	@Test
 	public void testAddTagCoverage() {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTags, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		
 		cau.addTagCoverage(null, 0, tg, new boolean[]{true, false});
 		
@@ -81,7 +84,7 @@ public class CostAndUsageDataTest {
 	
 	@Test
 	public void testAggregateSummaryData() {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTags, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		ReadWriteData cost = new ReadWriteData();
 		cau.putCost(null, cost);
 		
@@ -145,7 +148,7 @@ public class CostAndUsageDataTest {
 	
 	@Test
 	public void testGetPartialWeekFromLastMonth() throws Exception {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTags, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		ReadWriteData cost = new ReadWriteData();
 		cau.putCost(null, cost);
 
@@ -197,7 +200,7 @@ public class CostAndUsageDataTest {
 		public DateTime endMonth;
 
 		public TestCostAndUsageData(DateTime startMonth, DateTime currentMonth, DateTime endMonth) {
-			super(startMonth.getMillis(), null, userTags, TagCoverage.withUserTags, as, ps);
+			super(startMonth.getMillis(), null, userTagKeys, TagCoverage.withUserTags, as, ps);
 			this.startMonth = startMonth;
 			this.currentMonth = currentMonth;
 			this.endMonth = endMonth;

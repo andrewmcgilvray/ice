@@ -41,12 +41,13 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
+import com.netflix.ice.tag.UserTagKey;
 
 public class BasicResourceService extends ResourceService {
     private final static Logger logger = LoggerFactory.getLogger(BasicResourceService.class);
 
     protected final List<String> customTags;
-    private final List<String> userTags;
+    private final List<UserTagKey> userTagKeys;
     private final boolean includeReservationIds;
     
     
@@ -202,7 +203,7 @@ public class BasicResourceService extends ResourceService {
     	}
     }
 
-    public BasicResourceService(ProductService productService, String[] customTags, String[] additionalTags, boolean includeReservationIds) {
+    public BasicResourceService(ProductService productService, String[] customTags, boolean includeReservationIds) {
 		super();
 		this.includeReservationIds = includeReservationIds;
 		this.customTags = Lists.newArrayList(customTags);
@@ -213,14 +214,10 @@ public class BasicResourceService extends ResourceService {
 		for (int i = 0; i < customTags.length; i++)
 			tagResourceGroupIndeces.put(customTags[i], i);
 				
-		userTags = Lists.newArrayList();
+		userTagKeys = Lists.newArrayList();
 		for (String tag: this.customTags) {
 			if (!tag.isEmpty())
-				userTags.add(tag);
-		}
-		for (String tag: additionalTags) {
-			if (!tag.isEmpty())
-				userTags.add(tag);		
+				userTagKeys.add(UserTagKey.get(tag));
 		}
 		
 		this.defaultTags = Maps.newHashMap();
@@ -298,8 +295,8 @@ public class BasicResourceService extends ResourceService {
 	}
 	
 	@Override
-	public List<String> getUserTags() {
-		return userTags;
+	public List<UserTagKey> getUserTagKeys() {
+		return userTagKeys;
 	}
 	
 	@Override
@@ -481,9 +478,9 @@ public class BasicResourceService extends ResourceService {
     
     @Override
     public boolean[] getUserTagCoverage(LineItem lineItem) {
-    	boolean[] userTagCoverage = new boolean[userTags.size()];
-        for (int i = 0; i < userTags.size(); i++) {
-        	String v = getUserTagValue(lineItem, userTags.get(i));
+    	boolean[] userTagCoverage = new boolean[userTagKeys.size()];
+        for (int i = 0; i < userTagKeys.size(); i++) {
+        	String v = getUserTagValue(lineItem, userTagKeys.get(i).name);
         	userTagCoverage[i] = !StringUtils.isEmpty(v);
         }    	
     	return userTagCoverage;
@@ -505,10 +502,10 @@ public class BasicResourceService extends ResourceService {
     	 * the exact match for the name if it exists in the report
     	 * followed by any case variants and specified aliases
     	 */
-    	for (String tag: userTags) {
-    		String fullTag = USER_TAG_PREFIX + tag;
+    	for (UserTagKey tagKey: userTagKeys) {
+    		String fullTag = USER_TAG_PREFIX + tagKey.name;
     		List<Integer> indeces = Lists.newArrayList();
-    		tagLineItemIndeces.put(tag, indeces);
+    		tagLineItemIndeces.put(tagKey.name, indeces);
     		
     		// First check the preferred key name
     		int index = -1;
@@ -531,8 +528,8 @@ public class BasicResourceService extends ResourceService {
             	}
             }
             // Look for aliases
-            if (configs != null && configs.containsKey(tag)) {
-            	TagConfig config = configs.get(tag);
+            if (configs != null && configs.containsKey(tagKey.name)) {
+            	TagConfig config = configs.get(tagKey.name);
             	if (config != null && config.aliases != null) {
 	            	for (String alias: config.aliases) {
 	            		String fullAlias = USER_TAG_PREFIX + alias;

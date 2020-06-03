@@ -42,6 +42,7 @@ import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UsageType;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
 public class DataJsonWriterTest {
@@ -97,11 +98,11 @@ public class DataJsonWriterTest {
 		
 		DateTime dt = DateTime.parse("2017-08-01T00:00:00Z");
 		
-		List<String> tagNames = Lists.newArrayList();
-		tagNames.add("Tag1");
-		tagNames.add("Tag2");
+		List<UserTagKey> tagKeys = Lists.newArrayList();
+		tagKeys.add(UserTagKey.get("Tag1"));
+		tagKeys.add(UserTagKey.get("Tag2"));
 		
-		DataJsonWriter djw = new DataJsonWriter(dt, tagNames, data.costDataByProduct, data.usageDataByProduct);
+		DataJsonWriter djw = new DataJsonWriter(dt, tagKeys, data.costDataByProduct, data.usageDataByProduct);
 		
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		djw.writer = new OutputStreamWriter(out);		

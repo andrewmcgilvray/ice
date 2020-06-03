@@ -31,6 +31,7 @@ import com.netflix.ice.tag.Product
 import com.netflix.ice.tag.Account
 import com.netflix.ice.tag.Region
 import com.netflix.ice.tag.UserTag
+import com.netflix.ice.tag.UserTagKey
 import com.netflix.ice.tag.Zone
 import com.netflix.ice.tag.UsageType
 import com.netflix.ice.tag.OrganizationalUnit
@@ -300,12 +301,7 @@ class DashboardController {
     }
 	
 	def tags = {
-		List<String> userTags = config.userTags;
-		List<UserTag> data = Lists.newArrayList();
-		for (String tag: userTags)
-			data.add(new UserTag(tag));
-		
-		def result = [status: 200, data: data]
+		def result = [status: 200, data: config.userTagKeys]
 		render result as JSON		
 	}
 	

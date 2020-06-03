@@ -38,6 +38,7 @@ import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone;
 
 import java.util.Arrays;
@@ -170,7 +171,7 @@ public class BasicManagers extends Poller implements Managers {
         }
 
         for (Product product: newProducts) {
-        	BasicTagGroupManager tagGroupManager = new BasicTagGroupManager(product, true, config.workBucketConfig, config.accountService, config.productService, config.userTags.size());
+        	BasicTagGroupManager tagGroupManager = new BasicTagGroupManager(product, true, config.workBucketConfig, config.accountService, config.productService, config.userTagKeys.size());
             tagGroupManagers.put(product, tagGroupManager);
             boolean loadTagCoverage = (product == null && config.getTagCoverage() != TagCoverage.none) || (product != null && config.getTagCoverage() == TagCoverage.withUserTags);
             for (ConsolidateType consolidateType: ConsolidateType.values()) {
@@ -188,14 +189,14 @@ public class BasicManagers extends Poller implements Managers {
             	}
             	else {                
 	            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
-	            	int numUserTags = product == null ? 0 : config.userTags.size();
+	            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
 	               
 	                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
 	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null));
 	                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
 	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService));
 	                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
-	    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTags,
+	    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
 	            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
 	                }
             	}
@@ -457,20 +458,22 @@ public class BasicManagers extends Poller implements Managers {
     	
 		if (csv) {
 	    	sb.append("Product,TagGroups,Daily Cost TagGroups,Daily Usage TagGroups,Accounts,Regions,Zones,Products,Operations,UsageTypes");
-	    	if (config.userTags.size() > 0)
-	    		sb.append("," + String.join(",", config.userTags));
+	    	for (UserTagKey utk: config.userTagKeys) {
+	    		sb.append("," + utk.name);
+	    	}
 	    	sb.append("\n");
 		}
 		else {
 	    	sb.append("<table><tr><td>Product</td><td>TagGroups</td><td>Daily Cost TagGroups</td><td>Daily Usage TagGroups</td><td>Accounts</td><td>Regions</td><td>Zones</td><td>Products</td><td>Operations</td><td>UsageTypes</td>");
-	    	if (config.userTags.size() > 0)
-	    		sb.append("<td>" + String.join("</td><td>", config.userTags) + "</td>");
+	    	for (UserTagKey utk: config.userTagKeys) {
+	    		sb.append("<td>" + utk.name + "</td>");
+	    	}
 	    	sb.append("</tr>");
 		}
     	for (Product p: tagGroupManagers.keySet()) {
     		TagGroupManager tgm = tagGroupManagers.get(p);
     		TreeMap<Long, Integer> sizes = tgm.getSizes();
-    		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTags.size());
+    		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTagKeys.size());
     		BasicDataManager bdm_cost = costManagers.get(new Key(p, ConsolidateType.daily));
     		BasicDataManager bdm_usage = usageManagers.get(new Key(p, ConsolidateType.daily));
     		
@@ -556,7 +559,7 @@ public class BasicManagers extends Poller implements Managers {
 		}
 		
 		// Walk the list gathering stats for each user tag
-		for (int i = 0; i < config.userTags.size(); i++) {
+		for (int i = 0; i < config.userTagKeys.size(); i++) {
 			Set<String> values = Sets.newHashSet();
 			Set<String> caseInsensitiveValues = Sets.newHashSet();
 			Set<ResourceGroup> resourceGroupsWithoutCurrentTag = Sets.newHashSet();
@@ -568,7 +571,7 @@ public class BasicManagers extends Poller implements Managers {
             	ut[i] = UserTag.empty;
             	resourceGroupsWithoutCurrentTag.add(ResourceGroup.getUncached(ut));
 			}
-			stats.add(new UserTagStats(config.userTags.get(i), values.size(), values.size() - caseInsensitiveValues.size(), resourceGroups.size() - resourceGroupsWithoutCurrentTag.size()));
+			stats.add(new UserTagStats(config.userTagKeys.get(i).name, values.size(), values.size() - caseInsensitiveValues.size(), resourceGroups.size() - resourceGroupsWithoutCurrentTag.size()));
 		}	
 		return new UserTagStatistics(tagGroupManagers.get(null).getTagGroups().size(), tagGroups.size(), stats);
 	}

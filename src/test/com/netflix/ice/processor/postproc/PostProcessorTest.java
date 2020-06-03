@@ -60,7 +60,7 @@ public class PostProcessorTest {
 	static public void init() {
 		ps = new BasicProductService();
 		as = new BasicAccountService();
-		rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, new String[]{}, false);
+		rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
 		ps.getProduct(Product.Code.CloudFront);
 		ps.getProduct(Product.Code.CloudWatch);
 	}

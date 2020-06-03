@@ -30,6 +30,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.Config.TagCoverage;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.UserTagKey;
 
 public class WorkBucketDataConfigTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -53,12 +54,12 @@ public class WorkBucketDataConfigTest {
 		Map<String, List<String>> zones = Maps.newHashMap();
 		zones.put("us-east-1", zlist);
 		
-		List<String> userTags = Lists.newArrayList();
-		userTags.add("Tag1");
-		userTags.add("Tag2");
-		userTags.add("Tag3");
+		List<UserTagKey> userTagKeys = Lists.newArrayList();
+		userTagKeys.add(UserTagKey.get("Tag1"));
+		userTagKeys.add(UserTagKey.get("Tag2"));
+		userTagKeys.add(UserTagKey.get("Tag3"));
 		
-		WorkBucketDataConfig wbdc = new WorkBucketDataConfig(startMonth, accounts, zones, userTags, TagCoverage.basic, null);
+		WorkBucketDataConfig wbdc = new WorkBucketDataConfig(startMonth, accounts, zones, userTagKeys, TagCoverage.basic, null);
 		
 		String json = wbdc.toJSON();
 		WorkBucketDataConfig got = new WorkBucketDataConfig(json);
@@ -66,7 +67,7 @@ public class WorkBucketDataConfigTest {
 		assertEquals("Bad date string", startMonth, got.getStartMonth());
 		assertEquals("Bad accounts", accounts, got.getAccounts());
 		assertEquals("Bad zones", zones, got.getZones());
-		assertEquals("Bad user tags", userTags, got.getUserTags());
+		assertEquals("Bad user tags", userTagKeys, got.getUserTagKeys());
 		assertEquals("Bad tagCoverage value", TagCoverage.basic, got.getTagCoverage());
 	}
 

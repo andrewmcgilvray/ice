@@ -105,7 +105,7 @@ public class BasicLineItemProcessorTest {
 		cauLineItem = newCurLineItem(manifest2017, null);
         
 		String[] customTags = new String[]{ "Environment", "Email" };
-		resourceService = new BasicResourceService(productService, customTags, new String[]{}, false);
+		resourceService = new BasicResourceService(productService, customTags, false);
 	}
     
     private static CostAndUsageReportLineItem newCurLineItem(String manifestFilename, DateTime costAndUsageNetUnblendedStartDate) throws IOException {
