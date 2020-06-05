@@ -98,11 +98,6 @@ public class BasicResourceService extends ResourceService {
      */
     private Map<String, Map<String, Map<Long, List<MappedTags>>>> mappedTags;
     
-    /**
-     * 
-     * @author jaroth
-     *
-     */
     private class MappedTags {
     	Map<Integer, Map<String, String>> maps; // Primary map key is source tag index, secondary map key is the source tag value
     	List<String> include;
@@ -242,13 +237,25 @@ public class BasicResourceService extends ResourceService {
     	
     	Map<String, TagConfig> configs = Maps.newHashMap();
     	for (TagConfig config: tagConfigs) {
+    		if (!customTags.contains(config.name)) {
+    			logger.warn("Ignoring configurations for tag \"" + config.name + "\" from payer account " + payerAccountId + ", not in customTags list.");
+    			continue;
+    		}
+    		
     		configs.put(config.name, config);
+    		
+        	// Add any display aliases to the user tags
+    		if (config.displayAliases != null) {
+				UserTagKey tagKey = UserTagKey.get(config.name);
+				tagKey.addAllAliases(config.displayAliases);
+    		}
     	}
     	this.tagConfigs.put(payerAccountId, configs);
     	
+    	
     	// Create inverted indexes for each of the tag value alias sets
 		Map<String, Map<String, String>> indeces = Maps.newHashMap();
-		for (TagConfig config: tagConfigs) {
+		for (TagConfig config: configs.values()) {
 			if (config.values == null || config.values.isEmpty())
 				continue;
 			
@@ -267,7 +274,7 @@ public class BasicResourceService extends ResourceService {
 		
 		// Create the maps setting tags based on the values of other tags
 		Map<String, Map<Long, List<MappedTags>>> mapped = Maps.newHashMap();
-		for (TagConfig config: tagConfigs) {
+		for (TagConfig config: configs.values()) {
 			if (config.mapped == null || config.mapped.isEmpty())
 				continue;
 			Map<Long, List<MappedTags>> mappedTags = Maps.newTreeMap();

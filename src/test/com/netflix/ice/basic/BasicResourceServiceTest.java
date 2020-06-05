@@ -42,6 +42,7 @@ import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagConfig;
 import com.netflix.ice.processor.CostAndUsageReport;
 import com.netflix.ice.processor.CostAndUsageReportLineItem;
+import com.netflix.ice.processor.config.BillingDataConfig;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -110,6 +111,30 @@ public class BasicResourceServiceTest {
 	}
 	
 	@Test
+	public void testTagConfig() {
+		ProductService ps = new BasicProductService();
+		String[] customTags = new String[]{
+				"Environment"
+			};
+		List<String> aliases = Lists.newArrayList("Alias");
+		List<String> displayAliases = Lists.newArrayList("DisplayAlias");
+		
+		Map<String, List<String>> tagValues = Maps.newHashMap();
+		tagValues.put("Prod", Lists.newArrayList("production", "prd"));
+		tagValues.put("QA", Lists.newArrayList("test", "quality assurance"));
+		TagConfig tc = new TagConfig("Environment", aliases, displayAliases, tagValues);
+		
+		ResourceService rs = new BasicResourceService(ps, customTags, false);
+		List<TagConfig> configs = Lists.newArrayList();
+		configs.add(tc);
+		rs.setTagConfigs("234567890123", configs);
+		
+		List<UserTagKey> tagKeys = rs.getUserTagKeys();
+		assertEquals("wrong user tag key name", "Environment", tagKeys.get(0).name);
+		assertEquals("wrong user tag key display alias", "DisplayAlias", tagKeys.get(0).aliases.get(0));
+	}
+	
+	@Test
 	public void testGetUserTagValue() {
 		ProductService ps = new BasicProductService();
 		String[] customTags = new String[]{
@@ -120,7 +145,7 @@ public class BasicResourceServiceTest {
 		Map<String, List<String>> tagValues = Maps.newHashMap();
 		tagValues.put("Prod", Lists.newArrayList("production", "prd"));
 		tagValues.put("QA", Lists.newArrayList("test", "quality assurance"));
-		TagConfig tc = new TagConfig("Environment", null, tagValues);
+		TagConfig tc = new TagConfig("Environment", null, null, tagValues);
 		
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		List<TagConfig> configs = Lists.newArrayList();
@@ -333,10 +358,16 @@ public class BasicResourceServiceTest {
 	}
 	
 	private ResourceGroup getResourceGroup(String yaml, String start, String[] tags, String[] customTags, Map<String, String> payerDefaultTags, String payerAccount, String account) throws Exception {
-		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-		TagConfig tc = new TagConfig();
-		tc = mapper.readValue(yaml, tc.getClass());
-		List<TagConfig> tagConfigs = Lists.newArrayList(tc);
+		List<TagConfig> tagConfigs = Lists.newArrayList();
+		if (yaml.startsWith("tags:")) {
+			tagConfigs = new BillingDataConfig(yaml).tags;
+		}
+		else {
+			ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+			TagConfig tc = new TagConfig();
+			tc = mapper.readValue(yaml, tc.getClass());
+			tagConfigs.add(tc);
+		}
 		
 		BasicAccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
@@ -613,5 +644,34 @@ public class BasicResourceServiceTest {
 		expect = ResourceGroup.getResourceGroup(new String[]{ "", "", "SrcValue1c", ""});
 		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
+	}
+	
+	@Test
+	public void testGetTagGroupMappedFromAlias() throws Exception {
+		String payerAccount = "123456789012";
+		
+		// Mapping rules for new virtual tag
+		String yaml = "" +
+		"tags:\n" +
+		"  - name: DestKey\n" +
+		"    aliases: [TagKey2]\n" +
+		"    mapped:\n" +
+		"      - include: [" + payerAccount + "]\n" +
+		"        maps:\n" +
+		"          DestValue1:\n" +
+		"            TagKey3: [SrcValue3]\n" +
+		"  - name: TagKey4\n" +
+		"    aliases: [TagKey3]\n";
+		
+		String start = "2020-01-01T00:00:00Z";
+		String[] customTags = new String[]{"DestKey", "TagKey4"};
+		Map<String, String> payerDefaultTags = Maps.newHashMap();
+		
+		// Test DestValue1
+		String[] tags = new String[]{ "SrcValue1", "", "SrcValue3", "SrcValue4"};		
+		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "SrcValue4"});
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		assertEquals("Resource name doesn't match", expect, resource);
+		
 	}
 }

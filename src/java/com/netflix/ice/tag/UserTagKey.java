@@ -17,6 +17,7 @@
  */
 package com.netflix.ice.tag;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
@@ -28,8 +29,19 @@ public class UserTagKey extends Tag {
 
     private static ConcurrentMap<String, UserTagKey> tagKeysByName = Maps.newConcurrentMap();
     
+    public List<String> aliases;
+    
 	private UserTagKey(String name) {
 		super(name);
+		aliases = Lists.newArrayList();
+	}
+	
+	public void addAlias(String alias) {
+		aliases.add(alias);
+	}
+	
+	public void addAllAliases(Collection<String> aliases) {
+		this.aliases.addAll(aliases);
 	}
 	
 	public static UserTagKey get(String name) {

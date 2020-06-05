@@ -536,9 +536,9 @@ class DashboardController {
 		int userTagGroupByIndex = 0;
 		if (showUserTags) {
 			String groupByTag = query.optString("groupByTag");			
-			String[] keys = config.userTags;
-			for (int i = 0; i < keys.length; i++) {
-				if (groupByTag != null && keys[i].equals(groupByTag)) {
+			List<UserTagKey> keys = config.userTagKeys;
+			for (int i = 0; i < keys.size(); i++) {
+				if (groupByTag != null && keys.get(i).name.equals(groupByTag)) {
 					userTagGroupByIndex = i;
 				}
 				userTagLists.add(UserTag.getUserTags(listParams(query, "tag-" + keys[i])));
@@ -619,7 +619,7 @@ class DashboardController {
 	               	logger.debug("  product: " + product + ", tags:" + dataOfProduct.keySet());      
 					mergeTagCoverage(dataOfProduct, rawMetrics);
 				}
-				data = TagCoverageDataManager.processResult(rawMetrics, groupBy, aggregate, tagKeys, config.userTags);
+				data = TagCoverageDataManager.processResult(rawMetrics, groupBy, aggregate, tagKeys, config.userTagKeys);
 			}
 			else {
 				TagCoverageDataManager dataManager = (TagCoverageDataManager) getManagers().getTagCoverageManager(null, consolidateType);
@@ -632,7 +632,7 @@ class DashboardController {
 					tagKeys
 				);			
 			}
-			logger.debug("groupBy: " + groupBy + (groupBy == TagType.Tag ? ":" + config.userTags.get(userTagGroupByIndex) : "") + ", tags = " + data.keySet());
+			logger.debug("groupBy: " + groupBy + (groupBy == TagType.Tag ? ":" + config.userTagKeys.get(userTagGroupByIndex) : "") + ", tags = " + data.keySet());
 		}
         else if (showUserTags) {
             data = getManagers().getData(

@@ -49,7 +49,7 @@
       <a class="link_with_params" href="${resource(dir: 'dashboard', file: 'detail')}#{{getTimeParams()}}" ng-click="reload()">AWS Details</a>
       <ul>
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'detail')}#{{getTimeParams()}}" ng-click="reload()">General Details</a></li>
-        <g:if test="${ReaderConfig.getInstance().userTags.size() > 0}">
+        <g:if test="${ReaderConfig.getInstance().userTagKeys.size() > 0}">
           <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'detail')}#showUserTags=true&{{getTimeParams()}}" ng-click="reload()">Details With User Tags</a></li>
           <g:if test="${ReaderConfig.getInstance().hasTagCoverage()}">
             <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'tagcoverage')}#showUserTags=false&{{getTimeParams()}}" ng-click="reload()">Tag Coverage</a></li>
@@ -74,7 +74,7 @@
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'utilization')}#{{getTimeParams()}}" ng-click="reload()">Elasticity</a></li>
       </ul>
     </li>
-    <g:if test="${ReaderConfig.getInstance().userTags.size() > 0}">
+    <g:if test="${ReaderConfig.getInstance().userTagKeys.size() > 0}">
     <li class="menuButton dropdown">
       <a class="link_with_params" href="${resource(dir: 'dashboard', file: 'resourceinfo')}" ng-click="reload()">Resources</a>
       <ul>

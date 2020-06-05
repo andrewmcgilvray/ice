@@ -2146,6 +2146,13 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.isGroupByTag = function () {
     return $scope.groupBy.name === 'Tag';
   }
+
+  $scope.getUserTagDisplayName = function (index) {
+    var display = $scope.userTags[index].name;
+    if ($scope.userTags[index].aliases.length > 0)
+      display += "/" + $scope.userTags[index].aliases.join("/");
+    return display;
+  }
   
   $scope.updateUrl = function () {
     $scope.end = jQuery('#end').datetimepicker().val();

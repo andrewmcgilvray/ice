@@ -104,47 +104,31 @@
     </tr>
   </table>
   <table ng-show="showUserTags" class="userTags">
-    <tr ng-show="userTagValues.length > 0">
-      <td>
-   	    Tags:
-        <div ng-show="isGroupByTag()" style="padding-top: 10px">Group by
-          <select ng-model="groupByTag" ng-options="a.name for a in groupByTags"></select>
-        </div>      
-      </td>
-      <td ng-repeat="tagValue in getUserTagValues(0, 6)">
-        <input type="checkbox" ng-model="enabledUserTags[$index]" ng-change="userTagsChanged($index)"> {{userTags[$index].name}}</input>
-      	<div ng-show="enabledUserTags[$index]">
-          <select ng-model="selected_userTagValues[$index]" ng-options="a.name for a in userTagValues[$index] | filter:filter_userTagValues[$index]" multiple="multiple" class="metaUserTags metaSelect"></select>
-          <br><input ng-model="filter_userTagValues[$index]" type="text" class="metaFilter" placeholder="filter">
-          <button ng-click="selected_userTagValues[$index] = userTagValues[$index]" class="allNoneButton">+</button>
-          <button ng-click="selected_userTagValues[$index] = []" class="allNoneButton">-</button>
-		</div>      
-      </td>
-    </tr>
-    <tr ng-show="userTagValues.length > 6">
-      <td></td>
-      <td ng-repeat="tagValue in getUserTagValues(6, 6)">
-        <input type="checkbox" ng-model="enabledUserTags[6+$index]" ng-change="userTagsChanged(6+$index)"> {{userTags[6+$index].name}}</input>
-      	<div ng-show="enabledUserTags[6+$index]">
-          <select ng-model="selected_userTagValues[6+$index]" ng-options="a.name for a in userTagValues[6+$index] | filter:filter_userTagValues[6+$index]" multiple="multiple" class="metaUserTags metaSelect"></select>
-          <br><input ng-model="filter_userTagValues[6+$index]" type="text" class="metaFilter" placeholder="filter">
-          <button ng-click="selected_userTagValues[6+$index] = userTagValues[6+$index]" class="allNoneButton">+</button>
-          <button ng-click="selected_userTagValues[6+$index] = []" class="allNoneButton">-</button>
-		</div>      
-      </td>
-    </tr>
-    <tr ng-show="userTagValues.length > 12">
-      <td></td>
-      <td ng-repeat="tagValue in getUserTagValues(12, 6)">
-        <input type="checkbox" ng-model="enabledUserTags[12+$index]" ng-change="userTagsChanged(12+$index)"> {{userTags[12+$index].name}}</input>
-      	<div ng-show="enabledUserTags[12+$index]">
-          <select ng-model="selected_userTagValues[12+$index]" ng-options="a.name for a in userTagValues[12+$index] | filter:filter_userTagValues[12+$index]" multiple="multiple" class="metaUserTags metaSelect"></select>
-          <br><input ng-model="filter_userTagValues[12+$index]" type="text" class="metaFilter" placeholder="filter">
-          <button ng-click="selected_userTagValues[12+$index] = userTagValues[12+$index]" class="allNoneButton">+</button>
-          <button ng-click="selected_userTagValues[12+$index] = []" class="allNoneButton">-</button>
-		</div>      
-      </td>
-    </tr>
+    <g:set var="numRows" value="${(ReaderConfig.getInstance().userTagKeys.size() + 5) / 6}"/>
+    <g:set var="rowIndex" value="${0}"/>
+    <g:while test="${rowIndex < numRows}">
+      <g:set var="rowStartIndex" value="${rowIndex * 6}"/>
+      <tr ng-show="userTagValues.length > 0">
+        <td>
+          <g:if test="${rowIndex == 0}">
+   	        Tags:
+            <div ng-show="isGroupByTag()" style="padding-top: 10px">Group by
+              <select ng-model="groupByTag" ng-options="a.name for a in groupByTags"></select>
+            </div>      
+          </g:if>
+        </td>
+        <td ng-repeat="tagValue in getUserTagValues(${rowStartIndex}, 6)">
+          <input type="checkbox" ng-model="enabledUserTags[${rowStartIndex}+$index]" ng-change="userTagsChanged(${rowStartIndex}+$index)"> {{getUserTagDisplayName(${rowStartIndex}+$index)}}</input>
+      	  <div ng-show="enabledUserTags[${rowStartIndex}+$index]">
+            <select ng-model="selected_userTagValues[${rowStartIndex}+$index]" ng-options="a.name for a in userTagValues[${rowStartIndex}+$index] | filter:filter_userTagValues[${rowStartIndex}+$index]" multiple="multiple" class="metaUserTags metaSelect"></select>
+            <br><input ng-model="filter_userTagValues[${rowStartIndex}+$index]" type="text" class="metaFilter" placeholder="filter">
+            <button ng-click="selected_userTagValues[${rowStartIndex}+$index] = userTagValues[${rowStartIndex}+$index]" class="allNoneButton">+</button>
+            <button ng-click="selected_userTagValues[${rowStartIndex}+$index] = []" class="allNoneButton">-</button>
+		  </div>      
+        </td>
+      </tr>
+      <g:set var="rowIndex" value="${rowIndex+1}"/>
+    </g:while>
   </table>
 
   <div class="buttons">
