@@ -45,7 +45,7 @@
 	  </tr>
 	</thead>
 	<tbody ng-repeat="status in statusArray" class="{{getTrClass($index)}}">
-	  <tr ng-repeat="status in statusArray" class="{{getTrClass($index)}}">
+	  <tr class="{{getTrClass($index)}}">
 	    <td rowspan="{{status.reports.length}}">{{status.month}}</td>
 	    <td rowspan="{{status.reports.length}}">{{status.lastProcessed}}</td>
 	    <td rowspan="{{status.reports.length}}">
