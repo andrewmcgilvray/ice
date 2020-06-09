@@ -149,7 +149,8 @@ public class BillingFileProcessor extends Poller {
         init(startMilli);
         
         ProcessorStatus ps = getProcessorStatus(AwsUtils.monthDateFormat.print(month));
-        long lastProcessed = ps == null || ps.reprocess ? 0 : ps.getLastProcessed().getMillis();
+
+        long lastProcessed = ps == null || ps.reprocess ? 0 : new DateTime(ps.getLastProcessed(), DateTimeZone.UTC).getMillis();
         DateTime processTime = new DateTime(DateTimeZone.UTC);
 
         boolean hasTags = false;

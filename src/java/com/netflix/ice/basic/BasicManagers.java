@@ -17,6 +17,9 @@
  */
 package com.netflix.ice.basic;
 
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
@@ -579,4 +582,30 @@ public class BasicManagers extends Poller implements Managers {
 	public Collection<ProcessorStatus> getProcessorStatus() {
 		return lastProcessedPoller.getStatus();
 	}
+	
+    public void reprocess(String month, boolean state) {
+    	lastProcessedPoller.reprocess(month, state);
+    }
+    
+    public boolean startProcessor() {
+    	boolean started = false;
+        AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
+        		.withRegion(config.processorRegion)
+        		.withCredentials(AwsUtils.awsCredentialsProvider)
+        		.withClientConfiguration(AwsUtils.clientConfig)
+        		.build();
+
+        try {
+            StartInstancesRequest request = new StartInstancesRequest().withInstanceIds(new String[] { config.processorInstanceId });
+            ec2.startInstances(request);
+            started = true;
+        }
+        catch (Exception e) {
+            logger.error("error in startInstances", e);
+        }
+        ec2.shutdown();
+        return started;
+    }
+
+
 }

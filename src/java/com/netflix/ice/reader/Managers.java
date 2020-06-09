@@ -152,5 +152,9 @@ public interface Managers {
     UserTagStatistics getUserTagStatistics() throws ResourceException;
     
     Collection<ProcessorStatus> getProcessorStatus();
+    
+    void reprocess(String month, boolean state);
+    
+    boolean startProcessor();
 
 }

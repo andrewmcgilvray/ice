@@ -104,6 +104,9 @@ class DashboardController {
 		reservation: "GET",
 		savingsplans: "GET",
 		utilization: "GET",
+		getProcessorStatus: "GET",
+		setReprocess: "POST",
+		startProcessor: "POST",
 	];
 			
     private static ReaderConfig getConfig() {
@@ -458,6 +461,46 @@ class DashboardController {
 		else {
 			response.status = 404;
 		}
+	}
+	
+	def getProcessorStatus = {		
+        def result = [status: 200, data: getManagers().getProcessorStatus()];
+        render result as JSON
+	}
+	
+	def setReprocess = {
+		if (getConfig().enableReprocessRequests) {
+			def text = request.reader.text;
+			JSONObject query = (JSONObject)JSON.parse(text);
+			String month = query.getString("month");
+			if (month != null) {
+				boolean state = query.has("state") ? query.getBoolean("state") : true;
+				getManagers().reprocess(month, state);
+				response.status = 200;
+			}
+			else {
+				response.status = 400;
+			}
+		}
+		else {
+			response.status = 403;
+		}
+		def result = [status: response.status];
+		render result as JSON
+	}
+	
+	def startProcessor = {
+		if (getConfig().enableReprocessRequests && getConfig().processorInstanceId != null) {
+			if (getManagers().startProcessor())
+				response.status = 200;
+			else
+				response.status = 500;
+		}
+		else {
+			response.status = 403;
+		}
+		def result = [status: response.status];
+		render result as JSON
 	}
 
     def summary = {}

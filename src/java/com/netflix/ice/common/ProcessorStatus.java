@@ -19,9 +19,6 @@ package com.netflix.ice.common;
 
 import java.util.Collection;
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-
 import com.google.gson.Gson;
 
 public class ProcessorStatus {
@@ -44,6 +41,22 @@ public class ProcessorStatus {
 			this.accountId = accountId;
 			this.key = key;
 			this.lastModified = lastModified;
+		}
+
+		public String getAccountName() {
+			return accountName;
+		}
+
+		public String getAccountId() {
+			return accountId;
+		}
+
+		public String getKey() {
+			return key;
+		}
+
+		public String getLastModified() {
+			return lastModified;
 		}
 	}
 	
@@ -68,7 +81,19 @@ public class ProcessorStatus {
     	return gson.toJson(this);
 	}
 
-	public DateTime getLastProcessed() {
-		return new DateTime(lastProcessed, DateTimeZone.UTC);
+	public String getMonth() {
+		return month;
+	}
+
+	public Collection<Report> getReports() {
+		return reports;
+	}
+
+	public String getLastProcessed() {
+		return lastProcessed;
+	}
+
+	public boolean isReprocess() {
+		return reprocess;
 	}
 }

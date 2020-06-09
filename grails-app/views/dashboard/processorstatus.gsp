@@ -16,8 +16,9 @@
 
 --%>
 
-<%@ page contentType="text/html;charset=UTF-8" %>
 <%@ page import="com.netflix.ice.reader.ReaderConfig" %>
+
+<%@ page contentType="text/html;charset=UTF-8" %>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
   <meta name="layout" content="main"/>
@@ -25,7 +26,13 @@
 </head>
 <body>
 <div class="list" style="margin: auto; width: 1200px; padding: 20px 30px" ng-controller="processorStatusCtrl">
-  <h1>Processor Status</h1>
+  <h1>Processor Status
+	<g:if test="${ReaderConfig.getInstance().enableReprocessRequests}">
+      <span class="processorStatusButtons">
+        <button ng-disabled="isDisabled()" type="submit" class="save" ng-click="process()"><div>Process</div></button>
+      </span>
+	</g:if>
+  </h1>
   <table>
 	<thead>
 	  <tr>
@@ -37,25 +44,27 @@
 		<th>Last Modified</th>
 	  </tr>
 	</thead>
-	<tbody>
-	  <g:set var="odd" value="${0}"/>
-	  <g:each in="${ReaderConfig.getInstance().managers.getProcessorStatus()}" var="status">
-	    <g:set var="first" value="${true}"/>
-	    <g:each in="${status.reports}" var="report">
-	      <tr class="${odd == 0 ? 'even' : 'odd'}" foo="${odd}">
-	        <g:if test="${first}">
-	          <g:set var="first" value="${false}"/>
-		      <td rowspan="${status.reports.size()}">${status.month}</td>
-		      <td rowspan="${status.reports.size()}">${status.lastProcessed}</td>
-		      <td rowspan="${status.reports.size()}">${status.reprocess}</td>
-	        </g:if>
-	        <td>${report.accountName}</td>
-		    <td>${report.key}</td>
-		    <td>${report.lastModified}</td>
-	      </tr>
-	    </g:each>
-	    <g:set var="odd" value="${odd ^ 1}"/>
-	  </g:each>
+	<tbody ng-repeat="status in statusArray" class="{{getTrClass($index)}}">
+	  <tr ng-repeat="status in statusArray" class="{{getTrClass($index)}}">
+	    <td rowspan="{{status.reports.length}}">{{status.month}}</td>
+	    <td rowspan="{{status.reports.length}}">{{status.lastProcessed}}</td>
+	    <td rowspan="{{status.reports.length}}">
+	      <g:if test="${ReaderConfig.getInstance().enableReprocessRequests}">
+	        <input type="checkbox" ng-model="statusArray[$index].reprocess" ng-change="updateStatus($index)"/>
+	      </g:if>
+	      <g:else>
+	        {{status.reprocess}}
+	      </g:else>
+		</td>
+	    <td>{{status.reports[0].accountName}}</td>
+	    <td>{{status.reports[0].key}}</td>
+	    <td>{{status.reports[0].lastModified}}</td>
+	  </tr>
+	  <tr ng-repeat="report in status.reports" ng-show="$index > 0">
+        <td>{{report.accountName}}</td>
+	    <td>{{report.key}}</td>
+	    <td>{{report.lastModified}}</td>
+	  </tr>
 	</tbody>
   </table>
 </div>

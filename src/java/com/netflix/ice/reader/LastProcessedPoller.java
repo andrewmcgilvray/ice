@@ -24,9 +24,11 @@ import java.util.List;
 
 import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.google.common.collect.Lists;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.Config.WorkBucketConfig;
@@ -75,7 +77,7 @@ public class LastProcessedPoller extends Poller {
         		continue;
         	
         	status.add(ps);
-        	DateTime lastProcessedForMonth = ps.getLastProcessed();
+        	DateTime lastProcessedForMonth = new DateTime(ps.getLastProcessed(), DateTimeZone.UTC);
         	if (lastProcessedForMonth.isAfter(lastProcessed))
         		lastProcessed = lastProcessedForMonth;
         }
@@ -112,5 +114,27 @@ public class LastProcessedPoller extends Poller {
     
     public Collection<ProcessorStatus> getStatus() {
     	return status;
+    }
+    
+    public void reprocess(String month, boolean state) {
+    	for (ProcessorStatus ps: status) {
+    		if (ps.month.equals(month)) {
+    			// Update the reprocess state for the requested month
+    			ps.reprocess = state;
+    			saveProcessorStatus(month, ps);
+    			break;
+    		}
+    	}
+    }
+    
+    private void saveProcessorStatus(String timeStr, ProcessorStatus status) {
+		String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
+		
+	    AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
+	    String statusStr = status.toJSON();
+	    ObjectMetadata metadata = new ObjectMetadata();
+	    metadata.setContentLength(statusStr.length());
+	
+	    s3Client.putObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename, IOUtils.toInputStream(statusStr, StandardCharsets.UTF_8), metadata);
     }
 }

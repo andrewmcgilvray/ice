@@ -336,7 +336,7 @@ public class ProcessorConfig extends Config {
     			zlist.add(z.name);
     		zones.put(r.name, zlist);
     	}
-    	WorkBucketDataConfig wbdc = new WorkBucketDataConfig(startMonth, accountService.getAccounts(), zones,
+    	WorkBucketDataConfig wbdc = new WorkBucketDataConfig(startMonth, processorRegion, processorInstanceId, accountService.getAccounts(), zones,
     			resourceService == null ? null : resourceService.getUserTagKeys(), getTagCoverage(),
     			resourceService == null ? null : resourceService.getTagConfigs());
         File file = new File(workBucketConfig.localDir, workBucketDataConfigFilename);

@@ -200,6 +200,11 @@ public class IceOptions {
     public static final String PROCESS_ONCE = "ice.processOnce";
     
     /**
+     * enable reader to set reprocess flags and start processor
+     */
+    public static final String ENABLE_REPROCESS_REQUESTS = "ice.enableReprocessRequests";
+    
+    /**
      * AWS region where this processor instance is running. Used to shut down EC2 instance when pass completes if processOnce is true.
      */
     public static final String PROCESSOR_REGION = "ice.processorRegion";

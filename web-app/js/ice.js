@@ -2740,3 +2740,84 @@ function tagconfigsCtrl($scope, $location, $http) {
   getTagconfigs($scope, function (data) {
   });
 }
+
+function processorStatusCtrl($scope, $location, $http) {
+  $scope.statusArray = [];
+
+  var getProcessorStatus = function ($scope, fn) {
+    var params = {};
+
+    $http({
+      method: "GET",
+      url: "getProcessorStatus",
+      params: params
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.statusArray = result.data;
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  var setReprocessStatus = function ($scope, index, fn) {
+    var params = {
+      month: $scope.statusArray[index].month,
+      state: $scope.statusArray[index].reprocess,
+    };
+    $http({
+      method: "POST",
+      url: "setReprocess",
+      data: params
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.ops = result.data;
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  $scope.updateStatus = function (index) {
+    setReprocessStatus($scope, index, function (data) {
+      getProcessorStatus($scope, function (data) {});
+    });
+  }
+
+  $scope.isDisabled = function () {
+    for (var i = 0; i < $scope.statusArray.length; i++) {
+      if ($scope.statusArray[i].reprocess)
+        return false;
+    }
+    return true;  
+  }
+
+  $scope.process = function() {
+    startProcessor($scope, function (data) {});
+  }
+
+  var startProcessor = function($scope, fn) {
+    $http({
+      method: "POST",
+      url: "startProcessor",
+      data: {}
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.ops = result.data;
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  getProcessorStatus($scope, function (data) {});
+}

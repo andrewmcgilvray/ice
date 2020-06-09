@@ -65,6 +65,9 @@ public class ReaderConfig extends Config {
     public final List<UserTagKey> userTagKeys;
     public final String dashboardNotice;
     public Map<String, Map<String, TagConfig>> tagConfigs;
+    public String processorRegion;
+    public String processorInstanceId;
+    public final boolean enableReprocessRequests;
 
     /**
      *
@@ -90,6 +93,8 @@ public class ReaderConfig extends Config {
         this.startDate = new DateTime(dataConfig.getStartMonth(), DateTimeZone.UTC);
         this.userTagKeys = dataConfig.getUserTagKeys();
         this.tagConfigs = dataConfig.getTagConfigs();
+        this.processorRegion = dataConfig.getProcessorRegion();
+        this.processorInstanceId = dataConfig.getProcessorInstanceId();
         
         // update tagCoverage to level supported by processor
         switch (dataConfig.getTagCoverage()) {
@@ -111,6 +116,7 @@ public class ReaderConfig extends Config {
 
         companyName = properties.getProperty(IceOptions.COMPANY_NAME, "");
         dashboardNotice = properties.getProperty(IceOptions.DASHBOARD_NOTICE, "");
+        enableReprocessRequests = Boolean.parseBoolean(properties.getProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, "false"));
         currencySign = properties.getProperty(IceOptions.CURRENCY_SIGN, "$");
         currencyRate = Double.parseDouble(properties.getProperty(IceOptions.CURRENCY_RATE, "1"));
         highstockUrl = properties.getProperty(IceOptions.HIGHSTOCK_URL, "http://code.highcharts.com/stock/highstock.js");
@@ -229,6 +235,8 @@ public class ReaderConfig extends Config {
     	accountService.updateAccounts(config.getAccounts());
     	updateZones(config.getZones());
         tagConfigs = config.getTagConfigs();
+        processorRegion = config.getProcessorRegion();
+        processorInstanceId = config.getProcessorInstanceId();
         productService.updateReader(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
     }
     

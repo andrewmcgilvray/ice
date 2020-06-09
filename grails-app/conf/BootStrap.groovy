@@ -210,7 +210,8 @@ class BootStrap {
 					properties.setProperty(IceOptions.COMPANY_NAME, prop.getProperty(IceOptions.COMPANY_NAME));
 				if (prop.getProperty(IceOptions.DASHBOARD_NOTICE) != null)
 					properties.setProperty(IceOptions.DASHBOARD_NOTICE, prop.getProperty(IceOptions.DASHBOARD_NOTICE));
-
+				properties.setProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, prop.getProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, "false"));
+					
                 readerConfig = new ReaderConfig(
                         properties,
                         credentialsProvider,

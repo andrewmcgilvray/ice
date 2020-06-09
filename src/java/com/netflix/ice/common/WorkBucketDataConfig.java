@@ -31,15 +31,19 @@ import com.netflix.ice.tag.UserTagKey;
  */
 public class WorkBucketDataConfig {
 	private final String startMonth;
+	private final String processorRegion;
+	private final String processorInstanceId;
 	private final List<UserTagKey> userTagKeys;
     private final List<Account> accounts;
     private final Map<String, List<String>> zones;
     private final TagCoverage tagCoverage;
     private final Map<String, Map<String, TagConfig>> tagConfigs;
 	
-	public WorkBucketDataConfig(String startMonth, List<Account> accounts, Map<String, List<String>> zones, List<UserTagKey> userTags,
+	public WorkBucketDataConfig(String startMonth, String processorRegion, String processorInstanceId, List<Account> accounts, Map<String, List<String>> zones, List<UserTagKey> userTags,
 			TagCoverage tagCoverage, Map<String, Map<String, TagConfig>> tagConfigs) {
 		this.startMonth = startMonth;
+		this.processorRegion = processorRegion;
+		this.processorInstanceId = processorInstanceId;
 		this.accounts = accounts;
 		this.zones = zones;
 		this.userTagKeys = userTags;
@@ -51,6 +55,8 @@ public class WorkBucketDataConfig {
 		Gson gson = new Gson();
 		WorkBucketDataConfig c = gson.fromJson(json, this.getClass());
 		this.startMonth = c.startMonth;
+		this.processorRegion = c.processorRegion;
+		this.processorInstanceId = c.processorInstanceId;
 		this.accounts = c.accounts;
 		this.zones = c.zones;
 		this.userTagKeys = c.userTagKeys;
@@ -60,6 +66,14 @@ public class WorkBucketDataConfig {
 
 	public String getStartMonth() {
 		return startMonth;
+	}
+	
+	public String getProcessorRegion() {
+		return processorRegion;
+	}
+	
+	public String getProcessorInstanceId() {
+		return processorInstanceId;
 	}
 
 	public List<Account> getAccounts() {

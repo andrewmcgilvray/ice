@@ -667,9 +667,9 @@ public class BasicResourceServiceTest {
 		String[] customTags = new String[]{"DestKey", "TagKey4"};
 		Map<String, String> payerDefaultTags = Maps.newHashMap();
 		
-		// Test DestValue1
+		// Test that mapping is being ignored due to using an alias
 		String[] tags = new String[]{ "SrcValue1", "", "SrcValue3", "SrcValue4"};		
-		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "SrcValue4"});
+		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "", "SrcValue4"});
 		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		

@@ -197,6 +197,7 @@ paths:
   /getOperations:
     post:
       description: Get the list of operations for the supplied products used by the provided accounts in the specified regions.
+      operationId: getOperations
       parameters:
         - name: operationsRequest
           in: body
@@ -244,6 +245,7 @@ paths:
   /getUsageTypes:
     post:
       description: Get the list of usage types for the accounts, regions, products, and operations provided.
+      operationId: getUsageTypes
       parameters:
         - name: usageTypesRequest
           in: body
@@ -318,6 +320,7 @@ paths:
   /getData:
     post:
       description: Get the data for the requested cost or usage.
+      operationId: getData
       parameters:
         - name: dataRequest
           in: body
@@ -523,4 +526,48 @@ paths:
         '200':
           description: tag configurations
 
-
+  /getProcessorStatus:
+    get:
+      description: Get the monthly report processing data from the processor. Includes process times, report paths and report last modified times and whether the report is marked for reporocessing.
+      responses:
+        '200':
+          description: processor status for all months processed.
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                month:
+                  type: string
+      
+  /reprocess:
+    post:
+      description: Update a monthly report for reprocess flag
+      operationId: reprocess
+      parameters:
+        - name: reprocessRequest
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              month:
+                description: Month to update, e.g. 2020-02
+                type: string
+              state:
+                description: Set state of reprocess flag to supplied value. Default is true.
+                type: boolean
+            required: [month]
+      responses:
+        '200':
+          description: reprocess state updated successfully
+        '400':
+          description: invalid request
+  
+  /startProcessor:
+    post:
+      description: Start the ICE processor
+      operationId: startProcessor
+      responses:
+        '200':
+          description: processor start message sent
