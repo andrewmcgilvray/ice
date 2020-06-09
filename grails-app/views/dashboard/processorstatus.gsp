@@ -44,8 +44,8 @@
 		<th>Last Modified</th>
 	  </tr>
 	</thead>
-	<tbody ng-repeat="status in statusArray" class="{{getTrClass($index)}}">
-	  <tr class="{{getTrClass($index)}}">
+	<tbody ng-repeat="status in statusArray" ng-init="trClass=getTrClass($index)">
+	  <tr class="{{trClass}}">
 	    <td rowspan="{{status.reports.length}}">{{status.month}}</td>
 	    <td rowspan="{{status.reports.length}}">{{status.lastProcessed}}</td>
 	    <td rowspan="{{status.reports.length}}">
@@ -60,7 +60,7 @@
 	    <td>{{status.reports[0].key}}</td>
 	    <td>{{status.reports[0].lastModified}}</td>
 	  </tr>
-	  <tr ng-repeat="report in status.reports" ng-show="$index > 0">
+	  <tr ng-repeat="report in status.reports" ng-show="$index > 0" class="{{trClass}}">
         <td>{{report.accountName}}</td>
 	    <td>{{report.key}}</td>
 	    <td>{{report.lastModified}}</td>
