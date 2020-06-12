@@ -72,6 +72,8 @@ public class CostAndUsageReportLineItem extends LineItem {
 	private int savingsPlanTotalCommitmentToDateIndex = -1;
 	private int savingsPlanUsedCommitmentIndex = -1;
 	private int savingsPlanPaymentOptionIndex = -1;
+	private int savingsPlanPurchaseTermIndex = -1;
+	private int savingsPlanOfferingTypeIndex = -1;
 	
 	private static Map<String, Double> normalizationFactors = Maps.newHashMap();
 	
@@ -149,6 +151,8 @@ public class CostAndUsageReportLineItem extends LineItem {
         	savingsPlanTotalCommitmentToDateIndex = report.getColumnIndex("savingsPlan", "TotalCommitmentToDate");
         	savingsPlanUsedCommitmentIndex = report.getColumnIndex("savingsPlan", "UsedCommitment");
         	savingsPlanPaymentOptionIndex = report.getColumnIndex("savingsPlan", "PaymentOption");
+        	savingsPlanPurchaseTermIndex = report.getColumnIndex("savingsPlan", "PurchaseTerm");
+        	savingsPlanOfferingTypeIndex = report.getColumnIndex("savingsPlan", "OfferingType");
         	
             if (costAndUsageNetUnblendedStartDate != null && !report.getStartTime().isBefore(costAndUsageNetUnblendedStartDate) && report.getColumnIndex("savingsPlan", "NetSavingsPlanEffectiveCost") > 0) {
             	savingsPlanAmortizedUpfrontCommitmentForBillingPeriodIndex = report.getColumnIndex("savingsPlan", "NetAmortizedUpfrontCommitmentForBillingPeriod");
@@ -644,5 +648,15 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return savingsPlanPaymentOptionIndex >= 0 ? items[savingsPlanPaymentOptionIndex] : null;
 	}
 
+	@Override
+	public String getSavingsPlanPurchaseTerm() {
+		return savingsPlanPurchaseTermIndex >= 0 ? items[savingsPlanPurchaseTermIndex] : null;
+	}
+	
+	@Override
+	public String getSavingsPlanOfferingType() {
+		return savingsPlanOfferingTypeIndex >= 0 ? items[savingsPlanOfferingTypeIndex] : null;
+	}
+	
 }
 

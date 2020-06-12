@@ -2821,3 +2821,119 @@ function processorStatusCtrl($scope, $location, $http) {
 
   getProcessorStatus($scope, function (data) {});
 }
+
+function subscriptionsCtrl($scope, $location, $http) {
+  $scope.ri_sp = "RI";
+  $scope.month = "";
+  $scope.months = [];
+  $scope.header = [];
+  $scope.subscriptions = [];
+
+  $scope.rev = false;
+  $scope.revs = [];
+  $scope.predicateIndex = null;
+
+  $scope.order = function (index) {
+
+    if ($scope.predicateIndex != index) {
+      $scope.rev = $scope.revs[index];
+      $scope.predicateIndex = index;
+    }
+    else {
+      $scope.rev = $scope.revs[index] = !$scope.revs[index];
+    }
+
+    var compare = function (a, b) {
+      if (a[index] < b[index])
+        return $scope.rev ? 1 : -1;
+      if (a[index] > b[index])
+        return $scope.rev ? -1 : 1;
+      return 0;
+    }
+
+    $scope.subscriptions.sort(compare);
+  }
+
+  var getMonths = function($scope, fn) {
+    $http({
+      method: "GET",
+      url: "getMonths",
+      params: {}
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  var getSubscriptions = function ($scope, fn, download) {
+    var params = {
+      type: $scope.ri_sp,
+      month: $scope.month,
+    };
+
+    if (download) {
+      params["dashboard"] = "subscriptions";
+      params["type"] = $scope.ri_sp;
+      jQuery("#download_form").empty();
+
+      for (var key in params) {
+        jQuery("<input type='text' />")
+          .attr("id", key)
+          .attr("name", key)
+          .attr("value", params[key])
+          .appendTo(jQuery("#download_form"));
+      }
+
+      jQuery("#download_form").submit();
+    }
+    else {
+      $http({
+        method: "GET",
+        url: "getSubscriptions",
+        params: params
+      }).success(function (result) {
+        if (result.status === 200 && result.data) {
+          if (fn)
+            fn(result.data);
+        }
+      }).error(function (result, status) {
+        if (status === 401 || status === 0)
+          $window.location.reload();
+      });
+    }
+  }
+  
+  $scope.update = function () {
+    getSubscriptions($scope, function (data) {
+      loadData($scope, data);
+    })
+  }
+
+  $scope.download = function () {
+    getSubscriptions($scope, null, true);
+  }
+
+  var loadData = function($scope, data) {
+    $scope.header = data[0];
+    data.shift();
+    $scope.subscriptions = data;
+    $scope.revs = [];
+    for (var i = 0; i < $scope.subscriptions.length; i++)
+      $scope.revs.push(false);
+    $scope.order($scope.subscriptions, 0);
+}
+
+  getMonths($scope, function (data) {
+    $scope.months = data;
+    $scope.month = $scope.months[$scope.months.length-1];
+
+    getSubscriptions($scope, function (data) {
+      loadData($scope, data);
+    });
+  });
+}

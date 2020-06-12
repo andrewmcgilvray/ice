@@ -44,6 +44,12 @@ import com.netflix.ice.tag.UserTag;
 import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -56,9 +62,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
 
 /**
@@ -607,5 +617,86 @@ public class BasicManagers extends Poller implements Managers {
         return started;
     }
 
+    private List<List<String>> getCsvData(String month, String prefix) {
+        DateTime monthDateTime = new DateTime(month, DateTimeZone.UTC);
+        File file = new File(config.workBucketConfig.localDir, prefix + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+        try {
+            AwsUtils.downloadFileIfChanged(config.workBucketConfig.workS3BucketName, config.workBucketConfig.workS3BucketPrefix, file);
+        }
+        catch (Exception e) {
+            logger.error("error downloading " + file, e);
+            return null;
+        }
+        if (file.exists()) {
+            BufferedReader reader = null;
+            List<List<String>> data = null;
+            try {
+            	InputStream is = new FileInputStream(file);
+                reader = new BufferedReader(new InputStreamReader(is));
 
+                
+            	Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(reader);
+            	
+                data = Lists.newArrayList();
+        	    for (CSVRecord record : records) {
+        	    	List<String> row = Lists.newArrayListWithCapacity(record.size());
+        	    	for (String col: record)
+        	    		row.add(col);
+        	    	data.add(row);
+        	    }
+            }
+            catch (Exception e) {
+            	logger.error("error in reading " + file, e);
+            }
+            finally {
+                if (reader != null)
+                    try {reader.close();} catch (Exception e) {}
+            }
+            return data;
+        }
+        return null;
+    }
+    
+    private String getFileData(String month, String prefix) {
+        DateTime monthDateTime = new DateTime(month, DateTimeZone.UTC);
+        File file = new File(config.workBucketConfig.localDir, prefix + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+        if (file.exists()) {
+        	try {
+        		return FileUtils.readFileToString(file, StandardCharsets.UTF_8);
+        	}
+        	catch (Exception e) {
+        		logger.error("error reading " + file, e);
+        	}
+        }
+        return null;
+    }
+    
+    public List<List<String>> getSubscriptions(SubscriptionType subscriptionType, String month) {
+    	switch (subscriptionType) {
+    	case RI:
+        	return getCsvData(month, "reservations_");
+    	case SP:
+        	return getCsvData(month, "savingsPlans_");
+    	}
+    	return null;
+    }
+    
+    public String getSubscriptionsReport(SubscriptionType subscriptionType, String month) {
+    	switch (subscriptionType) {
+    	case RI:
+        	return getFileData(month, "reservations_");
+    	case SP:
+        	return getFileData(month, "savingsPlans_");
+    	}
+    	return null;
+    }
+    
+    public Collection<String> getMonths() {
+    	List<String> months = Lists.newArrayList();
+    	for (DateTime month = config.startDate; month.isBeforeNow(); month = month.plusMonths(1))
+    		months.add(AwsUtils.monthDateFormat.print(month));
+    	return months;
+    }
 }

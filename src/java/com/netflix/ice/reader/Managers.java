@@ -157,4 +157,12 @@ public interface Managers {
     
     boolean startProcessor();
 
+    public enum SubscriptionType {
+    	RI,
+    	SP;
+    }
+    public List<List<String>> getSubscriptions(SubscriptionType subscriptionType, String month);
+    public String getSubscriptionsReport(SubscriptionType subscriptionType, String month);
+
+    public Collection<String> getMonths();
 }

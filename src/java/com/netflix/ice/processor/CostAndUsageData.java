@@ -17,6 +17,12 @@
  */
 package com.netflix.ice.processor;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +33,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Months;
@@ -54,6 +62,7 @@ import com.netflix.ice.reader.InstanceMetrics;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ReservationArn;
+import com.netflix.ice.tag.SavingsPlanArn;
 import com.netflix.ice.tag.UserTagKey;
 
 public class CostAndUsageData {
@@ -69,7 +78,7 @@ public class CostAndUsageData {
     private List<UserTagKey> userTagKeys;
     private boolean collectTagCoverageWithUserTags;
     private Map<ReservationArn, Reservation> reservations;
-    private Map<String, SavingsPlan> savingsPlans;
+    private Map<SavingsPlanArn, SavingsPlan> savingsPlans;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -194,17 +203,17 @@ public class CostAndUsageData {
     	return reservations != null && reservations.size() > 0;
     }
     
-    public void addSavingsPlan(String arn, PurchaseOption paymentOption, String hourlyRecurringFee, String hourlyAmortization) {
-    	if (savingsPlans.containsKey(arn))
+    public void addSavingsPlan(TagGroupSP tagGroup, PurchaseOption paymentOption, String term, String offeringType, long start, long end, String hourlyRecurringFee, String hourlyAmortization) {
+    	if (savingsPlans.containsKey(tagGroup.arn))
     		return;
-		SavingsPlan plan = new SavingsPlan(arn,
-				paymentOption,
+		SavingsPlan plan = new SavingsPlan(tagGroup,
+				paymentOption, term, offeringType, start, end,
 				Double.parseDouble(hourlyRecurringFee), 
 				Double.parseDouble(hourlyAmortization));
-    	savingsPlans.put(arn, plan);
+    	savingsPlans.put(tagGroup.arn, plan);
     }
     
-    public Map<String, SavingsPlan> getSavingsPlans() {
+    public Map<SavingsPlanArn, SavingsPlan> getSavingsPlans() {
     	return savingsPlans;
     }
     
@@ -282,6 +291,9 @@ public class CostAndUsageData {
         archiveSummary(startDate, costDataByProduct, "cost_", pool, futures);
         archiveSummaryTagCoverage(startDate, pool, futures);
 
+        archiveReservations();
+        archiveSavingsPlans();
+        
 		// Wait for completion
 		for (Future<Status> f: futures) {
 			Status s = f.get();
@@ -718,6 +730,56 @@ public class CostAndUsageData {
     	});
     }
 
+    private void archiveReservations() throws IOException {
+        DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+        File file = new File(workBucketConfig.localDir, "reservations_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+    	OutputStream os = new FileOutputStream(file);
+		Writer out = new OutputStreamWriter(os);
+        
+        try {
+        	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(Reservation.header()));
+        	for (Reservation ri: reservations.values()) {
+        		printer.printRecord((Object[]) ri.values());
+        	}
+      	
+        	printer.close(true);
+        }
+        finally {
+            out.close();
+        }
+
+        // archive to s3
+        logger.info("uploading " + file + "...");
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, file.getName());
+        logger.info("uploaded " + file);
+    }
+ 
+    private void archiveSavingsPlans() throws IOException {
+        DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+        File file = new File(workBucketConfig.localDir, "savingsPlans_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+    	OutputStream os = new FileOutputStream(file);
+		Writer out = new OutputStreamWriter(os);
+        
+        try {
+        	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(SavingsPlan.header()));
+        	for (SavingsPlan sp: savingsPlans.values()) {
+        		printer.printRecord((Object[]) sp.values());
+        	}
+      	
+        	printer.close(true);
+        }
+        finally {
+            out.close();
+        }
+
+        // archive to s3
+        logger.info("uploading " + file + "...");
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, file.getName());
+        logger.info("uploaded " + file);
+    }
+    
 }
 
 

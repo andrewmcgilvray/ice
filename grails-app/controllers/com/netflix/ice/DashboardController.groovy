@@ -107,6 +107,8 @@ class DashboardController {
 		getProcessorStatus: "GET",
 		setReprocess: "POST",
 		startProcessor: "POST",
+		getSubscriptions: "GET",
+		getMonths: "GET",
 	];
 			
     private static ReaderConfig getConfig() {
@@ -325,6 +327,8 @@ class DashboardController {
 		
 		if (dashboard.equals("accounts"))
 			download_accounts();
+		else if (dashboard.equals("subscriptions"))
+			download_subscriptions();
 		else
 			download_data();
     }
@@ -353,6 +357,19 @@ class DashboardController {
 		return data;
 	}
 	
+	private download_subscriptions() {
+		Managers.SubscriptionType subType = Managers.SubscriptionType.valueOf(params.get("type"));
+		String month = params.get("month");
+		String body = getManagers().getSubscriptionsReport(subType, month);
+		
+		response.setContentType("application/octet-stream;");
+		response.setContentLength(body.length());
+		response.setHeader("Content-disposition", "attachment;filename=aws-subscriptions-" + subType.toString().toLowerCase() + ".csv");
+		response.outputStream << body;
+		response.outputStream.flush();
+		return;
+	}
+		
 	private download_data() {
 		JSONObject query = new JSONObject();
 		for (Map.Entry entry: params.entrySet()) {
@@ -502,6 +519,18 @@ class DashboardController {
 		def result = [status: response.status];
 		render result as JSON
 	}
+	
+	def getSubscriptions = {
+		Managers.SubscriptionType subType = Managers.SubscriptionType.valueOf(params.get("type"));
+		String month = params.get("month");
+		def result = [status: 200, data: getManagers().getSubscriptions(subType, month)];
+		render result as JSON
+	}
+		
+	def getMonths = {
+		def result = [status: 200, data: getManagers().getMonths()];
+		render result as JSON
+	}
 
     def summary = {}
 
@@ -524,6 +553,8 @@ class DashboardController {
 	def statistics = {}
 	
 	def processorstatus = {}
+	
+	def subscriptions = {}
 	
     private Map doGetData(JSONObject query) {
 		logger.debug("******** doGetData: called");

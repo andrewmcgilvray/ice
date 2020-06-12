@@ -571,3 +571,40 @@ paths:
       responses:
         '200':
           description: processor start message sent
+  /getSubscriptions:
+    get:
+      description: Get list of subscriptions in effect during requested month
+      operationId: getSubscriptions
+      parameters:
+        - name: type
+          in: query
+          description: Type of subscription. Values are RI or SP
+          type: string
+          enum: [RI, SP]
+          required: true
+        - name: month
+          in: query
+          description: Year and month in ISO format. e.g. 2020-04
+          type: string
+          required: true
+      responses:
+        '200':
+          description: List of Subscriptions
+          schema:
+            type: array
+            items:
+              type: array
+              items:
+                type: string
+  /getMonths:
+    get:
+      description: Get list of months for which there is data
+      operationId: getMonths
+      responses:
+        '200':
+          description: List of month strings in ISO format.
+          schema:
+            type: array
+            items:
+              type: string
+               

@@ -31,6 +31,7 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagGroupSP;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
+import com.netflix.ice.tag.SavingsPlanArn;
 import com.netflix.ice.tag.Tag;
 
 public class SavingsPlanProcessor {
@@ -66,7 +67,7 @@ public class SavingsPlanProcessor {
 	
 	private void processHour(Product product, int hour, ReadWriteData usageData, ReadWriteData costData) {
 	    Map<TagGroup, Double> usageMap = usageData.getData(hour);
-		Map<String, SavingsPlan> savingsPlans = data.getSavingsPlans();
+		Map<SavingsPlanArn, SavingsPlan> savingsPlans = data.getSavingsPlans();
 
 		List<TagGroupSP> spTagGroups = Lists.newArrayList();
 	    for (TagGroup tagGroup: usageMap.keySet()) {
@@ -78,7 +79,7 @@ public class SavingsPlanProcessor {
 	    	    
 	    for (TagGroupSP bonusTg: spTagGroups) {	    	
 	    	// Split the effective cost into recurring and amortization pieces if appropriate.
-	    	SavingsPlan sp = savingsPlans.get(bonusTg.arn.name);
+	    	SavingsPlan sp = savingsPlans.get(bonusTg.arn);
 	    	
 	    	if (sp == null) {
 	    		logger.error("No savings plan in the map at hour " + hour + " for tagGroup: " + bonusTg);
@@ -87,7 +88,7 @@ public class SavingsPlanProcessor {
 	    	double cost = costData.remove(hour, bonusTg);
 	    	double usage = usageData.remove(hour, bonusTg);
 	    	
-    		String accountId = sp.arn.getAccountId();
+    		String accountId = sp.tagGroup.arn.getAccountId();
 	    	if (sp.paymentOption != PurchaseOption.NoUpfront) {
 	    		// Add amortization
 	    		Operation amortOp = null;
@@ -138,7 +139,7 @@ public class SavingsPlanProcessor {
 		data.put(hour, tg, amount);
 	}
 	
-	private void cleanup(int hour, ReadWriteData data, String which, Map<String, SavingsPlan> savingsPlans) {
+	private void cleanup(int hour, ReadWriteData data, String which, Map<SavingsPlanArn, SavingsPlan> savingsPlans) {
 	    List<TagGroupSP> spTagGroups = Lists.newArrayList();
 	    for (TagGroup tagGroup: data.getTagGroups(hour)) {
 	    	if (tagGroup instanceof TagGroupSP) {

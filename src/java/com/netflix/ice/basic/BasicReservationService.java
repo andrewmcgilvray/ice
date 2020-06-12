@@ -31,9 +31,11 @@ import com.netflix.ice.processor.ReservationService;
 import com.netflix.ice.tag.*;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class BasicReservationService implements ReservationService {
@@ -99,6 +101,8 @@ public class BasicReservationService implements ReservationService {
     	final public PurchaseOption purchaseOption;
     	final public double hourlyFixedPrice; // Per-hour amortization of any up-front cost per instance
     	final public double usagePrice; // Per-hour cost for each reserved instance
+    	
+    	private static DecimalFormat df = new DecimalFormat("#.###");
 
         public Reservation(
         		TagGroupRI tagGroup,
@@ -116,6 +120,28 @@ public class BasicReservationService implements ReservationService {
             this.hourlyFixedPrice = hourlyFixedPrice;
             this.usagePrice = usagePrice;
         }
+        
+        public static String[] header() {
+    		return new String[] {"ReservationARN", "Account", "AccountID", "Region", "Zone", "Product", "UsageType", "Count", "Start", "End", "PurchaseOption", "HourlyAmortization", "HourlyRecurringFee"};
+        }
+        
+        public String[] values() {
+    		return new String[]{
+    				tagGroup.arn.toString(),
+    				tagGroup.account.getIceName(),
+    				tagGroup.account.getId(),
+    				tagGroup.region.name,
+    				tagGroup.zone == null ? "" : tagGroup.zone.name,
+    				tagGroup.product.getServiceCode(),
+    				tagGroup.usageType.name,
+    				Integer.toString(count),
+    				new DateTime(start, DateTimeZone.UTC).toString(),
+    				new DateTime(end, DateTimeZone.UTC).toString(),
+    				purchaseOption.name,
+    				df.format(hourlyFixedPrice),
+    				df.format(usagePrice),
+    			};
+        }        
     }
 
     protected double getEc2Tier(long time) {

@@ -265,8 +265,12 @@ public class BasicLineItemProcessor implements LineItemProcessor {
 	        	
 	        case SavingsPlanRecurringFee:
 	        	// Grab the amortization and recurring fee for the savings plan processor.
-	        	costAndUsageData.addSavingsPlan(lineItem.getSavingsPlanArn(),
-	        					PurchaseOption.get(lineItem.getSavingsPlanPaymentOption()),
+	        	String arn = lineItem.getSavingsPlanArn();
+	        	PurchaseOption po = PurchaseOption.get(lineItem.getSavingsPlanPaymentOption());
+	        	TagGroupSP tgsp = TagGroupSP.get(account, region, zone, product, Operation.getSavings(po), usageType, resourceGroup, SavingsPlanArn.get(arn));
+	        	costAndUsageData.addSavingsPlan(tgsp, po, lineItem.getSavingsPlanPurchaseTerm(), lineItem.getSavingsPlanOfferingType(),
+	        					new DateTime(lineItem.getSavingsPlanStartTime(), DateTimeZone.UTC).getMillis(),
+	        					new DateTime(lineItem.getSavingsPlanEndTime(), DateTimeZone.UTC).getMillis(),
 	        					lineItem.getSavingsPlanRecurringCommitmentForBillingPeriod(), 
 	        					lineItem.getSavingsPlanAmortizedUpfrontCommitmentForBillingPeriod());
 	        	break;
