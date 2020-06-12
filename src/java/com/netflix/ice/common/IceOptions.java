@@ -149,11 +149,6 @@ public class IceOptions {
     public static final String CUSTOM_TAGS = "ice.customTags";
 
     /**
-     * User can configure their additional tags to add to custom tags displayed in tag coverage dashboard.
-     */
-    public static final String ADDITIONAL_TAGS = "ice.additionalTags";
-
-    /**
      * Boolean flag to indicated whether to include reservation IDs as an additional custom tag.
      */
     public static final String RESERVATION_ID_TAGS = "ice.reservationIdTags";
@@ -203,6 +198,11 @@ public class IceOptions {
      * enable single-pass run of billing file processor. Will shut down EC2 instance when pass completes.
      */
     public static final String PROCESS_ONCE = "ice.processOnce";
+    
+    /**
+     * enable reader to set reprocess flags and start processor
+     */
+    public static final String ENABLE_REPROCESS_REQUESTS = "ice.enableReprocessRequests";
     
     /**
      * AWS region where this processor instance is running. Used to shut down EC2 instance when pass completes if processOnce is true.

@@ -133,7 +133,7 @@ public class ReservationProcessorTest {
 
 		productService = new BasicProductService();
 
-		resourceService = new BasicResourceService(productService, new String[]{}, new String[]{}, false);
+		resourceService = new BasicResourceService(productService, new String[]{"TagKeyA"}, false);
 	}
 	
 	@Test
@@ -234,8 +234,8 @@ public class ReservationProcessorTest {
 		
 		CostAndUsageData caud = new CostAndUsageData(startMillis, null, null, TagCoverage.none, null, null);
 		if (product != null) {
-			caud.putUsage(product, new ReadWriteData());
-			caud.putCost(product, new ReadWriteData());
+			caud.putUsage(product, new ReadWriteData(0));
+			caud.putCost(product, new ReadWriteData(0));
 		}
 		
 		Map<TagGroup, Double> hourUsageData = makeDataMap(usageData);
@@ -1767,19 +1767,20 @@ public class ReservationProcessorTest {
 		};
 		ReservationArn arn2 = ReservationArn.get(accounts.get(0), Region.US_EAST_1, ec2Instance, "2aaaaaaa-bbbb-cccc-ddddddddddddddddd");
 		
-		ResourceGroup rg = ResourceGroup.getResourceGroup("TagA");
+		ResourceGroup rg = ResourceGroup.getResourceGroup(new String[]{"TagA"});
+		ResourceGroup emptyRg = ResourceGroup.getResourceGroup(new String[]{""});
 		Datum[] usageData = new Datum[]{
 			new Datum(accounts.get(0), Region.US_EAST_1, us_east_1a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.2xlarge", rg, 1.0),
 		};
 		
 		Datum[] expectedUsageData = new Datum[]{
 				new Datum(accounts.get(0), Region.US_EAST_1, us_east_1a, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge", rg, 1.0),
-				new Datum(accounts.get(0), Region.US_EAST_1, null, ec2Instance, Operation.unusedInstancesPartialUpfront, "c4.2xlarge", ResourceGroup.getResourceGroup(""), 1.0),
+				new Datum(accounts.get(0), Region.US_EAST_1, null, ec2Instance, Operation.unusedInstancesPartialUpfront, "c4.2xlarge", emptyRg, 1.0),
 		};
 		
 		Datum[] costData = new Datum[]{				
 		};
-		ResourceGroup unusedRg = ResourceGroup.getResourceGroup("");
+		ResourceGroup unusedRg = emptyRg;
 		Datum[] expectedCostData = new Datum[]{
 			new Datum(accounts.get(0), Region.US_EAST_1, us_east_1a, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge", rg, 0.121),
 			new Datum(accounts.get(0), Region.US_EAST_1, null, ec2Instance, Operation.unusedInstancesPartialUpfront, "c4.2xlarge", unusedRg, 0.121),

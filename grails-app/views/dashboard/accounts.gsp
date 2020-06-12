@@ -23,7 +23,7 @@
   <title>Accounts</title>
 </head>
 <body>
-<div class="" style="margin: auto; width: 1200px; padding: 20px 30px" ng-controller="accountsCtrl">
+<div class="" style="margin: auto; width: 1600px; padding: 20px 30px" ng-controller="accountsCtrl">
   <h1>Accounts  	
 	    <span class="resourcesButtons">
 	      <input ng-model="filter_accounts" type="text" class="resourcesFilter" placeholder="Filter"/>&nbsp;

@@ -50,6 +50,7 @@ import com.netflix.ice.reader.TagListsWithUserTags;
 import com.netflix.ice.reader.UsageUnit;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
@@ -153,11 +154,11 @@ public class BasicDataManagerTest {
 			tagGroupList.add(tg);
 		tagGroupsWithResourceGroups.put(testMonth.getMillis(), tagGroupList);
 		
-		return new BasicTagGroupManager(tagGroupsWithResourceGroups, new Interval(testMonth, testMonth.plusMonths(1)));
+		return new BasicTagGroupManager(tagGroupsWithResourceGroups, new Interval(testMonth, testMonth.plusMonths(1)), 2);
 	}
 	
 	@Test
-	public void groupByUserTagAndFilterByUserTag() throws BadZone {
+	public void groupByUserTagAndFilterByUserTag() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
@@ -165,8 +166,8 @@ public class BasicDataManagerTest {
 				new Double[]{ 1.0, 2.0 },
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", "TagA|TagB", as, ps));
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", "TagA|", as, ps));
+		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
 		
 		
 		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
@@ -199,7 +200,7 @@ public class BasicDataManagerTest {
 	}
 	
 	@Test
-	public void groupByUserTagAndFilterByEmptyUserTag() throws BadZone {
+	public void groupByUserTagAndFilterByEmptyUserTag() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
@@ -207,7 +208,7 @@ public class BasicDataManagerTest {
 				new Double[]{ 1.0, 2.0 },
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", "TagA|TagB", as, ps));
+		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", null, as, ps));		
 		
 		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
@@ -223,7 +224,7 @@ public class BasicDataManagerTest {
 		userTagLists.add(listA);
 		userTagLists.add(listB);
 		
-		listB.add(UserTag.get(""));
+		listB.add(UserTag.empty);
 		
 		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
 		
@@ -238,7 +239,7 @@ public class BasicDataManagerTest {
 	}
 	
 	@Test
-	public void groupByNoneWithUserTagFilters() throws BadZone {
+	public void groupByNoneWithUserTagFilters() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
@@ -246,8 +247,8 @@ public class BasicDataManagerTest {
 				new Double[]{ 1.0, 2.0 },
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", "TagA|TagB", as, ps));
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", "TagA|", as, ps));
+		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
 		
 		
 		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);

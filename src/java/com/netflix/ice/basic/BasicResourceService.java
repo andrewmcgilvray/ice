@@ -25,7 +25,6 @@ import java.util.Map.Entry;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -41,12 +40,14 @@ import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
+import com.netflix.ice.tag.UserTagKey;
 
 public class BasicResourceService extends ResourceService {
     private final static Logger logger = LoggerFactory.getLogger(BasicResourceService.class);
 
     protected final List<String> customTags;
-    private final List<String> userTags;
+    private final List<UserTagKey> userTagKeys;
     private final boolean includeReservationIds;
     
     
@@ -97,11 +98,6 @@ public class BasicResourceService extends ResourceService {
      */
     private Map<String, Map<String, Map<Long, List<MappedTags>>>> mappedTags;
     
-    /**
-     * 
-     * @author jaroth
-     *
-     */
     private class MappedTags {
     	Map<Integer, Map<String, String>> maps; // Primary map key is source tag index, secondary map key is the source tag value
     	List<String> include;
@@ -202,7 +198,7 @@ public class BasicResourceService extends ResourceService {
     	}
     }
 
-    public BasicResourceService(ProductService productService, String[] customTags, String[] additionalTags, boolean includeReservationIds) {
+    public BasicResourceService(ProductService productService, String[] customTags, boolean includeReservationIds) {
 		super();
 		this.includeReservationIds = includeReservationIds;
 		this.customTags = Lists.newArrayList(customTags);
@@ -213,14 +209,10 @@ public class BasicResourceService extends ResourceService {
 		for (int i = 0; i < customTags.length; i++)
 			tagResourceGroupIndeces.put(customTags[i], i);
 				
-		userTags = Lists.newArrayList();
+		userTagKeys = Lists.newArrayList();
 		for (String tag: this.customTags) {
 			if (!tag.isEmpty())
-				userTags.add(tag);
-		}
-		for (String tag: additionalTags) {
-			if (!tag.isEmpty())
-				userTags.add(tag);		
+				userTagKeys.add(UserTagKey.get(tag));
 		}
 		
 		this.defaultTags = Maps.newHashMap();
@@ -245,13 +237,25 @@ public class BasicResourceService extends ResourceService {
     	
     	Map<String, TagConfig> configs = Maps.newHashMap();
     	for (TagConfig config: tagConfigs) {
+    		if (!customTags.contains(config.name)) {
+    			logger.warn("Ignoring configurations for tag \"" + config.name + "\" from payer account " + payerAccountId + ", not in customTags list.");
+    			continue;
+    		}
+    		
     		configs.put(config.name, config);
+    		
+        	// Add any display aliases to the user tags
+    		if (config.displayAliases != null) {
+				UserTagKey tagKey = UserTagKey.get(config.name);
+				tagKey.addAllAliases(config.displayAliases);
+    		}
     	}
     	this.tagConfigs.put(payerAccountId, configs);
     	
+    	
     	// Create inverted indexes for each of the tag value alias sets
 		Map<String, Map<String, String>> indeces = Maps.newHashMap();
-		for (TagConfig config: tagConfigs) {
+		for (TagConfig config: configs.values()) {
 			if (config.values == null || config.values.isEmpty())
 				continue;
 			
@@ -270,7 +274,7 @@ public class BasicResourceService extends ResourceService {
 		
 		// Create the maps setting tags based on the values of other tags
 		Map<String, Map<Long, List<MappedTags>>> mapped = Maps.newHashMap();
-		for (TagConfig config: tagConfigs) {
+		for (TagConfig config: configs.values()) {
 			if (config.mapped == null || config.mapped.isEmpty())
 				continue;
 			Map<Long, List<MappedTags>> mappedTags = Maps.newTreeMap();
@@ -298,8 +302,8 @@ public class BasicResourceService extends ResourceService {
 	}
 	
 	@Override
-	public List<String> getUserTags() {
-		return userTags;
+	public List<UserTagKey> getUserTagKeys() {
+		return userTagKeys;
 	}
 	
 	@Override
@@ -309,6 +313,9 @@ public class BasicResourceService extends ResourceService {
 
     @Override
     public ResourceGroup getResourceGroup(Account account, Region region, Product product, LineItem lineItem, long millisStart) {
+    	if (customTags.size() == 0)
+    		return null;
+    	
         // Build the resource group based on the values of the custom tags
     	String[] tags = new String[customTags.size()];
        	for (int i = 0; i < customTags.size(); i++) {
@@ -321,13 +328,24 @@ public class BasicResourceService extends ResourceService {
         		v = getMappedUserTagValue(account, lineItem.getPayerAccountId(), customTags.get(i), tags, millisStart);
         	if (v == null || v.isEmpty())
         		v = getDefaultUserTagValue(account, customTags.get(i), millisStart);
+        	if (v == null)
+        		v = ""; // never return null entries
         	tags[i] = v;
         }
-		return ResourceGroup.getResourceGroup(tags);
+		try {
+			// We never use null entries, so should never throw
+			return ResourceGroup.getResourceGroup(tags);
+		} catch (ResourceException e) {
+			logger.error("Error creating resource group from user tags in line item" + e);
+		}
+		return null;
     }
     
     @Override
     public ResourceGroup getResourceGroup(Account account, Product product, List<Tag> reservedInstanceTags, long millisStart) {
+    	if (customTags.size() == 0)
+    		return null;
+    	
         // Build the resource group based on the values of the custom tags
     	String[] tags = new String[customTags.size()];
        	for (int i = 0; i < customTags.size(); i++) {
@@ -342,9 +360,17 @@ public class BasicResourceService extends ResourceService {
        		}
         	if (v == null || v.isEmpty())
         		v = getDefaultUserTagValue(account, customTags.get(i), millisStart);
+        	if (v == null)
+        		v = ""; // never return null entries
         	tags[i] = v;
        	}
-		return ResourceGroup.getResourceGroup(tags);
+		try {
+			// We never use null entries, so should never throw
+			return ResourceGroup.getResourceGroup(tags);
+		} catch (ResourceException e) {
+			logger.error("Error creating resource group from user tags in line item" + e);
+		}
+		return null;
     }
     
     @Override
@@ -459,9 +485,9 @@ public class BasicResourceService extends ResourceService {
     
     @Override
     public boolean[] getUserTagCoverage(LineItem lineItem) {
-    	boolean[] userTagCoverage = new boolean[userTags.size()];
-        for (int i = 0; i < userTags.size(); i++) {
-        	String v = getUserTagValue(lineItem, userTags.get(i));
+    	boolean[] userTagCoverage = new boolean[userTagKeys.size()];
+        for (int i = 0; i < userTagKeys.size(); i++) {
+        	String v = getUserTagValue(lineItem, userTagKeys.get(i).name);
         	userTagCoverage[i] = !StringUtils.isEmpty(v);
         }    	
     	return userTagCoverage;
@@ -483,10 +509,10 @@ public class BasicResourceService extends ResourceService {
     	 * the exact match for the name if it exists in the report
     	 * followed by any case variants and specified aliases
     	 */
-    	for (String tag: userTags) {
-    		String fullTag = USER_TAG_PREFIX + tag;
+    	for (UserTagKey tagKey: userTagKeys) {
+    		String fullTag = USER_TAG_PREFIX + tagKey.name;
     		List<Integer> indeces = Lists.newArrayList();
-    		tagLineItemIndeces.put(tag, indeces);
+    		tagLineItemIndeces.put(tagKey.name, indeces);
     		
     		// First check the preferred key name
     		int index = -1;
@@ -509,8 +535,8 @@ public class BasicResourceService extends ResourceService {
             	}
             }
             // Look for aliases
-            if (configs != null && configs.containsKey(tag)) {
-            	TagConfig config = configs.get(tag);
+            if (configs != null && configs.containsKey(tagKey.name)) {
+            	TagConfig config = configs.get(tagKey.name);
             	if (config != null && config.aliases != null) {
 	            	for (String alias: config.aliases) {
 	            		String fullAlias = USER_TAG_PREFIX + alias;

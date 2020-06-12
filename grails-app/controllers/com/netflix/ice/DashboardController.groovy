@@ -31,6 +31,7 @@ import com.netflix.ice.tag.Product
 import com.netflix.ice.tag.Account
 import com.netflix.ice.tag.Region
 import com.netflix.ice.tag.UserTag
+import com.netflix.ice.tag.UserTagKey
 import com.netflix.ice.tag.Zone
 import com.netflix.ice.tag.UsageType
 import com.netflix.ice.tag.OrganizationalUnit
@@ -103,6 +104,11 @@ class DashboardController {
 		reservation: "GET",
 		savingsplans: "GET",
 		utilization: "GET",
+		getProcessorStatus: "GET",
+		setReprocess: "POST",
+		startProcessor: "POST",
+		getSubscriptions: "GET",
+		getMonths: "GET",
 	];
 			
     private static ReaderConfig getConfig() {
@@ -139,9 +145,6 @@ class DashboardController {
 		boolean showLent = params.containsKey("showLent") ? params.getBoolean("showLent") : false;
 		
 		def data = [];
-		for (Operation op: Operation.getReservationOperations(showLent)) {
-			data.add(op.name);
-		}		
 		for (Operation op: Operation.getSavingsPlanOperations(showLent)) {
 			data.add(op.name);
 		}
@@ -303,12 +306,7 @@ class DashboardController {
     }
 	
 	def tags = {
-		List<String> userTags = config.userTags;
-		List<UserTag> data = Lists.newArrayList();
-		for (String tag: userTags)
-			data.add(new UserTag(tag));
-		
-		def result = [status: 200, data: data]
+		def result = [status: 200, data: config.userTagKeys]
 		render result as JSON		
 	}
 	
@@ -329,6 +327,8 @@ class DashboardController {
 		
 		if (dashboard.equals("accounts"))
 			download_accounts();
+		else if (dashboard.equals("subscriptions"))
+			download_subscriptions();
 		else
 			download_data();
     }
@@ -357,6 +357,19 @@ class DashboardController {
 		return data;
 	}
 	
+	private download_subscriptions() {
+		Managers.SubscriptionType subType = Managers.SubscriptionType.valueOf(params.get("type"));
+		String month = params.get("month");
+		String body = getManagers().getSubscriptionsReport(subType, month);
+		
+		response.setContentType("application/octet-stream;");
+		response.setContentLength(body.length());
+		response.setHeader("Content-disposition", "attachment;filename=aws-subscriptions-" + subType.toString().toLowerCase() + ".csv");
+		response.outputStream << body;
+		response.outputStream.flush();
+		return;
+	}
+		
 	private download_data() {
 		JSONObject query = new JSONObject();
 		for (Map.Entry entry: params.entrySet()) {
@@ -466,6 +479,58 @@ class DashboardController {
 			response.status = 404;
 		}
 	}
+	
+	def getProcessorStatus = {		
+        def result = [status: 200, data: getManagers().getProcessorStatus()];
+        render result as JSON
+	}
+	
+	def setReprocess = {
+		if (getConfig().enableReprocessRequests) {
+			def text = request.reader.text;
+			JSONObject query = (JSONObject)JSON.parse(text);
+			String month = query.getString("month");
+			if (month != null) {
+				boolean state = query.has("state") ? query.getBoolean("state") : true;
+				getManagers().reprocess(month, state);
+				response.status = 200;
+			}
+			else {
+				response.status = 400;
+			}
+		}
+		else {
+			response.status = 403;
+		}
+		def result = [status: response.status];
+		render result as JSON
+	}
+	
+	def startProcessor = {
+		if (getConfig().enableReprocessRequests && getConfig().processorInstanceId != null) {
+			if (getManagers().startProcessor())
+				response.status = 200;
+			else
+				response.status = 500;
+		}
+		else {
+			response.status = 403;
+		}
+		def result = [status: response.status];
+		render result as JSON
+	}
+	
+	def getSubscriptions = {
+		Managers.SubscriptionType subType = Managers.SubscriptionType.valueOf(params.get("type"));
+		String month = params.get("month");
+		def result = [status: 200, data: getManagers().getSubscriptions(subType, month)];
+		render result as JSON
+	}
+		
+	def getMonths = {
+		def result = [status: 200, data: getManagers().getMonths()];
+		render result as JSON
+	}
 
     def summary = {}
 
@@ -484,7 +549,13 @@ class DashboardController {
 	def accounts = {}
 	
 	def tagconfigs = {}
-
+	
+	def statistics = {}
+	
+	def processorstatus = {}
+	
+	def subscriptions = {}
+	
     private Map doGetData(JSONObject query) {
 		logger.debug("******** doGetData: called");
 
@@ -539,9 +610,9 @@ class DashboardController {
 		int userTagGroupByIndex = 0;
 		if (showUserTags) {
 			String groupByTag = query.optString("groupByTag");			
-			String[] keys = config.userTags;
-			for (int i = 0; i < keys.length; i++) {
-				if (groupByTag != null && keys[i].equals(groupByTag)) {
+			List<UserTagKey> keys = config.userTagKeys;
+			for (int i = 0; i < keys.size(); i++) {
+				if (groupByTag != null && keys.get(i).name.equals(groupByTag)) {
 					userTagGroupByIndex = i;
 				}
 				userTagLists.add(UserTag.getUserTags(listParams(query, "tag-" + keys[i])));
@@ -622,7 +693,7 @@ class DashboardController {
 	               	logger.debug("  product: " + product + ", tags:" + dataOfProduct.keySet());      
 					mergeTagCoverage(dataOfProduct, rawMetrics);
 				}
-				data = TagCoverageDataManager.processResult(rawMetrics, groupBy, aggregate, tagKeys, config.userTags);
+				data = TagCoverageDataManager.processResult(rawMetrics, groupBy, aggregate, tagKeys, config.userTagKeys);
 			}
 			else {
 				TagCoverageDataManager dataManager = (TagCoverageDataManager) getManagers().getTagCoverageManager(null, consolidateType);
@@ -635,7 +706,7 @@ class DashboardController {
 					tagKeys
 				);			
 			}
-			logger.debug("groupBy: " + groupBy + (groupBy == TagType.Tag ? ":" + config.userTags.get(userTagGroupByIndex) : "") + ", tags = " + data.keySet());
+			logger.debug("groupBy: " + groupBy + (groupBy == TagType.Tag ? ":" + config.userTagKeys.get(userTagGroupByIndex) : "") + ", tags = " + data.keySet());
 		}
         else if (showUserTags) {
             data = getManagers().getData(

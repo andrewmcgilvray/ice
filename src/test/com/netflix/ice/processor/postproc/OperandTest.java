@@ -33,6 +33,7 @@ import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
+import com.netflix.ice.tag.ResourceGroup;
 
 public class OperandTest {
 	static private BasicAccountService as;
@@ -46,7 +47,7 @@ public class OperandTest {
 		accts.add(new Account("234567890123", "Account2", null));
 		as = new BasicAccountService(accts);
 		ps = new BasicProductService();
-		rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, new String[]{}, false);
+		rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
 	}
 	
 	@Test
@@ -63,7 +64,8 @@ public class OperandTest {
 		Operand o = new Operand(oc, as, rs);
 		
 		TagGroup tg = o.tagGroup(null, as, ps, false);
-		assertEquals("incorrect resourceGroup string", "tag1|", tg.resourceGroup.name);
+		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{"tag1", ""});
+		assertEquals("incorrect resourceGroup string", expect, tg.resourceGroup);
 	}
 
 }

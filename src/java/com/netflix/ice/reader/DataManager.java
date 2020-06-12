@@ -20,7 +20,7 @@ package com.netflix.ice.reader;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
-import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
@@ -55,7 +55,7 @@ public interface DataManager {
      */
     Map<Tag, double[]> getData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex);
 
-    Map<Tag, double[]> getData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, int userTagGroupByIndex, List<UserTag> tagKeys);
+    Map<Tag, double[]> getData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, int userTagGroupByIndex, List<UserTagKey> tagKeys);
 
     /**
      * Get data length.

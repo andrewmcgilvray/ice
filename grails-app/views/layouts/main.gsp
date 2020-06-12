@@ -49,7 +49,7 @@
       <a class="link_with_params" href="${resource(dir: 'dashboard', file: 'detail')}#{{getTimeParams()}}" ng-click="reload()">AWS Details</a>
       <ul>
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'detail')}#{{getTimeParams()}}" ng-click="reload()">General Details</a></li>
-        <g:if test="${ReaderConfig.getInstance().userTags.size() > 0}">
+        <g:if test="${ReaderConfig.getInstance().userTagKeys.size() > 0}">
           <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'detail')}#showUserTags=true&{{getTimeParams()}}" ng-click="reload()">Details With User Tags</a></li>
           <g:if test="${ReaderConfig.getInstance().hasTagCoverage()}">
             <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'tagcoverage')}#showUserTags=false&{{getTimeParams()}}" ng-click="reload()">Tag Coverage</a></li>
@@ -66,6 +66,7 @@
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'reservation')}#{{getTimeParams()}}" ng-click="reload()">Reservations By Region</a></li>
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'reservation')}#showZones=true&{{getTimeParams()}}" ng-click="reload()">Reservations By Zone</a></li>
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'savingsplans')}#{{getTimeParams()}}" ng-click="reload()">Savings Plans</a></li>
+        <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'subscriptions')}#{{getTimeParams()}}" ng-click="reload()">Subscriptions</a></li>
       </ul>
     </li>
     <li class="menuButton dropdown">
@@ -74,13 +75,15 @@
         <li class="menuButton"><a class="link_with_params" href="${resource(dir: 'dashboard', file: 'utilization')}#{{getTimeParams()}}" ng-click="reload()">Elasticity</a></li>
       </ul>
     </li>
-    <g:if test="${ReaderConfig.getInstance().userTags.size() > 0}">
+    <g:if test="${ReaderConfig.getInstance().userTagKeys.size() > 0}">
     <li class="menuButton dropdown">
       <a class="link_with_params" href="${resource(dir: 'dashboard', file: 'resourceinfo')}" ng-click="reload()">Resources</a>
       <ul>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'resourceinfo')}" ng-click="reload()">Resource Info</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'accounts')}" ng-click="reload()">Accounts</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'tagconfigs')}" ng-click="reload()">Tag Settings</a></li>
+        <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'statistics')}" ng-click="reload()">Tag Statistics</a></li>
+        <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'processorstatus')}" ng-click="reload()">Processor Status</a></li>
       </ul>
     </li>
     </g:if>

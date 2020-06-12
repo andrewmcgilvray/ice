@@ -20,27 +20,33 @@ package com.netflix.ice.common;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.netflix.ice.common.Config.TagCoverage;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.UserTagKey;
 
 /**
  * Work bucket data-dependent configuration items used by the reader
  */
 public class WorkBucketDataConfig {
 	private final String startMonth;
-	private final List<String> userTags;
+	private final String processorRegion;
+	private final String processorInstanceId;
+	private final List<UserTagKey> userTagKeys;
     private final List<Account> accounts;
     private final Map<String, List<String>> zones;
     private final TagCoverage tagCoverage;
     private final Map<String, Map<String, TagConfig>> tagConfigs;
 	
-	public WorkBucketDataConfig(String startMonth, List<Account> accounts, Map<String, List<String>> zones, List<String> userTags,
+	public WorkBucketDataConfig(String startMonth, String processorRegion, String processorInstanceId, List<Account> accounts, Map<String, List<String>> zones, List<UserTagKey> userTags,
 			TagCoverage tagCoverage, Map<String, Map<String, TagConfig>> tagConfigs) {
 		this.startMonth = startMonth;
+		this.processorRegion = processorRegion;
+		this.processorInstanceId = processorInstanceId;
 		this.accounts = accounts;
 		this.zones = zones;
-		this.userTags = userTags;
+		this.userTagKeys = userTags;
 		this.tagCoverage = tagCoverage;
 		this.tagConfigs = tagConfigs;
 	}
@@ -49,15 +55,25 @@ public class WorkBucketDataConfig {
 		Gson gson = new Gson();
 		WorkBucketDataConfig c = gson.fromJson(json, this.getClass());
 		this.startMonth = c.startMonth;
+		this.processorRegion = c.processorRegion;
+		this.processorInstanceId = c.processorInstanceId;
 		this.accounts = c.accounts;
 		this.zones = c.zones;
-		this.userTags = c.userTags;
+		this.userTagKeys = c.userTagKeys;
 		this.tagCoverage = c.tagCoverage;
 		this.tagConfigs = c.tagConfigs;
 	}
 
 	public String getStartMonth() {
 		return startMonth;
+	}
+	
+	public String getProcessorRegion() {
+		return processorRegion;
+	}
+	
+	public String getProcessorInstanceId() {
+		return processorInstanceId;
 	}
 
 	public List<Account> getAccounts() {
@@ -68,8 +84,8 @@ public class WorkBucketDataConfig {
 		return zones;
 	}
 
-	public List<String> getUserTags() {
-		return userTags;
+	public List<UserTagKey> getUserTagKeys() {
+		return userTagKeys == null ? Lists.<UserTagKey>newArrayList() : userTagKeys;
 	}
 
 	public TagCoverage getTagCoverage() {

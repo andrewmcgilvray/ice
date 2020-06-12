@@ -111,7 +111,7 @@ public class Operand {
 		userTagFilters = Maps.newHashMap();
 		userTagFilterIndeces = Maps.newHashMap();
 		if (opConfig.getUserTags() != null) {
-			List<String> customTags = resourceService.getUserTags();
+			List<String> customTags = resourceService.getCustomTags();
 			for (String key: opConfig.getUserTags().keySet()) {
 				if (!customTags.contains(key))
 					throw new Exception("Invalid user tag key name: \"" + key + "\"");
@@ -223,7 +223,7 @@ public class Operand {
 			else {
 				List<UserTag> userTags = Lists.newArrayListWithCapacity(numUserTags);
 				for (int i = 0; i < numUserTags; i++)
-					userTags.add(atg == null ? null : atg.getUserTag(i));
+					userTags.add(atg == null ? UserTag.empty : atg.getUserTag(i));
 				if (userTagFilters.size() > 0) {
 					for (String key: userTagFilters.keySet()) {
 						int i = userTagFilterIndeces.get(key);

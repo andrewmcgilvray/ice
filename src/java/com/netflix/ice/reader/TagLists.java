@@ -179,9 +179,6 @@ public class TagLists {
             case UsageType:
                 result = usageTypes == null || usageTypes.size() == 0 || usageTypes.contains(tag);
                 break;
-            case ResourceGroup:
-                result = resourceGroups == null || resourceGroups.size() == 0 || resourceGroups.contains(tag);
-                break;
             default:
             	result = false;
             	break;
@@ -210,9 +207,6 @@ public class TagLists {
                 break;
             case UsageType:
                 result = new TagLists(this.accounts, this.regions, this.zones, this.products, this.operations, Lists.newArrayList((UsageType)tag), this.resourceGroups);
-                break;
-            case ResourceGroup:
-                result = new TagLists(this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, Lists.newArrayList((ResourceGroup)tag));
                 break;
             default:
             	result = null;

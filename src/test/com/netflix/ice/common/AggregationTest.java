@@ -30,6 +30,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.Zone.BadZone;
 
@@ -47,14 +48,16 @@ public class AggregationTest {
 		Double value = 1.0;
 		for (String counts: permutations) {
 			try {
-				data.put(TagGroup.getTagGroup(
-						"acct" + counts.charAt(0), 
-						"us-east-1", 
-						"us-east-1a", 
-						"prod" + counts.charAt(1), 
-						"op" + counts.charAt(2), 
-						"ut" + counts.charAt(3), "",
-						"grp" + counts.charAt(4), as, ps), value);
+					data.put(TagGroup.getTagGroup(
+							"acct" + counts.charAt(0), 
+							"us-east-1", 
+							"us-east-1a", 
+							"prod" + counts.charAt(1), 
+							"op" + counts.charAt(2), 
+							"ut" + counts.charAt(3), "",
+							new String[]{"grp" + counts.charAt(4)}, as, ps), value);
+			} catch (ResourceException e) {
+				e.printStackTrace();
 			} catch (BadZone e) {
 				e.printStackTrace();
 			}

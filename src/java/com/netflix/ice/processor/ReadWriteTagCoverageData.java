@@ -27,7 +27,6 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.TagGroup;
 
 public class ReadWriteTagCoverageData extends ReadWriteGenericData<TagCoverageMetrics> {
-	private final int numUserTags;
 	
     static public Map<TagGroup, TagCoverageMetrics> getCreateData(List<Map<TagGroup, TagCoverageMetrics>> data, int i) {
         if (i >= data.size()) {
@@ -39,8 +38,7 @@ public class ReadWriteTagCoverageData extends ReadWriteGenericData<TagCoverageMe
     }
     
 	public ReadWriteTagCoverageData(int numUserTags) {
-		super();
-		this.numUserTags = numUserTags;
+		super(numUserTags);
 	}
 
 	@Override

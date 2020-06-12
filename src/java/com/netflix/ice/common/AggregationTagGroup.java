@@ -24,6 +24,7 @@ import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
@@ -82,17 +83,22 @@ public class AggregationTagGroup {
 		String[] tags = new String[numUserTags];
 		for (int i = 0; i < numUserTags; i++) {
 			int tagIndex = userTagIndeces.indexOf(i);
-			tags[i] = tagIndex < 0 ? null : userTags.get(tagIndex).name;
+			tags[i] = tagIndex < 0 ? "" : userTags.get(tagIndex).name;
 		}
-		return ResourceGroup.getResourceGroup(tags);
+		try {
+			// We never use null entries, so should never throw
+			return ResourceGroup.getResourceGroup(tags);
+		} catch (ResourceException e) {
+		}
+		return null;
 	}
 	
 	public UserTag getUserTag(Integer index) {
 		if (userTagIndeces == null || userTags == null)
-			return null;
+			return UserTag.empty;
 		
 		int i = userTagIndeces.indexOf(index);
-		return i < 0 ? null : userTags.get(i);
+		return i < 0 ? UserTag.empty : userTags.get(i);
 	}
 	
     public boolean groupBy(TagType tagType) {

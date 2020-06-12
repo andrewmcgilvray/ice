@@ -26,24 +26,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.AccountService;
+import com.netflix.ice.common.DataVersion;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Zone.BadZone;
 
-public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer {
+public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer, DataVersion {
+    protected Logger logger = LoggerFactory.getLogger(getClass());
+
     protected List<Map<TagGroup, T>> data;
     // Cached set of tagGroup keys used throughout the list of data maps.
     // Post processing for reservations, savings plans, savings data, post processor, and data writing
     // all need an aggregated set of tagGroups and it's very expensive to walk the maps calling addAll().
     protected Set<TagGroup> tagGroups;
 
+    // number of user tags in the resourceGroups. Set to -1 when constructed for deserialization.
+    // will be initialized when read in.
+    protected int numUserTags;
+
 	public ReadWriteGenericData() {
         data = Lists.newArrayList();
         tagGroups = Sets.newHashSet();
+		this.numUserTags = -1;
+	}
+
+	public ReadWriteGenericData(int numUserTags) {
+        data = Lists.newArrayList();
+        tagGroups = Sets.newHashSet();
+		this.numUserTags = numUserTags;
     }
 
     public int getNum() {
@@ -58,7 +75,7 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     public Map<TagGroup, T> getData(int i) {
         return Collections.unmodifiableMap(getCreateData(i));
     }
-    
+
     public T get(int i, TagGroup tagGroup) {
     	return getData(i).get(tagGroup);
     }
@@ -90,7 +107,7 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     		if (!found)
     			tagGroups.remove(tagGroup);
     	}
-    	
+
     	return existing;
     }
 
@@ -128,9 +145,9 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
             tagGroups.addAll(newData.get(i).keySet());
         }
     }
-    
+
     abstract protected T add(T a, T b);
-    
+
     /**
      * Merge all the data from the source into the existing destination.
      */
@@ -166,35 +183,46 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
 
     /**
      * Gets the aggregated set of TagGroups across all time intervals in the list of maps.
-     * 
+     *
      * @return a set of TagGroups
      */
     public Collection<TagGroup> getTagGroups() {
         return tagGroups;
     }
-    
+
     /**
      * Gets the tagGroup key set for the given hour
      */
     public Collection<TagGroup> getTagGroups(int i) {
     	return getData(i).keySet();
     }
-    
+
     /**
      * Serialize data using standard Java serialization DataOutput methods in the following order:<br/>
-     * 
-     * 1. TagGroup count (int)<br/>
-     * 2. TagGroup Array<br/>
-     * 3. Number of hours/days/weeks/months of data (int)<br/>
-     * 4. Data matrix:<br/>
-     * 		4a. Data present for TagGroup flag (boolean)<br/>
-     * 		4b. Data array for TagGroup (if flag is true)<br/>
+     *
+     * 1. Version (int)<br/>
+     * 2. Number of user tags (int)<br/>
+     * 3. TagGroup count (int)<br/>
+     * 4. TagGroup Array<br/>
+     * 5. Number of hours/days/weeks/months of data (int)<br/>
+     * 6. Data matrix:<br/>
+     * 		6a. Data present for TagGroup flag (boolean)<br/>
+     * 		6b. Data array for TagGroup (if flag is true)<br/>
      */
     public void serialize(DataOutput out, TagGroupFilter filter) throws IOException {
         Collection<TagGroup> keys = getTagGroups();
+
+    	if (numUserTags == -1 && keys.size() > 0) {
+     		logger.warn("Error attempting to serialize data without setting the number of user tags. Pulling value from one of the tag groups");
+       		TagGroup first = keys.iterator().next();
+       		numUserTags = first.resourceGroup == null ? 0 : first.resourceGroup.getUserTags().length;
+    	}
+
         if (filter != null)
         	keys = filter.getTagGroups(keys);
-        
+
+        out.writeInt(CUR_WORK_BUCKET_VERSION);
+        out.writeInt(numUserTags);
         out.writeInt(keys.size());
         for (TagGroup tagGroup: keys) {
             TagGroup.Serializer.serialize(out, tagGroup);
@@ -215,11 +243,16 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     abstract protected void writeValue(DataOutput out, T value) throws IOException;
 
     public void deserialize(AccountService accountService, ProductService productService, DataInput in) throws IOException, BadZone {
-
+    	int version = in.readInt();
+    	// Verify that the file version matches
+    	if (version != CUR_WORK_BUCKET_VERSION) {
+    		throw new IOException("Wrong file version, expected " + CUR_WORK_BUCKET_VERSION + ", got " + version);
+    	}
+        numUserTags = in.readInt();
         int numKeys = in.readInt();
         List<TagGroup> keys = Lists.newArrayList();
         for (int j = 0; j < numKeys; j++) {
-        	TagGroup tg = TagGroup.Serializer.deserialize(accountService, productService, in);
+        	TagGroup tg = TagGroup.Serializer.deserialize(accountService, productService, numUserTags, in);
             keys.add(tg);
         	tagGroups.add(tg);
         }
@@ -239,9 +272,9 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
             }
             data.add(map);
         }
-        
+
         this.data = data;
     }
-        
-    abstract protected T readValue(DataInput in) throws IOException;        
+
+    abstract protected T readValue(DataInput in) throws IOException;
 }

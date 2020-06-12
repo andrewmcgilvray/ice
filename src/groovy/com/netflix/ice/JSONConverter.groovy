@@ -21,6 +21,7 @@ import grails.converters.JSON
 import com.netflix.ice.tag.Account
 import com.netflix.ice.tag.Product
 import com.netflix.ice.tag.Tag
+import com.netflix.ice.tag.UserTagKey
 
 class JSONConverter {
 
@@ -36,5 +37,9 @@ class JSONConverter {
 		JSON.registerObjectMarshaller(Product) { Product it ->
 			return [name: it.getIceName()]
 		}
-    }
+		
+ 		JSON.registerObjectMarshaller(UserTagKey) { UserTagKey it ->
+			return [name: it.name, aliases: it.aliases]
+		}
+   }
 }

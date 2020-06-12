@@ -60,8 +60,8 @@ public class ReadOnlyData extends ReadOnlyGenericData<Double> {
 	}
 	
 	@Override
-    public void deserialize(AccountService accountService, ProductService productService, int numUserTags, DataInput in, boolean forReservations) throws IOException, BadZone {
-    	super.deserialize(accountService, productService, numUserTags, in, !forReservations);
+    public void deserialize(AccountService accountService, ProductService productService, DataInput in, boolean forReservations) throws IOException, BadZone {
+    	super.deserialize(accountService, productService, in, !forReservations);
     	
     	if (forReservations) {
     		//Strip out all data that isn't for a reservation or savings plan operation

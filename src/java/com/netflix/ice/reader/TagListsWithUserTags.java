@@ -40,7 +40,6 @@ public class TagListsWithUserTags extends TagLists {
 	 * Broken-out lists of tags for resource groups
 	 */
     public final List<List<UserTag>> resourceUserTagLists;
-    static public final UserTag emptyTag = UserTag.get("");
 
 	public TagListsWithUserTags(List<Account> accounts, List<Region> regions,
 			List<Zone> zones, List<Product> products,
@@ -76,7 +75,7 @@ public class TagListsWithUserTags extends TagLists {
     	        for (int i = 0; i < resourceUserTagLists.size(); i++) {
     	        	List<UserTag> resourceTags = resourceUserTagLists.get(i);
     	            if (resourceTags != null && resourceTags.size() > 0) {
-    	            	if (!resourceUserTagLists.get(i).contains(emptyTag))
+    	            	if (!resourceUserTagLists.get(i).contains(UserTag.empty))
     	            		return false;
     	            }
     	        }        		
@@ -88,7 +87,7 @@ public class TagListsWithUserTags extends TagLists {
 	        for (int i = 0; i < resourceUserTagLists.size(); i++) {
 	        	List<UserTag> resourceTags = resourceUserTagLists.get(i);
 	            if (resourceTags != null && resourceTags.size() > 0) {
-	                if (!resourceTags.contains(userTags.length > i ? userTags[i] : emptyTag))
+	                if (!resourceTags.contains(userTags.length > i ? userTags[i] : UserTag.empty))
 	                	return false;
 	            }
 	        }
@@ -112,7 +111,7 @@ public class TagListsWithUserTags extends TagLists {
 	        boolean result = true;
         	List<UserTag> resourceTags = resourceUserTagLists.get(userTagGroupByIndex);
             if (resourceTags != null && resourceTags.size() > 0) {
-            	result = resourceTags.contains(tag.name.isEmpty() ? emptyTag : tag);
+            	result = resourceTags.contains(tag.name.isEmpty() ? UserTag.empty : tag);
             }
 	        
         	return result;

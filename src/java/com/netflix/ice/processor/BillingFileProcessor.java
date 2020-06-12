@@ -23,6 +23,7 @@ import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicReservationService;
 import com.netflix.ice.common.*;
@@ -35,6 +36,7 @@ import com.netflix.ice.tag.Operation.ReservationOperation;
 import com.netflix.ice.tag.Product;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
@@ -118,157 +120,187 @@ public class BillingFileProcessor extends Poller {
         	reportsToProcess.putAll(cauProcessor.getReportsToProcess());        
         
         for (DateTime dataTime: reportsToProcess.keySet()) {
-            startMilli = endMilli = dataTime.getMillis();
-            init(startMilli);
-            
-            long lastProcessed = lastProcessTime(AwsUtils.monthDateFormat.print(dataTime));
-            long processTime = new DateTime(DateTimeZone.UTC).getMillis();
+        	StopWatch sw = new StopWatch();
+        	sw.start();
+        	
+        	try {
+        		wroteConfig = processMonth(dataTime, reportsToProcess.get(dataTime), reportsToProcess.lastKey());
+        	}
+        	catch (Exception e) {
+        		logger.error("Error processing report for month " + dataTime + ", " + e);
+        		e.printStackTrace();
+        		continue;
+        	}
+        	
+        	sw.stop();
+        	logger.info("Process time for month " + dataTime + ": " + sw);
+	    }
+	    if (!wroteConfig) {
+	    	// No reports to process. We still want to update the work bucket config in case
+	    	// changes were made to the account configurations.
+	        config.saveWorkBucketDataConfig();        	
+	    }
 
-            boolean hasTags = false;
-            boolean hasNewFiles = false;
-            for (MonthlyReport report: reportsToProcess.get(dataTime)) {
-            	hasTags |= report.hasTags();
-            	
-                if (report.getLastModifiedMillis() < lastProcessed) {
-                    logger.info("data has been processed. ignoring " + report.getReportKey() + "...");
-                    continue;
-                }
-                hasNewFiles = true;
-            }
-            
-            if (!hasNewFiles) {
-                logger.info("data has been processed. ignoring all files at " + AwsUtils.monthDateFormat.print(dataTime));
+	    logger.info("AWS usage processed.");
+    }
+    
+    private boolean processMonth(DateTime month, List<MonthlyReport> reports, DateTime latestMonth) throws Exception {
+        startMilli = endMilli = month.getMillis();
+        init(startMilli);
+        
+        ProcessorStatus ps = getProcessorStatus(AwsUtils.monthDateFormat.print(month));
+
+        long lastProcessed = ps == null || ps.reprocess ? 0 : new DateTime(ps.getLastProcessed(), DateTimeZone.UTC).getMillis();
+        DateTime processTime = new DateTime(DateTimeZone.UTC);
+
+        boolean hasTags = false;
+        boolean hasNewFiles = false;
+        for (MonthlyReport report: reports) {
+        	hasTags |= report.hasTags();
+        	
+            if (report.getLastModifiedMillis() < lastProcessed) {
+                logger.info("data has been processed. ignoring " + report.getReportKey() + "...");
                 continue;
             }
-            
-            for (MonthlyReport report: reportsToProcess.get(dataTime)) {
-            	long end = report.getProcessor().downloadAndProcessReport(dataTime, report, workBucketConfig.localDir, lastProcessed, costAndUsageData, instances);
-                endMilli = Math.max(endMilli, end);
-            }
-        	
-            if (dataTime.equals(reportsToProcess.lastKey())) {
-                int hours = (int) ((endMilli - startMilli)/3600000L);
-    	        String start = LineItem.amazonBillingDateFormat.print(new DateTime(startMilli));
-    	        String end = LineItem.amazonBillingDateFormat.print(new DateTime(endMilli));
+            hasNewFiles = true;
+        }
+        
+        if (!hasNewFiles) {
+            logger.info("data has been processed. ignoring all files at " + AwsUtils.monthDateFormat.print(month));
+            return false;
+        }
+        
+        for (MonthlyReport report: reports) {
+        	long end = report.getProcessor().downloadAndProcessReport(month, report, workBucketConfig.localDir, lastProcessed, costAndUsageData, instances);
+            endMilli = Math.max(endMilli, end);
+        }
+    	
+        if (month.equals(latestMonth)) {
+            int hours = (int) ((endMilli - startMilli)/3600000L);
+	        String start = LineItem.amazonBillingDateFormat.print(new DateTime(startMilli));
+	        String end = LineItem.amazonBillingDateFormat.print(new DateTime(endMilli));
 
-                logger.info("cut hours to " + hours + ", " + start + " to " + end);
-                costAndUsageData.cutData(hours);
-            }
-            
-            
-            
-            /***** Debugging */
+            logger.info("cut hours to " + hours + ", " + start + " to " + end);
+            costAndUsageData.cutData(hours);
+        }
+        
+        
+        
+        /***** Debugging */
 //            ReadWriteData costData = costDataByProduct.get(null);
 //            Map<TagGroup, Double> costMap = costData.getData(0);
 //            TagGroup redshiftHeavyTagGroup = new TagGroup(config.accountService.getAccountByName("IntegralReach"), Region.US_EAST_1, null, Product.redshift, Operation.reservedInstancesHeavy, UsageType.getUsageType("dc1.8xlarge", Operation.reservedInstancesHeavy, ""), null);
 //            Double used = costMap.get(redshiftHeavyTagGroup);
 //            logger.info("First hour cost is " + used + " for " + redshiftHeavyTagGroup + " before reservation processing");
-            
-            // now get reservation capacity to calculate upfront and un-used cost
-            
-            // Get the reservation processor from the first report
-            ReservationProcessor reservationProcessor = reportsToProcess.get(dataTime).get(0).getProcessor().getReservationProcessor();
-            ReservationService reservationService = config.reservationService;
-            if (costAndUsageData.hasReservations()) {
-            	// Use the reservations pulled from the CUR rather than those pulled by the capacity poller from the individual accounts.
-            	logger.info("Process " + costAndUsageData.getReservations().size() + " reservations pulled from the CUR");
-            	reservationService = new BasicReservationService(costAndUsageData.getReservations());
-            }
-            else {
-            	logger.info("Process reservations pulled from the accounts");
-            }
-            SavingsPlanProcessor savingsPlanProcessor = new SavingsPlanProcessor(costAndUsageData, config.accountService);
+        
+        // now get reservation capacity to calculate upfront and un-used cost
+        
+        // Get the reservation processor from the first report
+        ReservationProcessor reservationProcessor = reports.get(0).getProcessor().getReservationProcessor();
+        ReservationService reservationService = config.reservationService;
+        if (costAndUsageData.hasReservations()) {
+        	// Use the reservations pulled from the CUR rather than those pulled by the capacity poller from the individual accounts.
+        	logger.info("Process " + costAndUsageData.getReservations().size() + " reservations pulled from the CUR");
+        	reservationService = new BasicReservationService(costAndUsageData.getReservations());
+        }
+        else {
+        	logger.info("Process reservations pulled from the accounts");
+        }
+        SavingsPlanProcessor savingsPlanProcessor = new SavingsPlanProcessor(costAndUsageData, config.accountService);
 
-    		// Initialize the price lists
-        	Map<Product, InstancePrices> prices = Maps.newHashMap();
-        	for (ServiceCode sc: ServiceCode.values()) {
-        		// EC2 and RDS Instances are broken out into separate products, so need to grab those
-        		Product prod = null;
-        		switch (sc) {
-        		case AmazonEC2:
-            		prod = config.productService.getProduct(Product.Code.Ec2Instance);
-            		break;
-        		case AmazonRDS:
-        			prod = config.productService.getProduct(Product.Code.RdsInstance);
-        			break;
-        		default:
-        			prod = config.productService.getProductByServiceCode(sc.name());
-        			break;
+		// Initialize the price lists
+    	Map<Product, InstancePrices> prices = Maps.newHashMap();
+    	for (ServiceCode sc: ServiceCode.values()) {
+    		// EC2 and RDS Instances are broken out into separate products, so need to grab those
+    		Product prod = null;
+    		switch (sc) {
+    		case AmazonEC2:
+        		prod = config.productService.getProduct(Product.Code.Ec2Instance);
+        		break;
+    		case AmazonRDS:
+    			prod = config.productService.getProduct(Product.Code.RdsInstance);
+    			break;
+    		default:
+    			prod = config.productService.getProductByServiceCode(sc.name());
+    			break;
+    		}
+    		
+        	if (reservationService.hasReservations(prod)) {
+        		if (!costAndUsageData.hasReservations()) {
+        			// Using reservation data pulled from accounts. Need to also have pricing data
+        			prices.put(prod, config.priceListService.getPrices(month, sc));
         		}
-        		
-            	if (reservationService.hasReservations(prod)) {
-            		if (!costAndUsageData.hasReservations()) {
-            			// Using reservation data pulled from accounts. Need to also have pricing data
-            			prices.put(prod, config.priceListService.getPrices(dataTime, sc));
-            		}
-                	reservationProcessor.process(reservationService, costAndUsageData, prod, dataTime, prices);
-            	}
-            	savingsPlanProcessor.process(prod);
+            	reservationProcessor.process(reservationService, costAndUsageData, prod, month, prices);
         	}
-        	// Process SPs for Lambda
-        	Product lambda = config.productService.getProduct(Product.Code.Lambda);
-        	if (costAndUsageData.getCost(lambda) != null)
-        		savingsPlanProcessor.process(lambda);
-        	
-        	// Process non-resource version of data for RIs and SPs
-        	reservationProcessor.process(reservationService, costAndUsageData, null, dataTime, prices);
-        	savingsPlanProcessor.process(null);
-        	            
-            logger.info("adding savings data for " + dataTime + "...");
-            addSavingsData(dataTime, costAndUsageData, null, config.priceListService.getPrices(dataTime, ServiceCode.AmazonEC2));
-            addSavingsData(dataTime, costAndUsageData, config.productService.getProduct(Product.Code.Ec2Instance), config.priceListService.getPrices(dataTime, ServiceCode.AmazonEC2));
-            
-            try {
-	            KubernetesProcessor kubernetesProcessor = new KubernetesProcessor(config, dataTime);
-	            kubernetesProcessor.downloadAndProcessReports(costAndUsageData);
-            }
-            catch (Exception e) {
-            	logger.error("Error processing Kubernetes report" + e);
-            	e.printStackTrace();
-            }
-            
-            // Run the post processor
-            try {
-	            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.accountService, config.productService, config.resourceService);
-	            pp.process(costAndUsageData);
-            }
-            catch (Exception e) {
-            	logger.error("Error post processing reports" + e);
-            	e.printStackTrace();
-            }
-
-            if (hasTags && config.resourceService != null)
-                config.resourceService.commit();
-            
-            logger.info("archive product list...");
-            config.productService.archive(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
-
-            logger.info("archiving results for " + dataTime + (config.hourlyData ? " with" : " without") + " hourly data...");
-            costAndUsageData.archive(config.startDate, config.jsonFiles, config.priceListService.getInstanceMetrics(), config.priceListService, config.numthreads, config.hourlyData);
-            
-            logger.info("archiving instance data...");
-            archiveInstances();
-            
-            logger.info("done archiving " + dataTime);
-            
-            // Write out a new config each time we process a report. We may have added accounts or zones while processing.
-            config.saveWorkBucketDataConfig();
-            wroteConfig = true;
-
-            updateProcessTime(AwsUtils.monthDateFormat.print(dataTime), processTime);
+        	savingsPlanProcessor.process(prod);
+    	}
+    	// Process SPs for Lambda
+    	Product lambda = config.productService.getProduct(Product.Code.Lambda);
+    	if (costAndUsageData.getCost(lambda) != null)
+    		savingsPlanProcessor.process(lambda);
+    	
+    	// Process non-resource version of data for RIs and SPs
+    	reservationProcessor.process(reservationService, costAndUsageData, null, month, prices);
+    	savingsPlanProcessor.process(null);
+    	            
+        logger.info("adding savings data for " + month + "...");
+        addSavingsData(month, costAndUsageData, null, config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
+        addSavingsData(month, costAndUsageData, config.productService.getProduct(Product.Code.Ec2Instance), config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
+        
+        try {
+            KubernetesProcessor kubernetesProcessor = new KubernetesProcessor(config, month);
+            kubernetesProcessor.downloadAndProcessReports(costAndUsageData);
         }
-        if (!wroteConfig) {
-        	// No reports to process. We still want to update the work bucket config in case
-        	// changes were made to the account configurations.
-            config.saveWorkBucketDataConfig();        	
+        catch (Exception e) {
+        	logger.error("Error processing Kubernetes report" + e);
+        	e.printStackTrace();
+        }
+        
+        // Run the post processor
+        try {
+            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.accountService, config.productService, config.resourceService);
+            pp.process(costAndUsageData);
+        }
+        catch (Exception e) {
+        	logger.error("Error post processing reports" + e);
+        	e.printStackTrace();
         }
 
-        logger.info("AWS usage processed.");
+        if (hasTags && config.resourceService != null)
+            config.resourceService.commit();
+        
+        logger.info("archive product list...");
+        config.productService.archive(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
+
+        logger.info("archiving results for " + month + (config.hourlyData ? " with" : " without") + " hourly data...");
+        costAndUsageData.archive(config.startDate, config.jsonFiles, config.priceListService.getInstanceMetrics(), config.priceListService, config.numthreads, config.hourlyData);
+        
+        logger.info("archiving instance data...");
+        archiveInstances();
+        
+        logger.info("done archiving " + month);
+        
+        // Write out a new config each time we process a report. We may have added accounts or zones while processing.
+        config.saveWorkBucketDataConfig();
+
+        List<ProcessorStatus.Report> statusReports = Lists.newArrayList();
+        for (MonthlyReport report: reports) {
+        	String accountId = report.getBillingBucket().accountId;
+        	String accountName = config.accountService.getAccountById(accountId).getIceName();
+        	statusReports.add(new ProcessorStatus.Report(accountName, accountId, report.getReportKey(), new DateTime(report.getLastModifiedMillis(), DateTimeZone.UTC).toString()));
+        }
+        String monthStr = AwsUtils.monthDateFormat.print(month);
+        saveProcessorStatus(monthStr, new ProcessorStatus(monthStr, statusReports, processTime.toString()));
+        
+        return true;
     }
     
     private void addSavingsData(DateTime month, CostAndUsageData data, Product product, InstancePrices ec2Prices) throws Exception {
     	ReadWriteData usageData = data.getUsage(product);
     	ReadWriteData costData = data.getCost(product);
+    	
+    	if (usageData == null || costData == null)
+    		return;
     	
     	double edpDiscount = config.getDiscount(startMilli);
         
@@ -295,7 +327,7 @@ public class BillingFileProcessor extends Poller {
     
 
     void init(long startMilli) {
-    	costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTags(),
+    	costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(),
     			config.getTagCoverage(), config.accountService, config.productService);
         instances = new Instances(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
     }
@@ -304,21 +336,14 @@ public class BillingFileProcessor extends Poller {
         instances.archive(startMilli); 	
     }
 
-    private void updateLastMillis(long millis, String filename) {
-        AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
-        String millisStr = millis + "";
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentLength(millisStr.length());
-
-        s3Client.putObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename, IOUtils.toInputStream(millisStr, StandardCharsets.UTF_8), metadata);
-    }
-
-    private Long getLastMillis(String filename) {
+    private ProcessorStatus getProcessorStatus(String timeStr) {
+    	String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
+    	
         AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
         InputStream in = null;
         try {
             in = s3Client.getObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename).getObjectContent();
-            return Long.parseLong(IOUtils.toString(in, StandardCharsets.UTF_8));
+            return new ProcessorStatus(IOUtils.toString(in, StandardCharsets.UTF_8));
         }
         catch (AmazonServiceException ase) {
         	if (ase.getStatusCode() == 404) {
@@ -327,11 +352,11 @@ public class BillingFileProcessor extends Poller {
         	else {
                 logger.error("Error reading from file " + filename, ase);
         	}
-            return 0L;
+            return null;
         }
         catch (Exception e) {
             logger.error("Error reading from file " + filename, e);
-            return 0L;
+            return null;
         }
         finally {
             if (in != null)
@@ -339,12 +364,15 @@ public class BillingFileProcessor extends Poller {
         }
     }
 
-    private Long lastProcessTime(String timeStr) {
-        return getLastMillis("lastProcessMillis_" + timeStr);
-    }
+    private void saveProcessorStatus(String timeStr, ProcessorStatus status) {
+    	String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
+    	
+        AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
+        String statusStr = status.toJSON();
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(statusStr.length());
 
-    private void updateProcessTime(String timeStr, long millis) {
-        updateLastMillis(millis, "lastProcessMillis_" + timeStr);
+        s3Client.putObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename, IOUtils.toInputStream(statusStr, StandardCharsets.UTF_8), metadata);
     }
 }
 

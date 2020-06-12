@@ -19,43 +19,53 @@ package com.netflix.ice.tag;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
 import org.junit.Test;
+
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 
 public class ResourceGroupTest {
 
 	@Test
-	public void testGetResourceGroup() {
-		ResourceGroup rg = ResourceGroup.getResourceGroup("foo");
-		assertEquals("single name incorrect", "foo", rg.name);		
-	
-		rg = ResourceGroup.getResourceGroup("|foo");
-		assertEquals("group with only second tag name incorrect", "|foo", rg.name);		
-	}
-
-	@Test
-	public void testGetResourceGroupArray() {
+	public void testGetResourceGroup() throws ResourceException {
 		ResourceGroup rg = ResourceGroup.getResourceGroup(new String[]{"foo"});
-		assertEquals("single name incorrect", "foo", rg.name);		
+		assertEquals("single name incorrect", "foo", rg.getUserTags()[0].name);		
 	
 		rg = ResourceGroup.getResourceGroup(new String[]{"", "foo"});
-		assertEquals("group with empty first tag incorrect", "|foo", rg.name);
-		
+		UserTag[] userTags = rg.getUserTags();
+		assertEquals("group with only second tag name incorrect(0)", "", userTags[0].name);		
+		assertEquals("group with only second tag name incorrect(1)", "foo", userTags[1].name);
+
 		rg = ResourceGroup.getResourceGroup(new String[]{null, "foo"});
-		assertEquals("group with null first tag incorrect", "|foo", rg.name);		
+		userTags = rg.getUserTags();
+		assertEquals("group with only second tag name incorrect(0)", "", userTags[0].name);		
+		assertEquals("group with only second tag name incorrect(1)", "foo", userTags[1].name);
+
+		rg = ResourceGroup.getResourceGroup((String[]) null);
+		assertNull("should be null", rg);
 	}
 	
 	@Test
-	public void testTagValueWithSeparator() {
-		String[] tags = new String[]{"foo", "has|separator", "bar"};
-		ResourceGroup rg = new ResourceGroup(tags);
-		String[] got = new String[tags.length];
-		String[] expect = new String[tags.length];
-		UserTag[] ut = rg.getUserTags();
-		for (int i = 0; i < ut.length; i++) {
-			expect[i] = tags[i].replace(ResourceGroup.separator, ResourceGroup.separatorReplacement);
-			got[i] = ut[i].name;
-		}
-			
-		assertArrayEquals("incorrect user tags", expect, got);
+	public void testSerialization() throws IOException, ResourceException {
+		ResourceGroup rg = ResourceGroup.getResourceGroup(new String[]{"foo", null, "bar", null, null});
+		
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        DataOutput out = new DataOutputStream(output);
+		
+		ResourceGroup.serialize(out, rg);
+		
+		ByteArrayInputStream input = new ByteArrayInputStream(output.toByteArray());
+		DataInput in = new DataInputStream(input);
+		ResourceGroup rg1 = ResourceGroup.deserialize(in, rg.getUserTags().length);
+
+		assertEquals("wrong number of tags", rg.getUserTags().length, rg1.getUserTags().length);
+		assertEquals("resource group doesn't match after serialize/deserialize", rg, rg1);
 	}
 }

@@ -38,6 +38,7 @@ import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UserTag;
 
 public class KubernetesProcessor {
@@ -173,7 +174,15 @@ public class KubernetesProcessor {
 			if (tagger != null)
 				tagger.tag(report, item, userTags);
 			
-			TagGroup allocated = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(userTags));
+			ResourceGroup rg = null;
+			try {
+				rg = ResourceGroup.getResourceGroup(userTags);
+			} catch (ResourceException e) {
+				// should never throw because no user tags are null
+				logger.error("error creating resource group from user tags: " + e);
+			}
+			
+			TagGroup allocated = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, rg);
 			
 			costData.put(hour, allocated,  allocatedCost);
 			
@@ -183,7 +192,14 @@ public class KubernetesProcessor {
 		// Put the remaining cost on the original tagGroup with namespace set to "unused"
 		UserTag[] userTags = tg.resourceGroup.getUserTags().clone();
 		userTags[namespaceIndex] = UserTag.get("unused");
-		TagGroup unused = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(userTags));
+		ResourceGroup rg = null;
+		try {
+			rg = ResourceGroup.getResourceGroup(userTags);
+		} catch (ResourceException e) {
+			// should never throw because no user tags are null
+			logger.error("error creating resource group from user tags: " + e);
+		}
+		TagGroup unused = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, rg);
 		costData.remove(hour, tg);
 		costData.put(hour, unused, unusedCost);
 	}

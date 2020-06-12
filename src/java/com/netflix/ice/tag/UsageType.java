@@ -20,12 +20,13 @@ package com.netflix.ice.tag;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+
 //import org.slf4j.Logger;
 //import org.slf4j.LoggerFactory;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
@@ -46,11 +47,11 @@ public class UsageType extends Tag {
         out.writeUTF(usageType.unit);
     }
 
-    public static void serializeCsvHeader(OutputStreamWriter out) throws IOException {
+    public static void serializeCsvHeader(Writer out) throws IOException {
     	out.write("usageType,usageUnits");
     }
     
-    public static void serializeCsv(OutputStreamWriter out, UsageType usageType) throws IOException {
+    public static void serializeCsv(Writer out, UsageType usageType) throws IOException {
         out.write(usageType.name + ",");
         out.write(usageType.unit);
     }

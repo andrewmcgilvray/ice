@@ -43,7 +43,7 @@ import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
-import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 
 public class TagCoverageDataManagerTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -59,11 +59,11 @@ public class TagCoverageDataManagerTest {
 	    }
 	    
 		@Override
-		protected List<String> getUserTags() {
-			List<String> tags = Lists.newArrayList();
-			tags.add("Email");
-			tags.add("Department");
-			tags.add("Product");
+		protected List<UserTagKey> getUserTagKeys() {
+			List<UserTagKey> tags = Lists.newArrayList();
+			tags.add(UserTagKey.get("Email"));
+			tags.add(UserTagKey.get("Department"));
+			tags.add(UserTagKey.get("Product"));
 			return tags;
 		}
 
@@ -75,7 +75,7 @@ public class TagCoverageDataManagerTest {
 		
 		Map<Tag, TagCoverageMetrics[]> data = Maps.newHashMap();
 		
-		TagCoverageMetrics metrics = new TagCoverageMetrics(manager.getUserTags().size());
+		TagCoverageMetrics metrics = new TagCoverageMetrics(manager.getUserTagKeys().size());
 		                                            /* EMAIL, DEPARTMENT, PRODUCT */
 		TagCoverageMetrics.add(metrics, new boolean[]{ true, true, false });
 		TagCoverageMetrics.add(metrics, new boolean[]{ true, false, false });
@@ -84,17 +84,17 @@ public class TagCoverageDataManagerTest {
 		
 		
 		// insert tags in reverse order of that returned by getUserTags()
-		List<UserTag> tagKeys = Lists.newArrayList();
-		tagKeys.add(UserTag.get("Product"));
-		tagKeys.add(UserTag.get("Email"));
+		List<UserTagKey> tagKeys = Lists.newArrayList();
+		tagKeys.add(UserTagKey.get("Product"));
+		tagKeys.add(UserTagKey.get("Email"));
 		
 		
 		
 		Map<Tag, double[]> result = manager.processResult(data, TagType.TagKey, AggregateType.stats, tagKeys);
 		
-		double email = result.get(UserTag.get("Email"))[0];
+		double email = result.get(UserTagKey.get("Email"))[0];
 		assertEquals("email tag percentage is wrong", 100.0, email, 0.001);
-		double product = result.get(UserTag.get("Product"))[0];
+		double product = result.get(UserTagKey.get("Product"))[0];
 		assertEquals("product tag percentage is wrong", 0.0, product, 0.001);
 		double aggregate = result.get(Tag.aggregated)[0];
 		assertEquals("aggregate percentage is wrong", 75.0, aggregate, 0.001);
@@ -106,7 +106,7 @@ public class TagCoverageDataManagerTest {
 		
 		TestDataFileCache(DateTime startDate, final String dbName, ConsolidateType consolidateType, boolean compress,
 	    		int monthlyCacheSize, AccountService accountService, ProductService productService, int size) {
-			super(startDate, dbName, consolidateType, null, compress, Lists.<String>newArrayList(), monthlyCacheSize, null, accountService, productService);
+			super(startDate, dbName, consolidateType, null, compress, Lists.<UserTagKey>newArrayList(), monthlyCacheSize, null, accountService, productService);
 			userTagSize = size;
 		}
 		
@@ -115,7 +115,7 @@ public class TagCoverageDataManagerTest {
 		}
 		
 		@Override
-		protected int getUserTagsSize() {
+		protected int getUserTagKeysSize() {
 			return userTagSize;
 		}
 	}

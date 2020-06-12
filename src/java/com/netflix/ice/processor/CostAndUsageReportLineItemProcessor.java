@@ -270,7 +270,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 		addValue(costData, hour, tg, savings);
 	}
 	
-	private void addUnusedSavingsPlanData(LineItem lineItem, TagGroup tagGroup, Product product, CostAndUsageData costAndUsageData, int hour) {
+	private void addUnusedSavingsPlanData(LineItem lineItem, TagGroup tagGroup, TagGroup resourceTagGroup, Product product, CostAndUsageData costAndUsageData, int hour) {
 		double normalizedUsage = lineItem.getSavingsPlanNormalizedUsage();
 		if (normalizedUsage >= 1.0)
 			return;
@@ -289,6 +289,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
     		TagGroup tgAmort = TagGroup.getTagGroup(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, amortOp, tagGroup.usageType, tagGroup.resourceGroup);
     		addValue(costData, hour, tgAmort, unusedAmort);
     		if (resourceService != null) {
+        		tgAmort = TagGroup.getTagGroup(resourceTagGroup.account, resourceTagGroup.region, resourceTagGroup.zone, resourceTagGroup.product, amortOp, resourceTagGroup.usageType, resourceTagGroup.resourceGroup);
     	        addValue(costAndUsageData.getCost(product), hour, tgAmort, unusedAmort);
     		}
         }
@@ -297,6 +298,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
     		TagGroup tgRecurring = TagGroup.getTagGroup(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, unusedOp, tagGroup.usageType, tagGroup.resourceGroup);
     		addValue(costData, hour, tgRecurring, unusedRecurring);
     		if (resourceService != null) {
+    			tgRecurring = TagGroup.getTagGroup(resourceTagGroup.account, resourceTagGroup.region, resourceTagGroup.zone, resourceTagGroup.product, unusedOp, resourceTagGroup.usageType, resourceTagGroup.resourceGroup);
     	        addValue(costAndUsageData.getCost(product), hour, tgRecurring, unusedRecurring);
     		}
         }
@@ -313,8 +315,8 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         
         if (resourceService != null) {
             if (usageDataOfProduct == null) {
-                usageDataOfProduct = new ReadWriteData();
-                costDataOfProduct = new ReadWriteData();
+                usageDataOfProduct = new ReadWriteData(numUserTags);
+                costDataOfProduct = new ReadWriteData(numUserTags);
                 costAndUsageData.putUsage(product, usageDataOfProduct);
                 costAndUsageData.putCost(product, costDataOfProduct);
             }
@@ -324,7 +326,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         	if (indexes.length > 1) {
         		logger.error(fileName + " SavingsPlanRecurringFee with more than one hour of data");
         	}
-        	addUnusedSavingsPlanData(lineItem, tagGroup, product, costAndUsageData, indexes[0]);
+        	addUnusedSavingsPlanData(lineItem, tagGroup, resourceTagGroup, product, costAndUsageData, indexes[0]);
         	return;
         }
         

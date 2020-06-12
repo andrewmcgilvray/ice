@@ -55,13 +55,14 @@ import com.netflix.ice.tag.FamilyTag;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 
 public class DataJsonWriter extends DataFile {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
 	private final DateTime monthDateTime;
 	protected OutputStreamWriter writer;
-	private List<String> tagNames;
+	private List<UserTagKey> tagKeys;
 	private JsonFileType fileType;
     private final Map<Product, ReadWriteData> costDataByProduct;
     private final Map<Product, ReadWriteData> usageDataByProduct;
@@ -70,14 +71,14 @@ public class DataJsonWriter extends DataFile {
     protected InstancePrices ec2Prices;
     protected InstancePrices rdsPrices;
     
-	public DataJsonWriter(String name, DateTime monthDateTime, List<String> tagNames, JsonFileType fileType,
+	public DataJsonWriter(String name, DateTime monthDateTime, List<UserTagKey> tagKeys, JsonFileType fileType,
 			Map<Product, ReadWriteData> costDataByProduct,
 			Map<Product, ReadWriteData> usageDataByProduct,
 			InstanceMetrics instanceMetrics, PriceListService priceListService, WorkBucketConfig workBucketConfig)
 			throws Exception {
 		super(name, workBucketConfig);
 		this.monthDateTime = monthDateTime;
-		this.tagNames = tagNames;
+		this.tagKeys = tagKeys;
 		this.fileType = fileType;
 		this.costDataByProduct = costDataByProduct;
 		this.usageDataByProduct = usageDataByProduct;
@@ -89,12 +90,12 @@ public class DataJsonWriter extends DataFile {
 	}
 	
 	// For unit testing
-	protected DataJsonWriter(DateTime monthDateTime, List<String> tagNames,
+	protected DataJsonWriter(DateTime monthDateTime, List<UserTagKey> tagKeys,
 			Map<Product, ReadWriteData> costDataByProduct,
 			Map<Product, ReadWriteData> usageDataByProduct) {
 		super();
 		this.monthDateTime = monthDateTime;
-		this.tagNames = tagNames;
+		this.tagKeys = tagKeys;
 		this.costDataByProduct = costDataByProduct;
 		this.usageDataByProduct = usageDataByProduct;
 	}
@@ -207,7 +208,7 @@ public class DataJsonWriter extends DataFile {
 			for (int i = 0; i < userTags.length; i++) {
 				if (userTags[i] == null || userTags[i].name.isEmpty())
 					continue;
-				tags.addProperty(tagNames.get(i), userTags[i].name);
+				tags.addProperty(tagKeys.get(i).name, userTags[i].name);
 			}
 			
 			return tags;

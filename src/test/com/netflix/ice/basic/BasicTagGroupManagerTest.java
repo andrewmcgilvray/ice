@@ -70,31 +70,31 @@ public class BasicTagGroupManagerTest {
 		tagGroupsWithResourceGroups.put(testMonth.getMillis(), tagGroupList);
 		Interval interval = new Interval(testMonth.getMillis(), testMonth.plusMonths(1).getMillis());		
 		
-		return new BasicTagGroupManager(tagGroupsWithResourceGroups, interval);
+		return new BasicTagGroupManager(tagGroupsWithResourceGroups, interval, 2);
 	}
 	
 	@Test
 	public void testGetTagListsMap() throws Exception {
 		TagGroup[] tagGroups = new TagGroup[]{
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "|", accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "TagA|", 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "TagB|", 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "|TagX", 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "|TagY", 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "TagA|TagX", accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "TagB|TagY", accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "|", 		accountService, productService),
-				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "|", accountService, productService),
-				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "TagA|", 	accountService, productService),
-				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", "|TagX", 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagB", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagX"}, 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagY"}, 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", "TagX"}, accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagB", "TagY"}, accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, 		accountService, productService),
+				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, accountService, productService),
+				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagX"}, 	accountService, productService),
 				// Savings operation tags that should be filtered if not for reservations
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings - Spot", "m1.small", "hour", "|", 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings RIs - All Upfront", "m1.small", "hour", "|", 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings - Spot", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),
 				// Lent or Borrowed (but not both) should be filtered based on showLent flag
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Lent RIs - All Upfront", "m1.small", "hour", "|", 	accountService, productService),				
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Borrowed RIs - All Upfront", "m1.small", "hour", "|", 	accountService, productService),				
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "LentAmortized RIs - All Upfront", "m1.small", "hour", "|", 	accountService, productService),				
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "BorrowedAmortized RIs - All Upfront", "m1.small", "hour", "|", 	accountService, productService),				
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Lent RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Borrowed RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "LentAmortized RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "BorrowedAmortized RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
 		};
 		
 		BasicTagGroupManager manager = getTagGroupManager(tagGroups);
@@ -188,8 +188,8 @@ public class BasicTagGroupManagerTest {
 		}
 		
 		// Now Add empty string to both the first and second tags
-		resourceTagLists.get(0).add(UserTag.get(""));
-		resourceTagLists.get(1).add(UserTag.get(""));
+		resourceTagLists.get(0).add(UserTag.empty);
+		resourceTagLists.get(1).add(UserTag.empty);
 		// Should now be: resourceTagLists[[""],["","TagX","TagY"]]
     	
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Tag, exclude, 0);
@@ -208,7 +208,7 @@ public class BasicTagGroupManagerTest {
 			assertTrue("wrong instance type for tagLists", tl instanceof TagListsWithUserTags);
 		}
 		// Make sure we have the three values for the second user tag on both group lists
-		TagListsWithUserTags tl = (TagListsWithUserTags) groupByLists.get(UserTag.get(""));
+		TagListsWithUserTags tl = (TagListsWithUserTags) groupByLists.get(UserTag.empty);
 		assertEquals("wrong number of values in empty tag second user tags list", 3, tl.resourceUserTagLists.get(1).size());
 		tl = (TagListsWithUserTags) groupByLists.get(UserTag.get("TagB"));
 		assertEquals("wrong number of values in TagB tag second user tags list", 3, tl.resourceUserTagLists.get(1).size());

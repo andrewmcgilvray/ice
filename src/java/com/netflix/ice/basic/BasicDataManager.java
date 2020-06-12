@@ -41,7 +41,7 @@ import com.netflix.ice.reader.UsageUnit;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
-import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
 /**
@@ -82,7 +82,7 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> im
     @Override
     protected ReadOnlyData deserializeData(DataInputStream in) throws IOException, BadZone {
 	    ReadOnlyData result = new ReadOnlyData(numUserTags);
-	    result.deserialize(accountService, productService, numUserTags, in, forReservations);
+	    result.deserialize(accountService, productService, in, forReservations);
 	    return result;
     }
             
@@ -148,7 +148,7 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> im
 	}
 
 	@Override
-	protected Map<Tag, double[]> processResult(Map<Tag, Double[]> data, TagType groupBy, AggregateType aggregate, List<UserTag> tagKeys) {
+	protected Map<Tag, double[]> processResult(Map<Tag, Double[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
 		Map<Tag, double[]> result = Maps.newTreeMap();
 		for (Tag t: data.keySet()) {
 			result.put(t, ArrayUtils.toPrimitive(data.get(t), 0.0));

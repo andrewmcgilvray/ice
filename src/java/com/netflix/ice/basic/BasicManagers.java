@@ -17,6 +17,9 @@
  */
 package com.netflix.ice.basic;
 
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
@@ -33,12 +36,20 @@ import com.netflix.ice.tag.Operation.Identity.Value;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -51,9 +62,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
 
 /**
@@ -169,7 +184,7 @@ public class BasicManagers extends Poller implements Managers {
         }
 
         for (Product product: newProducts) {
-        	BasicTagGroupManager tagGroupManager = new BasicTagGroupManager(product, true, config.workBucketConfig, config.accountService, config.productService);
+        	BasicTagGroupManager tagGroupManager = new BasicTagGroupManager(product, true, config.workBucketConfig, config.accountService, config.productService, config.userTagKeys.size());
             tagGroupManagers.put(product, tagGroupManager);
             boolean loadTagCoverage = (product == null && config.getTagCoverage() != TagCoverage.none) || (product != null && config.getTagCoverage() == TagCoverage.withUserTags);
             for (ConsolidateType consolidateType: ConsolidateType.values()) {
@@ -187,14 +202,14 @@ public class BasicManagers extends Poller implements Managers {
             	}
             	else {                
 	            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
-	            	int numUserTags = product == null ? 0 : config.userTags.size();
+	            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
 	               
 	                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
 	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null));
 	                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
 	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService));
 	                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
-	    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTags,
+	    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
 	            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
 	                }
             	}
@@ -295,12 +310,9 @@ public class BasicManagers extends Poller implements Managers {
 		for (Future<Collection<ResourceGroup>> f: futures) {
 			Collection<ResourceGroup> resourceGroups = f.get();
 			for (ResourceGroup rg: resourceGroups) {
-				// If no separator, it's defaulted to the product name, so skip it
-				if (rg.name.contains(ResourceGroup.separator)) {
-					UserTag[] tags = rg.getUserTags();
-					if (tags.length > index && !StringUtils.isEmpty(tags[index].name))
-						userTagValues.add(tags[index]);
-				}
+				UserTag[] tags = rg.getUserTags();
+				if (tags.length > index && !StringUtils.isEmpty(tags[index].name))
+					userTagValues.add(tags[index]);
 			}
 		}
 		
@@ -459,20 +471,22 @@ public class BasicManagers extends Poller implements Managers {
     	
 		if (csv) {
 	    	sb.append("Product,TagGroups,Daily Cost TagGroups,Daily Usage TagGroups,Accounts,Regions,Zones,Products,Operations,UsageTypes");
-	    	if (config.userTags.size() > 0)
-	    		sb.append("," + String.join(",", config.userTags));
+	    	for (UserTagKey utk: config.userTagKeys) {
+	    		sb.append("," + utk.name);
+	    	}
 	    	sb.append("\n");
 		}
 		else {
 	    	sb.append("<table><tr><td>Product</td><td>TagGroups</td><td>Daily Cost TagGroups</td><td>Daily Usage TagGroups</td><td>Accounts</td><td>Regions</td><td>Zones</td><td>Products</td><td>Operations</td><td>UsageTypes</td>");
-	    	if (config.userTags.size() > 0)
-	    		sb.append("<td>" + String.join("</td><td>", config.userTags) + "</td>");
+	    	for (UserTagKey utk: config.userTagKeys) {
+	    		sb.append("<td>" + utk.name + "</td>");
+	    	}
 	    	sb.append("</tr>");
 		}
     	for (Product p: tagGroupManagers.keySet()) {
     		TagGroupManager tgm = tagGroupManagers.get(p);
     		TreeMap<Long, Integer> sizes = tgm.getSizes();
-    		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTags.size());
+    		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTagKeys.size());
     		BasicDataManager bdm_cost = costManagers.get(new Key(p, ConsolidateType.daily));
     		BasicDataManager bdm_usage = usageManagers.get(new Key(p, ConsolidateType.daily));
     		
@@ -537,4 +551,152 @@ public class BasicManagers extends Poller implements Managers {
 		}
 		return ops;
 	}
+
+	@Override
+	public UserTagStatistics getUserTagStatistics() throws ResourceException {
+		List<UserTagStats> stats = Lists.newArrayList();
+		
+		// Build the full set of unique tagGroups across across all products and time
+		Set<TagGroup> tagGroups = Sets.newHashSet();
+		
+		for (Product p: products) {
+			if (p == null)
+				continue;			
+			tagGroups.addAll(tagGroupManagers.get(p).getTagGroupsWithResourceGroups());
+		}
+		
+		// Extract the uniqe set of resource Groups
+		Set<ResourceGroup> resourceGroups = Sets.newHashSet();
+		for (TagGroup tg: tagGroups) {
+			resourceGroups.add(tg.resourceGroup);
+		}
+		
+		// Walk the list gathering stats for each user tag
+		for (int i = 0; i < config.userTagKeys.size(); i++) {
+			Set<String> values = Sets.newHashSet();
+			Set<String> caseInsensitiveValues = Sets.newHashSet();
+			Set<ResourceGroup> resourceGroupsWithoutCurrentTag = Sets.newHashSet();
+			for (ResourceGroup rg: resourceGroups) {
+				String v = rg.getUserTags()[i].name;
+            	values.add(v);
+            	caseInsensitiveValues.add(v.toLowerCase());
+            	UserTag[] ut = rg.getUserTags().clone();
+            	ut[i] = UserTag.empty;
+            	resourceGroupsWithoutCurrentTag.add(ResourceGroup.getUncached(ut));
+			}
+			stats.add(new UserTagStats(config.userTagKeys.get(i).name, values.size(), values.size() - caseInsensitiveValues.size(), resourceGroups.size() - resourceGroupsWithoutCurrentTag.size()));
+		}	
+		return new UserTagStatistics(tagGroupManagers.get(null).getTagGroups().size(), tagGroups.size(), stats);
+	}
+	
+	public Collection<ProcessorStatus> getProcessorStatus() {
+		return lastProcessedPoller.getStatus();
+	}
+	
+    public void reprocess(String month, boolean state) {
+    	lastProcessedPoller.reprocess(month, state);
+    }
+    
+    public boolean startProcessor() {
+    	boolean started = false;
+        AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
+        		.withRegion(config.processorRegion)
+        		.withCredentials(AwsUtils.awsCredentialsProvider)
+        		.withClientConfiguration(AwsUtils.clientConfig)
+        		.build();
+
+        try {
+            StartInstancesRequest request = new StartInstancesRequest().withInstanceIds(new String[] { config.processorInstanceId });
+            ec2.startInstances(request);
+            started = true;
+        }
+        catch (Exception e) {
+            logger.error("error in startInstances", e);
+        }
+        ec2.shutdown();
+        return started;
+    }
+
+    private List<List<String>> getCsvData(String month, String prefix) {
+        DateTime monthDateTime = new DateTime(month, DateTimeZone.UTC);
+        File file = new File(config.workBucketConfig.localDir, prefix + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+        try {
+            AwsUtils.downloadFileIfChanged(config.workBucketConfig.workS3BucketName, config.workBucketConfig.workS3BucketPrefix, file);
+        }
+        catch (Exception e) {
+            logger.error("error downloading " + file, e);
+            return null;
+        }
+        if (file.exists()) {
+            BufferedReader reader = null;
+            List<List<String>> data = null;
+            try {
+            	InputStream is = new FileInputStream(file);
+                reader = new BufferedReader(new InputStreamReader(is));
+
+                
+            	Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(reader);
+            	
+                data = Lists.newArrayList();
+        	    for (CSVRecord record : records) {
+        	    	List<String> row = Lists.newArrayListWithCapacity(record.size());
+        	    	for (String col: record)
+        	    		row.add(col);
+        	    	data.add(row);
+        	    }
+            }
+            catch (Exception e) {
+            	logger.error("error in reading " + file, e);
+            }
+            finally {
+                if (reader != null)
+                    try {reader.close();} catch (Exception e) {}
+            }
+            return data;
+        }
+        return null;
+    }
+    
+    private String getFileData(String month, String prefix) {
+        DateTime monthDateTime = new DateTime(month, DateTimeZone.UTC);
+        File file = new File(config.workBucketConfig.localDir, prefix + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+        if (file.exists()) {
+        	try {
+        		return FileUtils.readFileToString(file, StandardCharsets.UTF_8);
+        	}
+        	catch (Exception e) {
+        		logger.error("error reading " + file, e);
+        	}
+        }
+        return null;
+    }
+    
+    public List<List<String>> getSubscriptions(SubscriptionType subscriptionType, String month) {
+    	switch (subscriptionType) {
+    	case RI:
+        	return getCsvData(month, "reservations_");
+    	case SP:
+        	return getCsvData(month, "savingsPlans_");
+    	}
+    	return null;
+    }
+    
+    public String getSubscriptionsReport(SubscriptionType subscriptionType, String month) {
+    	switch (subscriptionType) {
+    	case RI:
+        	return getFileData(month, "reservations_");
+    	case SP:
+        	return getFileData(month, "savingsPlans_");
+    	}
+    	return null;
+    }
+    
+    public Collection<String> getMonths() {
+    	List<String> months = Lists.newArrayList();
+    	for (DateTime month = config.startDate; month.isBeforeNow(); month = month.plusMonths(1))
+    		months.add(AwsUtils.monthDateFormat.print(month));
+    	return months;
+    }
 }

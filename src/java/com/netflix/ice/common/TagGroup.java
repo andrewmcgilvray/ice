@@ -20,6 +20,7 @@ package com.netflix.ice.common;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.tag.*;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Zone.BadZone;
 
 import org.apache.commons.lang.StringUtils;
@@ -32,6 +33,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Serializable;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -177,7 +179,9 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
 
     private static Map<TagGroup, TagGroup> tagGroups = Maps.newConcurrentMap();
 
-    public static TagGroup getTagGroup(String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit, String resourceGroup, AccountService accountService, ProductService productService) throws BadZone {
+    public static TagGroup getTagGroup(
+    		String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit,
+    		String[] resourceGroup, AccountService accountService, ProductService productService) throws BadZone, ResourceException {
         Region r = Region.getRegionByName(region);
     	return getTagGroup(
     		accountService.getAccountByName(account),
@@ -185,7 +189,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         	productService.getProductByServiceCode(product),
         	Operation.getOperation(operation),
             UsageType.getUsageType(usageTypeName, usageTypeUnit),
-            StringUtils.isEmpty(resourceGroup) ? null : ResourceGroup.getResourceGroup(resourceGroup));   	
+            ResourceGroup.getResourceGroup(resourceGroup));   	
     }
     
     public static TagGroup getTagGroup(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup) {
@@ -198,6 +202,10 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
             tagGroups.put(newOne, newOne);
             return newOne;
         }
+    }
+    
+    public TagGroup withOperation(Operation op) {
+    	return getTagGroup(account, region, zone, product, op, usageType, resourceGroup);
     }
 
     public static class Serializer {
@@ -221,27 +229,30 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
             out.writeUTF(tagGroup.product.getServiceCode());
             out.writeUTF(tagGroup.operation.toString());
             UsageType.serialize(out, tagGroup.usageType);
-            out.writeUTF(tagGroup.resourceGroup == null ? "" : tagGroup.resourceGroup.toString());
+            ResourceGroup.serialize(out,  tagGroup.resourceGroup);
         }
         
-        public static void serializeCsvHeader(OutputStreamWriter out) throws IOException {
+        public static void serializeCsvHeader(OutputStreamWriter out, String resourceGroupHeader) throws IOException {
         	out.write("account,region,zone,product,operation,");
         	UsageType.serializeCsvHeader(out);
-        	out.write(",resourceGroup");
+        	if (!StringUtils.isEmpty(resourceGroupHeader))
+        		out.write(resourceGroupHeader);
         }
 
-        public static void serializeCsv(OutputStreamWriter out, TagGroup tagGroup) throws IOException {
+        public static void serializeCsv(Writer out, TagGroup tagGroup) throws IOException {
             out.write(tagGroup.account.getId() + ",");
             out.write(tagGroup.region.toString() + ",");
             out.write(tagGroup.zone == null ? "," : (tagGroup.zone.toString() + ","));
             out.write(tagGroup.product.getServiceCode() + ",");
             out.write(tagGroup.operation.toString() + ",");
             UsageType.serializeCsv(out, tagGroup.usageType);
-            out.write(",");
-            out.write(tagGroup.resourceGroup == null ? "" : tagGroup.resourceGroup.toString());
+            if (tagGroup.resourceGroup != null) {
+            	out.write(",");
+            	ResourceGroup.serializeCsv(out, tagGroup.resourceGroup);
+            }
         }
 
-        public static TreeMap<Long, Collection<TagGroup>> deserializeTagGroups(AccountService accountService, ProductService productService, DataInput in) throws IOException, BadZone {
+        public static TreeMap<Long, Collection<TagGroup>> deserializeTagGroups(AccountService accountService, ProductService productService, int numUserTags, DataInput in) throws IOException, BadZone {
             int numCollections = in.readInt();
             TreeMap<Long, Collection<TagGroup>> result = Maps.newTreeMap();
             for (int i = 0; i < numCollections; i++) {
@@ -249,7 +260,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
                 int numKeys = in.readInt();
                 List<TagGroup> keys = Lists.newArrayList();
                 for (int j = 0; j < numKeys; j++) {
-                    keys.add(deserialize(accountService, productService, in));
+                    keys.add(deserialize(accountService, productService, numUserTags, in));
                 }
                 result.put(monthMilli, keys);
             }
@@ -257,7 +268,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
             return result;
         }
 
-        public static TagGroup deserialize(AccountService accountService, ProductService productService, DataInput in) throws IOException, BadZone {
+        public static TagGroup deserialize(AccountService accountService, ProductService productService, int numUserTags, DataInput in) throws IOException, BadZone {
             Account account = accountService.getAccountById(in.readUTF());
             Region region = Region.getRegionByName(in.readUTF());
             String zoneStr = in.readUTF();
@@ -266,8 +277,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
             Product product = productService.getProductByServiceCode(prodStr);
             Operation operation = Operation.deserializeOperation(in.readUTF());
             UsageType usageType = UsageType.deserialize(in);
-            String resourceGroupStr = in.readUTF();
-            ResourceGroup resourceGroup = StringUtils.isEmpty(resourceGroupStr) ? null : ResourceGroup.getResourceGroup(resourceGroupStr);
+            ResourceGroup resourceGroup = ResourceGroup.deserialize(in, numUserTags);
 
             return TagGroup.getTagGroup(account, region, zone, product, operation, usageType, resourceGroup);
         }

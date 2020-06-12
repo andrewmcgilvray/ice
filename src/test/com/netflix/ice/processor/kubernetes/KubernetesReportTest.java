@@ -48,7 +48,7 @@ public class KubernetesReportTest {
         String[] customTags = new String[]{"Tag1", "Tag2", "Tag3"};
         KubernetesConfig kc = new KubernetesConfig();
         kc.setTags(Lists.newArrayList(customTags));
-        ResourceService rs = new BasicResourceService(new BasicProductService(), customTags, new String[]{}, false);
+        ResourceService rs = new BasicResourceService(new BasicProductService(), customTags, false);
 		TestKubernetesReport tkr = new TestKubernetesReport(new DateTime("2019-01", DateTimeZone.UTC), kc, rs);
 		
 		File file = new File(resourceDir, "kubernetes-2019-01.csv");

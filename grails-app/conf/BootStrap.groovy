@@ -174,7 +174,6 @@ class BootStrap {
 				properties.setProperty(IceOptions.RESERVATION_CAPACITY_POLLER, prop.getProperty(IceOptions.RESERVATION_CAPACITY_POLLER, "false"));
 					
                 properties.setProperty(IceOptions.CUSTOM_TAGS, prop.getProperty(IceOptions.CUSTOM_TAGS, ""));
-				properties.setProperty(IceOptions.ADDITIONAL_TAGS, prop.getProperty(IceOptions.ADDITIONAL_TAGS, ""));
 				properties.setProperty(IceOptions.RESERVATION_ID_TAGS, prop.getProperty(IceOptions.RESERVATION_ID_TAGS, "false"));
 				
                 properties.setProperty(IceOptions.RESOURCE_GROUP_COST, prop.getProperty(IceOptions.RESOURCE_GROUP_COST, "modeled"));
@@ -211,7 +210,8 @@ class BootStrap {
 					properties.setProperty(IceOptions.COMPANY_NAME, prop.getProperty(IceOptions.COMPANY_NAME));
 				if (prop.getProperty(IceOptions.DASHBOARD_NOTICE) != null)
 					properties.setProperty(IceOptions.DASHBOARD_NOTICE, prop.getProperty(IceOptions.DASHBOARD_NOTICE));
-
+				properties.setProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, prop.getProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, "false"));
+					
                 readerConfig = new ReaderConfig(
                         properties,
                         credentialsProvider,

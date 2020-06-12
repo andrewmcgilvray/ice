@@ -53,6 +53,7 @@ import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.Zone;
 import com.netflix.ice.tag.Zone.BadZone;
@@ -177,7 +178,7 @@ public class KubernetesProcessorTest {
 		return new TestKubernetesProcessor(config, null);
 	}
 	
-	private TagGroup getTagGroup(String clusterName) throws BadZone {
+	private TagGroup getTagGroup(String clusterName) throws BadZone, ResourceException {
         List<Account> accounts = Lists.newArrayList(new Account("123456789012", "Account1", null));
 
 		Zone us_west_2a = Region.US_WEST_2.getZone("us-west-2a");

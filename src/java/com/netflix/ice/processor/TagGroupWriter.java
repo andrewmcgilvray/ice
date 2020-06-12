@@ -44,7 +44,7 @@ public class TagGroupWriter {
     private final boolean compress;
     private final WorkBucketConfig workBucketConfig;
 
-    TagGroupWriter(String name, boolean compress, WorkBucketConfig workBucketConfig, AccountService accountService, ProductService productService) throws Exception {
+    TagGroupWriter(String name, boolean compress, WorkBucketConfig workBucketConfig, AccountService accountService, ProductService productService, int numUserTags) throws Exception {
     	this.compress = compress;
     	this.workBucketConfig = workBucketConfig;
 
@@ -60,7 +60,7 @@ public class TagGroupWriter {
         		is = new GZIPInputStream(is);
             DataInputStream in = new DataInputStream(is);
             try {
-                tagGroups = TagGroup.Serializer.deserializeTagGroups(accountService, productService, in);
+                tagGroups = TagGroup.Serializer.deserializeTagGroups(accountService, productService, numUserTags, in);
             }
             finally {
                 if (in != null)

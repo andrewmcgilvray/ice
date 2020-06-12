@@ -27,14 +27,16 @@ import java.util.Map;
 public class TagConfig {
 	public String name;
 	public List<String> aliases;
+	public List<String> displayAliases; // additional names to be shown in the UX
 	public Map<String, List<String>> values;
 	public List<TagMappings> mapped;
 	
 	public TagConfig() {}
 	
-	public TagConfig(String name, List<String> aliases, Map<String, List<String>> values) {
+	public TagConfig(String name, List<String> aliases, List<String> displayAliases, Map<String, List<String>> values) {
 		this.name = name;
 		this.aliases = aliases;
+		this.displayAliases = displayAliases;
 		this.values = values;
 	}
 
@@ -52,6 +54,14 @@ public class TagConfig {
 
 	public void setAliases(List<String> aliases) {
 		this.aliases = aliases;
+	}
+
+	public List<String> getDisplayAliases() {
+		return displayAliases;
+	}
+
+	public void setDisplayAliases(List<String> displayAliases) {
+		this.displayAliases = displayAliases;
 	}
 
 	public Map<String, List<String>> getValues() {

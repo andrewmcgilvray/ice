@@ -46,6 +46,7 @@ import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 
 public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  extends DataFileCache<T> implements DataManager {
 
@@ -190,7 +191,7 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
 
     abstract protected void addData(D[] from, D[] to);
     abstract protected boolean hasData(D[] data);
-    abstract protected Map<Tag, double[]> processResult(Map<Tag, D[]> data, TagType groupBy, AggregateType aggregate, List<UserTag> tagKeys);
+    abstract protected Map<Tag, double[]> processResult(Map<Tag, D[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys);
 
     protected Map<Tag, D[]> getRawData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex) {
     	//logger.info("Entered with groupBy: " + groupBy + ", userTagGroupByIndex: " + userTagGroupByIndex + ", tagLists: " + tagLists);
@@ -237,7 +238,7 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
         return rawResult;
     }
 
-    private Map<Tag, double[]> getData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex, List<UserTag> tagKeys) {
+    private Map<Tag, double[]> getData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex, List<UserTagKey> tagKeys) {
     	StopWatch sw = new StopWatch();
     	sw.start();
     	Map<Tag, D[]> rawResult = getRawData(interval, tagLists, groupBy, aggregate, exclude, usageUnit, userTagGroupByIndex);
@@ -260,7 +261,7 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
 
 	@Override
 	public Map<Tag, double[]> getData(Interval interval, TagLists tagLists,
-			TagType groupBy, AggregateType aggregate, int userTagGroupByIndex, List<UserTag> tagKeys) {
+			TagType groupBy, AggregateType aggregate, int userTagGroupByIndex, List<UserTagKey> tagKeys) {
 		return getData(interval, tagLists, groupBy, aggregate, null, null, userTagGroupByIndex, tagKeys);
 	}
 }

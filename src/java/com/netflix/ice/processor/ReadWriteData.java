@@ -31,6 +31,7 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Zone.BadZone;
 
 /**
@@ -42,7 +43,15 @@ import com.netflix.ice.tag.Zone.BadZone;
  * the cost or usage number stored as the value in the map.
  */
 public class ReadWriteData extends ReadWriteGenericData<Double> {
-    static public Map<TagGroup, Double> getCreateData(List<Map<TagGroup, Double>> data, int i) {
+    public ReadWriteData() {
+		super();
+	}
+
+    public ReadWriteData(int numUserTags) {
+		super(numUserTags);
+	}
+
+	static public Map<TagGroup, Double> getCreateData(List<Map<TagGroup, Double>> data, int i) {
         if (i >= data.size()) {
             for (int j = data.size(); j <= i; j++) {
                 data.add(Maps.<TagGroup, Double>newHashMap());
@@ -68,10 +77,10 @@ public class ReadWriteData extends ReadWriteGenericData<Double> {
 	}
 
 	
-    public void serializeCsv(OutputStreamWriter out) throws IOException {
+    public void serializeCsv(OutputStreamWriter out, String resourceGroupHeader) throws IOException {
     	// write the header
     	out.write("index,");
-    	TagGroup.Serializer.serializeCsvHeader(out);
+    	TagGroup.Serializer.serializeCsvHeader(out, resourceGroupHeader);
     	out.write(",data\n");
         for (int i = 0; i < data.size(); i++) {
             Map<TagGroup, Double> map = getData(i);
@@ -104,8 +113,20 @@ public class ReadWriteData extends ReadWriteGenericData<Double> {
         		data.add(map);
         	}
         	map = data.get(hour);
-        	TagGroup tag = TagGroup.getTagGroup(items[1], items[2], items[3], items[4], items[5], items[6], items[7], items[8], accountService, productService);
-        	Double v = Double.parseDouble(items[9]);
+        	String[] resourceGroup = null;
+        	if (items.length > 9) {
+	        	// Subtract the eight items before and the value at the end == 8 + 1
+	        	resourceGroup = new String[items.length - 9];
+	        	for (int i = 0; i < items.length - 9; i++)
+	        		resourceGroup[i] = items[i + 8];
+        	}
+        	TagGroup tag = null;
+			try {
+				tag = TagGroup.getTagGroup(items[1], items[2], items[3], items[4], items[5], items[6], items[7], resourceGroup, accountService, productService);
+			} catch (ResourceException e) {
+				// Should never throw because no user tags are null
+			}
+        	Double v = Double.parseDouble(items[items.length-1]);
         	map.put(tag, v);
         }
 

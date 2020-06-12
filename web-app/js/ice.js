@@ -83,22 +83,27 @@ ice.factory('highchart', function () {
         var s = '<span style="font-size: x-small;">' + Highcharts.dateFormat('%A, %b %e, %l%P, %Y', this.x) + '</span>';
 
         var total = 0;
-        if (showsps) {
-          for (var i = 0; i < this.points.length - (showsps ? 1 : 0); i++) {
-            total += this.points[i].y;
-          }
+        for (var i = 0; i < this.points.length - (showsps ? 1 : 0); i++) {
+          total += this.points[i].y;
         }
 
         var precision = currencySign === "" ? 0 : (currencySign === "¢" ? 4 : 2);
         for (var i = 0; i < this.points.length - (showsps ? 1 : 0); i++) {
           var point = this.points[i];
           if (i == 0) {
-            s += '<br/><span>aggregated : ' + currencySign + Highcharts.numberFormat(showsps ? total : point.total, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate);
+            s += '<br/><span>aggregated : ' + currencySign + Highcharts.numberFormat(total, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate);
           }
           var perc = showsps ? point.y * 100 / total : point.percentage;
           s += '<br/><span style="color: ' + point.series.color + '">' + point.series.name + '</span> : ' + currencySign + Highcharts.numberFormat(point.y, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate) + ' (' + Highcharts.numberFormat(perc, 1) + '%)';
-          if (i > 40 && point)
+          if (i > 25 && point) {
+            // total up the rest and label as 'other'
+            var otherTotal = 0;
+            for (var j = i + 1; j < this.points.length - (showsps ? 1 : 0); j++) {
+              otherTotal += this.points[j].y;
+            }
+            s += '<br/><span>other : ' + currencySign + Highcharts.numberFormat(otherTotal, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate) + ' (' + Highcharts.numberFormat(perc, 1) + '%)';
             break;
+          }
         }
 
         return s;
@@ -137,14 +142,17 @@ ice.factory('highchart', function () {
             data[j] = [result.time[j], data[j]];
           }
         }
+        var name = result.data[i].name;
         var serie = {
-          name: result.data[i].name,
+          name: name,
           data: data,
           pointStart: result.start,
           pointInterval: result.interval,
           //step: true,
           type: plotType
         };
+        if (name.startsWith("Credit"))
+          serie['stack'] = 'credit';
 
         hc_options.series.push(serie);
       }
@@ -173,7 +181,7 @@ ice.factory('highchart', function () {
       unitType = '% Tag Coverage';
     else
       unitType = isCost ? 'Cost' : 'Usage' + unitStr;
-    var yAxis = { title: { text: unitType + ' per ' + (factorsps ? metricunitname : consolidate) }, min: 0, lineWidth: 2 };
+    var yAxis = { title: { text: unitType + ' per ' + (factorsps ? metricunitname : consolidate) }, lineWidth: 2 };
     if (isCost)
       yAxis.labels = {
         formatter: function () {
@@ -1645,7 +1653,8 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.download = function () {
-    var query = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
+    var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
+    var query = { operation: ops.join(","), forSavingsPlans: true };
     if ($scope.showZones)
       query.showZones = true;
     usage_db.getData($scope, null, query, true);
@@ -1654,7 +1663,8 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.getData = function () {
     $scope.loading = true;
     $scope.errorMessage = null;
-    var query = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
+    var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
+    var query = { operation: ops.join(","), forSavingsPlans: true };
     if ($scope.showZones)
       query.showZones = true;
     usage_db.getData($scope, function (result) {
@@ -1746,7 +1756,8 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   var fn = function () {
-    $scope.predefinedQuery = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
+    var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
+    $scope.predefinedQuery = { operation: ops.join(","), forSavingsPlans: true };
 
     usage_db.getParams($location.hash(), $scope);
     usage_db.processParams($scope);
@@ -1765,7 +1776,22 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     jQuery('#start').datetimepicker().val($scope.start);
   }
 
-  usage_db.getSavingsPlanOps($scope, fn);
+  $scope.updateProducts = function ($scope) {
+    var query = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
+
+    usage_db.getProducts($scope, function (data) {
+      if ($scope.showUserTags)
+        $scope.updateUserTagValues($scope, 0, true);
+      else
+        $scope.updateOperations($scope);
+    }, query);
+  }
+
+  var fn1 = function () {
+    usage_db.getReservationOps($scope, fn);
+  }
+
+  usage_db.getSavingsPlanOps($scope, fn1);
 }
 
 function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
@@ -2119,6 +2145,13 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.isGroupByTag = function () {
     return $scope.groupBy.name === 'Tag';
+  }
+
+  $scope.getUserTagDisplayName = function (index) {
+    var display = $scope.userTags[index].name;
+    if ($scope.userTags[index].aliases.length > 0)
+      display += "/" + $scope.userTags[index].aliases.join("/");
+    return display;
   }
   
   $scope.updateUrl = function () {
@@ -2701,6 +2734,206 @@ function tagconfigsCtrl($scope, $location, $http) {
       $scope.order(values, 'srcKey');
       $scope.order(values, 'destValue');
       $scope.order(values, 'destKey');
+    });
+  });
+
+  getTagconfigs($scope, function (data) {
+  });
+}
+
+function processorStatusCtrl($scope, $location, $http) {
+  $scope.statusArray = [];
+
+  var getProcessorStatus = function ($scope, fn) {
+    var params = {};
+
+    $http({
+      method: "GET",
+      url: "getProcessorStatus",
+      params: params
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.statusArray = result.data;
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  var setReprocessStatus = function ($scope, index, fn) {
+    var params = {
+      month: $scope.statusArray[index].month,
+      state: $scope.statusArray[index].reprocess,
+    };
+    $http({
+      method: "POST",
+      url: "setReprocess",
+      data: params
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.ops = result.data;
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  $scope.updateStatus = function (index) {
+    setReprocessStatus($scope, index, function (data) {
+      getProcessorStatus($scope, function (data) {});
+    });
+  }
+
+  $scope.isDisabled = function () {
+    for (var i = 0; i < $scope.statusArray.length; i++) {
+      if ($scope.statusArray[i].reprocess)
+        return false;
+    }
+    return true;  
+  }
+
+  $scope.process = function() {
+    startProcessor($scope, function (data) {});
+  }
+
+  var startProcessor = function($scope, fn) {
+    $http({
+      method: "POST",
+      url: "startProcessor",
+      data: {}
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.ops = result.data;
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  getProcessorStatus($scope, function (data) {});
+}
+
+function subscriptionsCtrl($scope, $location, $http) {
+  $scope.ri_sp = "RI";
+  $scope.month = "";
+  $scope.months = [];
+  $scope.header = [];
+  $scope.subscriptions = [];
+
+  $scope.rev = false;
+  $scope.revs = [];
+  $scope.predicateIndex = null;
+
+  $scope.order = function (index) {
+
+    if ($scope.predicateIndex != index) {
+      $scope.rev = $scope.revs[index];
+      $scope.predicateIndex = index;
+    }
+    else {
+      $scope.rev = $scope.revs[index] = !$scope.revs[index];
+    }
+
+    var compare = function (a, b) {
+      if (a[index] < b[index])
+        return $scope.rev ? 1 : -1;
+      if (a[index] > b[index])
+        return $scope.rev ? -1 : 1;
+      return 0;
+    }
+
+    $scope.subscriptions.sort(compare);
+  }
+
+  var getMonths = function($scope, fn) {
+    $http({
+      method: "GET",
+      url: "getMonths",
+      params: {}
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        if (fn)
+          fn(result.data);
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  var getSubscriptions = function ($scope, fn, download) {
+    var params = {
+      type: $scope.ri_sp,
+      month: $scope.month,
+    };
+
+    if (download) {
+      params["dashboard"] = "subscriptions";
+      params["type"] = $scope.ri_sp;
+      jQuery("#download_form").empty();
+
+      for (var key in params) {
+        jQuery("<input type='text' />")
+          .attr("id", key)
+          .attr("name", key)
+          .attr("value", params[key])
+          .appendTo(jQuery("#download_form"));
+      }
+
+      jQuery("#download_form").submit();
+    }
+    else {
+      $http({
+        method: "GET",
+        url: "getSubscriptions",
+        params: params
+      }).success(function (result) {
+        if (result.status === 200 && result.data) {
+          if (fn)
+            fn(result.data);
+        }
+      }).error(function (result, status) {
+        if (status === 401 || status === 0)
+          $window.location.reload();
+      });
+    }
+  }
+  
+  $scope.update = function () {
+    getSubscriptions($scope, function (data) {
+      loadData($scope, data);
+    })
+  }
+
+  $scope.download = function () {
+    getSubscriptions($scope, null, true);
+  }
+
+  var loadData = function($scope, data) {
+    $scope.header = data[0];
+    data.shift();
+    $scope.subscriptions = data;
+    $scope.revs = [];
+    for (var i = 0; i < $scope.subscriptions.length; i++)
+      $scope.revs.push(false);
+    $scope.order($scope.subscriptions, 0);
+}
+
+  getMonths($scope, function (data) {
+    $scope.months = data;
+    $scope.month = $scope.months[$scope.months.length-1];
+
+    getSubscriptions($scope, function (data) {
+      loadData($scope, data);
     });
   });
 }

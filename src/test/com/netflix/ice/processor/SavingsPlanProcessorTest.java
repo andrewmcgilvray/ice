@@ -44,6 +44,7 @@ import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.SavingsPlanArn;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.Zone;
@@ -52,8 +53,10 @@ public class SavingsPlanProcessorTest {
 	private static ProductService productService;
 	public static AccountService accountService;
 	private final Product ec2Instance = productService.getProduct(Product.Code.Ec2Instance);
+	private final Product lambda = productService.getProduct(Product.Code.Lambda);
 	private static Account a1;
 	private static Account a2;
+	private static String arn;
 	
 
 	private static final int numAccounts = 2;
@@ -72,7 +75,8 @@ public class SavingsPlanProcessorTest {
 		AccountService as = new BasicAccountService(accountConfigs);
 		a1 = as.getAccountByName("Account1");
 		a2 = as.getAccountByName("Account2");
-		accountService = as;		
+		accountService = as;
+		arn = "arn:aws:savingsplans::" + a1.name + ":savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555";
 	}
 
 	@BeforeClass
@@ -111,11 +115,13 @@ public class SavingsPlanProcessorTest {
 		return m;
 	}
 	
-	private void runTest(SavingsPlan sp, Datum[] usageData, Datum[] costData, Datum[] expectedUsage, Datum[] expectedCost) {
+	private void runTest(SavingsPlan sp, Datum[] usageData, Datum[] costData, Datum[] expectedUsage, Datum[] expectedCost, Product product) {
 		CostAndUsageData caud = new CostAndUsageData(new DateTime("2019-12", DateTimeZone.UTC).getMillis(), null, null, null, null, null);
-		caud.putUsage(null, new ReadWriteData());
-		caud.putCost(null, new ReadWriteData());
-		caud.getSavingsPlans().put(sp.arn.name, sp);
+		if (product != null) {
+			caud.putUsage(product, new ReadWriteData(0));
+			caud.putCost(product, new ReadWriteData(0));
+		}
+		caud.getSavingsPlans().put(sp.tagGroup.arn, sp);
 
 		Map<TagGroup, Double> hourUsageData = makeDataMap(usageData);
 		Map<TagGroup, Double> hourCostData = makeDataMap(costData);
@@ -141,11 +147,19 @@ public class SavingsPlanProcessorTest {
 			assertEquals("wrong cost value for tag " + datum.tagGroup, datum.value, hourCostData.get(datum.tagGroup), 0.001);
 		}
 	}
+	
+	private SavingsPlan newSavingsPlan(String usageType, PurchaseOption po, double recurring, double amort) {
+		TagGroupSP tg = TagGroupSP.get(a1, Region.GLOBAL, null, productService.getProduct("Savings Plans for AWS Compute usage", "ComputeSavingsPlans"), Operation.getOperation("None"), UsageType.getUsageType(usageType, "hours"), null, SavingsPlanArn.get(arn));
+		String term = "1yr";
+		String offeringType = "ComputeSavingsPlans";
+		DateTime start = new DateTime("2020-02", DateTimeZone.UTC);
+		DateTime end = new DateTime("2021-02", DateTimeZone.UTC);
+		return new SavingsPlan(tg, po, term, offeringType, start.getMillis(), end.getMillis(), recurring, amort);
+	}
 
 	@Test
 	public void testCoveredUsageNoUpfront() {
-		String arn = "arn:aws:savingsplans::" + a1.name + ":savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555";
-		SavingsPlan sp = new SavingsPlan(arn, PurchaseOption.NoUpfront, 0.10, 0);
+		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrNoUpfront", PurchaseOption.NoUpfront, 0.10, 0);
 		Datum[] usageData = new Datum[]{
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusNoUpfront, "t3.micro", null, arn, 1.0),
 			};
@@ -158,13 +172,46 @@ public class SavingsPlanProcessorTest {
 		Datum[] expectedCostData = new Datum[]{
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedNoUpfront, "t3.micro", null, 0.012),
 			};
-		runTest(sp, usageData, costData, expectedUsageData, expectedCostData);
+		runTest(sp, usageData, costData, expectedUsageData, expectedCostData, null);
+	}
+	
+	@Test
+	public void testCoveredUsageNoUpfrontLambda() throws ResourceException {
+		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrNoUpfront", PurchaseOption.NoUpfront, 0.10, 0);
+		Datum[] usageData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", null, arn, 2.4),
+			};
+		Datum[] costData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", null, arn, 0.000036),
+			};
+		Datum[] expectedUsageData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", null, 2.4),
+			};
+		Datum[] expectedCostData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", null, 0.000036),
+			};
+		runTest(sp, usageData, costData, expectedUsageData, expectedCostData, null);
+		
+		// Test with resources
+		ResourceGroup rg = ResourceGroup.getResourceGroup(new String[]{"TagA"});
+		usageData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", rg, arn, 2.4),
+			};
+		costData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", rg, arn, 0.000036),
+			};
+		expectedUsageData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", rg, 2.4),
+			};
+		expectedCostData = new Datum[]{
+				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", rg, 0.000036),
+			};
+		runTest(sp, usageData, costData, expectedUsageData, expectedCostData, lambda);
 	}
 	
 	@Test
 	public void testCoveredUsagePartialUpfront() {
-		String arn = "arn:aws:savingsplans::" + a1.name + ":savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555";
-		SavingsPlan sp = new SavingsPlan(arn, PurchaseOption.PartialUpfront, 0.055, 0.045);
+		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrPartialUpfront", PurchaseOption.PartialUpfront, 0.055, 0.045);
 		Datum[] usageData = new Datum[]{
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t3.micro", null, arn, 1.0),
 			};
@@ -178,13 +225,12 @@ public class SavingsPlanProcessorTest {
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedPartialUpfront, "t3.micro", null, 0.0055),
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanAmortizedPartialUpfront, "t3.micro", null, 0.0045),
 			};
-		runTest(sp, usageData, costData, expectedUsageData, expectedCostData);
+		runTest(sp, usageData, costData, expectedUsageData, expectedCostData, null);
 	}
 
 	@Test
 	public void testCoveredUsageAllUpfront() {
-		String arn = "arn:aws:savingsplans::" + a1.name + ":savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555";
-		SavingsPlan sp = new SavingsPlan(arn, PurchaseOption.AllUpfront, 0.0, 0.10);
+		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrAllUpfront", PurchaseOption.AllUpfront, 0.0, 0.10);
 		Datum[] usageData = new Datum[]{
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusAllUpfront, "t3.micro", null, arn, 1.0),
 			};
@@ -198,13 +244,12 @@ public class SavingsPlanProcessorTest {
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedAllUpfront, "t3.micro", null, 0.0),
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanAmortizedAllUpfront, "t3.micro", null, 0.012),
 			};
-		runTest(sp, usageData, costData, expectedUsageData, expectedCostData);
+		runTest(sp, usageData, costData, expectedUsageData, expectedCostData, null);
 	}
 	
 	@Test
 	public void testCoveredUsagePartialUpfrontBorrowed() {
-		String arn = "arn:aws:savingsplans::" + a1.name + ":savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555";
-		SavingsPlan sp = new SavingsPlan(arn, PurchaseOption.PartialUpfront, 0.055, 0.045);
+		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrPartialUpfront", PurchaseOption.PartialUpfront, 0.055, 0.045);
 		Datum[] usageData = new Datum[]{
 				new Datum(a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t3.micro", null, arn, 1.0),
 			};
@@ -221,6 +266,6 @@ public class SavingsPlanProcessorTest {
 				new Datum(a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBorrowedAmortizedPartialUpfront, "t3.micro", null, 0.0045),
 				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanLentAmortizedPartialUpfront, "t3.micro", null, 0.0045),
 			};
-		runTest(sp, usageData, costData, expectedUsageData, expectedCostData);
+		runTest(sp, usageData, costData, expectedUsageData, expectedCostData, null);
 	}
 }

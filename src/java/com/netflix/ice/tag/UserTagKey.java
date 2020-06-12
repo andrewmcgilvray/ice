@@ -17,39 +17,48 @@
  */
 package com.netflix.ice.tag;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class UserTag extends Tag {
+public class UserTagKey extends Tag {
 	private static final long serialVersionUID = 1L;
-	public static final String none = "(none)";
 
-    private static ConcurrentMap<String, UserTag> tagsByName = Maps.newConcurrentMap();
+    private static ConcurrentMap<String, UserTagKey> tagKeysByName = Maps.newConcurrentMap();
     
-    public static UserTag empty = UserTag.get("");
-
-	private UserTag(String name) {
+    public List<String> aliases;
+    
+	private UserTagKey(String name) {
 		super(name);
+		aliases = Lists.newArrayList();
 	}
 	
-	public static UserTag get(String name) {
+	public void addAlias(String alias) {
+		aliases.add(alias);
+	}
+	
+	public void addAllAliases(Collection<String> aliases) {
+		this.aliases.addAll(aliases);
+	}
+	
+	public static UserTagKey get(String name) {
 		if (name == null)
 			name = "";
-        UserTag tag = tagsByName.get(name);
+        UserTagKey tag = tagKeysByName.get(name);
         if (tag == null) {
-        	tagsByName.putIfAbsent(name, new UserTag(name));
-        	tag = tagsByName.get(name);
+        	tagKeysByName.putIfAbsent(name, new UserTagKey(name));
+        	tag = tagKeysByName.get(name);
         }
         return tag;
 	}
 	
-	public static List<UserTag> getUserTags(List<String> names) {
-		List<UserTag> tags = Lists.newArrayList();
+	public static List<UserTagKey> getUserTagKeys(List<String> names) {
+		List<UserTagKey> tags = Lists.newArrayList();
 		for (String name: names) {
-			tags.add(get(name.equals(none) ? "" : name));
+			tags.add(get(name));
 		}
 		return tags;
 	}

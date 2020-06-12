@@ -17,6 +17,12 @@
  */
 package com.netflix.ice.processor;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +31,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Months;
@@ -53,6 +62,8 @@ import com.netflix.ice.reader.InstanceMetrics;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ReservationArn;
+import com.netflix.ice.tag.SavingsPlanArn;
+import com.netflix.ice.tag.UserTagKey;
 
 public class CostAndUsageData {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -64,26 +75,26 @@ public class CostAndUsageData {
     private final AccountService accountService;
     private final ProductService productService;
     private Map<Product, ReadWriteTagCoverageData> tagCoverage;
-    private List<String> userTags;
+    private List<UserTagKey> userTagKeys;
     private boolean collectTagCoverageWithUserTags;
     private Map<ReservationArn, Reservation> reservations;
-    private Map<String, SavingsPlan> savingsPlans;
+    private Map<SavingsPlanArn, SavingsPlan> savingsPlans;
     
-	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<String> userTags, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
+	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
+        this.userTagKeys = userTagKeys;
 		this.usageDataByProduct = Maps.newHashMap();
 		this.costDataByProduct = Maps.newHashMap();
-        this.usageDataByProduct.put(null, new ReadWriteData());
-        this.costDataByProduct.put(null, new ReadWriteData());
+        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
         this.workBucketConfig = workBucketConfig;
         this.accountService = accountService;
         this.productService = productService;
         this.tagCoverage = null;
-        this.userTags = userTags;
         this.collectTagCoverageWithUserTags = tagCoverage == TagCoverage.withUserTags;
-        if (userTags != null && tagCoverage != TagCoverage.none) {
+        if (userTagKeys != null && tagCoverage != TagCoverage.none) {
     		this.tagCoverage = Maps.newHashMap();
-        	this.tagCoverage.put(null, new ReadWriteTagCoverageData(userTags.size()));
+        	this.tagCoverage.put(null, new ReadWriteTagCoverageData(getNumUserTags()));
         }
         this.reservations = Maps.newHashMap();
         this.savingsPlans = Maps.newHashMap();
@@ -91,6 +102,10 @@ public class CostAndUsageData {
 	
 	public long getStartMilli() {
 		return startMilli;
+	}
+	
+	public int getNumUserTags() {
+		return userTagKeys == null ? 0 : userTagKeys.size();
 	}
 	
 	public ReadWriteData getUsage(Product product) {
@@ -188,17 +203,17 @@ public class CostAndUsageData {
     	return reservations != null && reservations.size() > 0;
     }
     
-    public void addSavingsPlan(String arn, PurchaseOption paymentOption, String hourlyRecurringFee, String hourlyAmortization) {
-    	if (savingsPlans.containsKey(arn))
+    public void addSavingsPlan(TagGroupSP tagGroup, PurchaseOption paymentOption, String term, String offeringType, long start, long end, String hourlyRecurringFee, String hourlyAmortization) {
+    	if (savingsPlans.containsKey(tagGroup.arn))
     		return;
-		SavingsPlan plan = new SavingsPlan(arn,
-				paymentOption,
+		SavingsPlan plan = new SavingsPlan(tagGroup,
+				paymentOption, term, offeringType, start, end,
 				Double.parseDouble(hourlyRecurringFee), 
 				Double.parseDouble(hourlyAmortization));
-    	savingsPlans.put(arn, plan);
+    	savingsPlans.put(tagGroup.arn, plan);
     }
     
-    public Map<String, SavingsPlan> getSavingsPlans() {
+    public Map<SavingsPlanArn, SavingsPlan> getSavingsPlans() {
     	return savingsPlans;
     }
     
@@ -220,11 +235,15 @@ public class CostAndUsageData {
     	
     	ReadWriteTagCoverageData data = tagCoverage.get(product);
     	if (data == null) {
-    		data = new ReadWriteTagCoverageData(userTags == null ? 0 : userTags.size());
+    		data = new ReadWriteTagCoverageData(userTagKeys == null ? 0 : getNumUserTags());
     		tagCoverage.put(product, data);
     	}
     	
     	data.put(index, tagGroup, TagCoverageMetrics.add(data.get(index, tagGroup), userTagCoverage));
+    }
+    
+    private String getProdName(Product product) {
+        return product == null ? "all" : product.getServiceCode();
     }
     
     class Status {
@@ -272,6 +291,9 @@ public class CostAndUsageData {
         archiveSummary(startDate, costDataByProduct, "cost_", pool, futures);
         archiveSummaryTagCoverage(startDate, pool, futures);
 
+        archiveReservations();
+        archiveSavingsPlans();
+        
 		// Wait for completion
 		for (Future<Status> f: futures) {
 			Status s = f.get();
@@ -279,7 +301,27 @@ public class CostAndUsageData {
 				logger.error("Error archiving file: " + s);
 			}
 		}
+		
+		shutdownAndAwaitTermination(pool);
     }
+    
+    private void shutdownAndAwaitTermination(ExecutorService pool) {
+    	pool.shutdown(); // Disable new tasks from being submitted
+    	try {
+    		// Wait a while for existing tasks to terminate
+    		if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+    			pool.shutdownNow(); // Cancel currently executing tasks
+    			// Wait a while for tasks to respond to being cancelled
+    			if (!pool.awaitTermination(60, TimeUnit.SECONDS))
+    				System.err.println("Pool did not terminate");
+    		}
+    	} catch (InterruptedException ie) {
+    		// (Re-)Cancel if current thread also interrupted
+    		pool.shutdownNow();
+    		// Preserve interrupt status
+    		Thread.currentThread().interrupt();
+    	}
+	}
     
     private void verifyTagGroups() throws Exception {    	
         for (Product product: costDataByProduct.keySet()) {
@@ -324,7 +366,7 @@ public class CostAndUsageData {
     	        String filename = writeJsonFiles.name() + "_all_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".json";
     	        try {
 	    	        DataJsonWriter writer = new DataJsonWriter(filename,
-	    	        		monthDateTime, userTags, writeJsonFiles, costDataByProduct, usageDataByProduct, instanceMetrics, priceListService, workBucketConfig);
+	    	        		monthDateTime, userTagKeys, writeJsonFiles, costDataByProduct, usageDataByProduct, instanceMetrics, priceListService, workBucketConfig);
 	    	        writer.archive();
     	        }
     	        catch (Exception e) {
@@ -340,9 +382,9 @@ public class CostAndUsageData {
     	return pool.submit(new Callable<Status>() {
     		@Override
     		public Status call() {
-    			String name = product == null ? "all" : product.getServiceCode();
+    			String name = getProdName(product);
     			try {
-	                TagGroupWriter writer = new TagGroupWriter(name, true, workBucketConfig, accountService, productService);
+	                TagGroupWriter writer = new TagGroupWriter(name, true, workBucketConfig, accountService, productService, getNumUserTags());
 	                writer.archive(startMilli, tagGroups);
     			}
     			catch (Exception e) {
@@ -361,8 +403,7 @@ public class CostAndUsageData {
         	if (!archiveHourlyData && product != null)
         		continue;
         	
-            String prodName = product == null ? "all" : product.getServiceCode();
-            String name = prefix + "hourly_" + prodName + "_" + AwsUtils.monthDateFormat.print(monthDateTime);
+            String name = prefix + "hourly_" + getProdName(product) + "_" + AwsUtils.monthDateFormat.print(monthDateTime);
             futures.add(archiveHourlyFile(name, dataMap.get(product), archiveHourlyData, pool));
         }
     }
@@ -414,14 +455,14 @@ public class CostAndUsageData {
         // Queue the non-resource version first because it takes longer and we
         // don't like to have it last with other threads idle.
         ReadWriteData data = dataMap.get(null);
-        futures.add(archiveSummaryProductFuture(monthDateTime, startDate, "all", data, prefix, pool));
+        futures.add(archiveSummaryProductFuture(monthDateTime, startDate, null, data, prefix, pool));
                 
         for (Product product: dataMap.keySet()) {
         	if (product == null)
         		continue;
         	
             data = dataMap.get(product);            
-            futures.add(archiveSummaryProductFuture(monthDateTime, startDate, product.getServiceCode(), data, prefix, pool));
+            futures.add(archiveSummaryProductFuture(monthDateTime, startDate, product, data, prefix, pool));
         }
     }
     
@@ -472,7 +513,7 @@ public class CostAndUsageData {
         return new DataWriter(name, data, load, workBucketConfig, accountService, productService);
     }
     
-    protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, String prodName, ReadWriteData data, String prefix, Collection<TagGroup> tagGroups) throws Exception {
+    protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, Product product, ReadWriteData data, String prefix, Collection<TagGroup> tagGroups) throws Exception {
         // init daily, weekly and monthly
         List<Map<TagGroup, Double>> daily = Lists.newArrayList();
         List<Map<TagGroup, Double>> weekly = Lists.newArrayList();
@@ -483,6 +524,8 @@ public class CostAndUsageData {
         ReadWriteData dailyData = null;
         DataWriter writer = null;
         int daysFromLastMonth = monthDateTime.getDayOfWeek() - 1; // Monday is first day of week == 1
+        String prodName = getProdName(product);
+        int numUserTags = product == null ? 0 : getNumUserTags(); // only resource data has user tags
         
         if (monthDateTime.isAfter(startDate)) {
             int lastMonthYear = monthDateTime.minusMonths(1).getYear();
@@ -490,7 +533,7 @@ public class CostAndUsageData {
             int lastMonthDayOfYear = monthDateTime.minusMonths(1).getDayOfYear();
             int startDay = lastMonthDayOfYear + lastMonthNumDays - daysFromLastMonth - 1;
             
-            dailyData = new ReadWriteData();
+            dailyData = new ReadWriteData(numUserTags);
             writer = getDataWriter(prefix + "daily_" + prodName + "_" + lastMonthYear, dailyData, true);
             getPartialWeek(dailyData, startDay, daysFromLastMonth, 0, tagGroups, weekly);
             if (year != lastMonthYear) {
@@ -509,7 +552,7 @@ public class CostAndUsageData {
         	// See if we have data processed for the following month that needs to be added to the last week of this month
         	if (monthDateTime.getMonthOfYear() < 12) {
         		if (writer == null) {
-                    dailyData = new ReadWriteData();
+                    dailyData = new ReadWriteData(numUserTags);
                     writer = getDataWriter(prefix + "daily_" + prodName + "_" + year, dailyData, true);
                     int monthDayOfYear = monthDateTime.plusMonths(1).getDayOfYear() - 1;
                     if (dailyData.getNum() > monthDayOfYear)
@@ -517,7 +560,7 @@ public class CostAndUsageData {
         		}
         	}
         	else {
-                ReadWriteData nextYearDailyData = new ReadWriteData();
+                ReadWriteData nextYearDailyData = new ReadWriteData(numUserTags);
                 DataWriter nextYearWriter = getDataWriter(prefix + "daily_" + prodName + "_" + (year + 1), nextYearDailyData, true);
                 if (nextYearDailyData.getNum() > 0)
                 	getPartialWeek(nextYearDailyData, 0, daysInNextMonth, weekly.size() - 1, tagGroups, weekly);
@@ -527,14 +570,14 @@ public class CostAndUsageData {
         
         // archive daily
         if (writer == null) {
-            dailyData = new ReadWriteData();
+            dailyData = new ReadWriteData(numUserTags);
             writer = getDataWriter(prefix + "daily_" + prodName + "_" + year, dailyData, true);
         }
         dailyData.setData(daily, monthDateTime.getDayOfYear() -1);
         writer.archive();
 
         // archive monthly
-        ReadWriteData monthlyData = new ReadWriteData();
+        ReadWriteData monthlyData = new ReadWriteData(numUserTags);
         int numMonths = Months.monthsBetween(startDate, monthDateTime).getMonths();            
         writer = getDataWriter(prefix + "monthly_" + prodName, monthlyData, true);
         monthlyData.setData(monthly, numMonths);            
@@ -547,25 +590,25 @@ public class CostAndUsageData {
             index = 0;
         else
             index = Weeks.weeksBetween(startDate, weekStart).getWeeks() + (startDate.dayOfWeek() == weekStart.dayOfWeek() ? 0 : 1);
-        ReadWriteData weeklyData = new ReadWriteData();
+        ReadWriteData weeklyData = new ReadWriteData(numUserTags);
         writer = getDataWriter(prefix + "weekly_" + prodName, weeklyData, true);
         weeklyData.setData(weekly, index);
         writer.archive();
     }
     
-    private Future<Status> archiveSummaryProductFuture(final DateTime monthDateTime, final DateTime startDate, final String prodName,
+    private Future<Status> archiveSummaryProductFuture(final DateTime monthDateTime, final DateTime startDate, final Product product,
     		final ReadWriteData data, final String prefix, ExecutorService pool) {
     	return pool.submit(new Callable<Status>() {
     		@Override
     		public Status call() {
     			try {
-    				archiveSummaryProduct(monthDateTime, startDate, prodName, data, prefix, data.getTagGroups());  
+    				archiveSummaryProduct(monthDateTime, startDate, product, data, prefix, data.getTagGroups());  
     			}
     			catch (Exception e) {
     				e.printStackTrace();
-    				return new Status(prefix + "<interval>_" + prodName, e);
+    				return new Status(prefix + "<interval>_" + getProdName(product), e);
     			}
-				return new Status(prefix + "<interval>_" + prodName);
+				return new Status(prefix + "<interval>_" + getProdName(product));
     		}
         });
     }
@@ -592,10 +635,9 @@ public class CostAndUsageData {
 
         for (Product product: tagCoverage.keySet()) {
 
-            String prodName = product == null ? "all" : product.getServiceCode();
             ReadWriteTagCoverageData data = tagCoverage.get(product);
             
-            futures.add(archiveSummaryTagCoverageProduct(monthDateTime, startDate, prodName, data, pool));
+            futures.add(archiveSummaryTagCoverageProduct(monthDateTime, startDate, getProdName(product), data, pool));
         }
         
     }
@@ -606,7 +648,7 @@ public class CostAndUsageData {
     		@Override
     		public Status call() {
     			try {
-	    	        int numUserTags = userTags == null ? 0 : userTags.size();
+	    	        int numUserTags = userTagKeys == null ? 0 : getNumUserTags();
 	                Collection<TagGroup> tagGroups = data.getTagGroups();
 	
 	                // init daily, weekly and monthly
@@ -688,6 +730,56 @@ public class CostAndUsageData {
     	});
     }
 
+    private void archiveReservations() throws IOException {
+        DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+        File file = new File(workBucketConfig.localDir, "reservations_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+    	OutputStream os = new FileOutputStream(file);
+		Writer out = new OutputStreamWriter(os);
+        
+        try {
+        	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(Reservation.header()));
+        	for (Reservation ri: reservations.values()) {
+        		printer.printRecord((Object[]) ri.values());
+        	}
+      	
+        	printer.close(true);
+        }
+        finally {
+            out.close();
+        }
+
+        // archive to s3
+        logger.info("uploading " + file + "...");
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, file.getName());
+        logger.info("uploaded " + file);
+    }
+ 
+    private void archiveSavingsPlans() throws IOException {
+        DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+        File file = new File(workBucketConfig.localDir, "savingsPlans_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+    	OutputStream os = new FileOutputStream(file);
+		Writer out = new OutputStreamWriter(os);
+        
+        try {
+        	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(SavingsPlan.header()));
+        	for (SavingsPlan sp: savingsPlans.values()) {
+        		printer.printRecord((Object[]) sp.values());
+        	}
+      	
+        	printer.close(true);
+        }
+        finally {
+            out.close();
+        }
+
+        // archive to s3
+        logger.info("uploading " + file + "...");
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, file.getName());
+        logger.info("uploaded " + file);
+    }
+    
 }
 
 

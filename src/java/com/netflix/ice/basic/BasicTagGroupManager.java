@@ -54,6 +54,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     private final WorkBucketConfig workBucketConfig;
     private final AccountService accountService;
     private final ProductService productService;
+    private final int numUserTags;
     private final String dbName;
     private final File file;
     private TreeMap<Long, Collection<TagGroup>> tagGroups;
@@ -61,11 +62,12 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     private Interval totalInterval;
     private boolean compress;
 
-    BasicTagGroupManager(Product product, boolean compress, WorkBucketConfig workBucketConfig, AccountService accountService, ProductService productService) {
+    BasicTagGroupManager(Product product, boolean compress, WorkBucketConfig workBucketConfig, AccountService accountService, ProductService productService, int numUserTags) {
     	this.compress = compress;
     	this.workBucketConfig = workBucketConfig;
     	this.accountService = accountService;
     	this.productService = productService;
+    	this.numUserTags = numUserTags;
         this.dbName = TagGroupWriter.DB_PREFIX + (product == null ? "all" : product.getServiceCode());
         file = new File(workBucketConfig.localDir, dbName + (compress ? compressExtension : ""));
         
@@ -73,15 +75,32 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     }
     
     // For unit testing
-    BasicTagGroupManager(TreeMap<Long, Collection<TagGroup>> tagGroupsWithResourceGroups, Interval totalInterval) {
+    BasicTagGroupManager(TreeMap<Long, Collection<TagGroup>> tagGroupsWithResourceGroups, Interval totalInterval, int numUserTags) {
     	this.tagGroupsWithResourceGroups = tagGroupsWithResourceGroups;
     	this.tagGroups = removeResourceGroups(tagGroupsWithResourceGroups);
     	this.workBucketConfig = null;
     	this.accountService = null;
     	this.productService = null;
+    	this.numUserTags = numUserTags;
     	this.dbName = null;
     	this.file = null;
     	this.totalInterval = totalInterval;
+    }
+ 
+    public Collection<TagGroup> getTagGroups() {
+    	Set<TagGroup> uniqueTagGroups = Sets.newHashSet();
+    	for (Collection<TagGroup> tgs: tagGroups.values()) {
+    		uniqueTagGroups.addAll(tgs);
+    	}
+    	return uniqueTagGroups;
+    }
+    
+    public Collection<TagGroup> getTagGroupsWithResourceGroups() {
+    	Set<TagGroup> uniqueTagGroups = Sets.newHashSet();
+    	for (Collection<TagGroup> tgs: tagGroupsWithResourceGroups.values()) {
+    		uniqueTagGroups.addAll(tgs);
+    	}
+    	return uniqueTagGroups;
     }
     
     public TreeMap<Long, Integer> getSizes() {
@@ -151,7 +170,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
 	            	is = new GZIPInputStream(is);
 	            in = new DataInputStream(is);
 	            
-                TreeMap<Long, Collection<TagGroup>> tagGroupsWithResourceGroups = TagGroup.Serializer.deserializeTagGroups(accountService, productService, in);
+                TreeMap<Long, Collection<TagGroup>> tagGroupsWithResourceGroups = TagGroup.Serializer.deserializeTagGroups(accountService, productService, numUserTags, in);
                 TreeMap<Long, Collection<TagGroup>> tagGroups = removeResourceGroups(tagGroupsWithResourceGroups);
                 Interval totalInterval = null;
                 if (tagGroups.size() > 0) {
@@ -297,7 +316,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
         Set<ResourceGroup> groups = Sets.newHashSet();
         Set<TagGroup> tagGroupsInRange = getTagGroupsWithResourceGroupsInRange(getMonthMillis(interval));
 
-        // Add ResourceGroup tags that are non-null, just the product name, or userTag CSVs.
+        // Add ResourceGroup tags that are non-nulls.
         for (TagGroup tagGroup: tagGroupsInRange) {
             if (tagLists.contains(tagGroup) && tagGroup.resourceGroup != null) {
                 groups.add(tagGroup.resourceGroup);
@@ -311,14 +330,12 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
         Set<UserTag> userTags = Sets.newHashSet();
         Set<TagGroup> tagGroupsInRange = getTagGroupsWithResourceGroupsInRange(getMonthMillis(interval));
         
-        UserTag emptyUserTag = UserTag.get("");
-
-        // Add ResourceGroup tags that are null, just the product name, or userTag CSVs.
+        // Add ResourceGroup tags that are null.
         for (TagGroup tagGroup: tagGroupsInRange) {
         	//logger.info("tag group <" + tagLists.contains(tagGroup) + ">: " + tagGroup);
             if (tagLists.contains(tagGroup)) {
             	try {
-            		UserTag t = tagGroup.resourceGroup == null ? emptyUserTag : tagGroup.resourceGroup.getUserTags()[userTagGroupByIndex];
+            		UserTag t = tagGroup.resourceGroup == null ? UserTag.empty : tagGroup.resourceGroup.getUserTags()[userTagGroupByIndex];
             		userTags.add(t);
             	}
             	catch (Exception e) {
@@ -393,7 +410,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
         // Filtering of results against resourceGroup values is handled later.
         TagLists tagListsForTag = tagLists;
         boolean tagListsHasResourceGroups = tagLists.resourceGroups != null && tagLists.resourceGroups.size() > 0;
-        if ((groupBy == null || !(groupBy == TagType.ResourceGroup || groupBy == TagType.Tag)) && tagListsHasResourceGroups) {
+        if ((groupBy == null || groupBy != TagType.Tag) && tagListsHasResourceGroups) {
         	//logger.info("getTagListsWithNullResourceGroup");
             tagListsForTag = tagLists.getTagListsWithNullResourceGroup();
         }
@@ -438,9 +455,6 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
                 break;
             case UsageType:
                 groupByTags.addAll(getUsageTypes(tagGroupsInRange, tagListsForTag));
-                break;
-            case ResourceGroup:
-                groupByTags.addAll(getResourceGroups(interval, tagListsForTag));
                 break;
             case Tag:
                 groupByTags.addAll(getResourceGroupTags(interval, tagListsForTag, userTagGroupByIndex));

@@ -41,22 +41,22 @@ import com.netflix.ice.reader.TagLists;
 import com.netflix.ice.reader.UsageUnit;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
-import com.netflix.ice.tag.UserTag;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
 public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TagCoverageMetrics> implements DataManager {
     //private final static Logger staticLogger = LoggerFactory.getLogger(TagCoverageDataManager.class);
 	
-	protected List<String> userTags;
+	protected List<UserTagKey> userTagKeys;
 
-	public TagCoverageDataManager(DateTime startDate, String dbName, ConsolidateType consolidateType, TagGroupManager tagGroupManager, boolean compress, List<String> userTags,
+	public TagCoverageDataManager(DateTime startDate, String dbName, ConsolidateType consolidateType, TagGroupManager tagGroupManager, boolean compress, List<UserTagKey> userTagKeys,
 			int monthlyCacheSize, WorkBucketConfig workBucketConfig, AccountService accountService, ProductService productService) {
 		super(startDate, dbName, consolidateType, tagGroupManager, compress, monthlyCacheSize, workBucketConfig, accountService, productService);
-		this.userTags = userTags;
+		this.userTagKeys = userTagKeys;
 	}
 	
-	protected int getUserTagsSize() {
-		return userTags.size();
+	protected int getUserTagKeysSize() {
+		return userTagKeys.size();
 	}
     
 	@Override
@@ -73,14 +73,14 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 
 	@Override
 	protected ReadOnlyTagCoverageData newEmptyData() {
-    	return new ReadOnlyTagCoverageData(getUserTagsSize());
+    	return new ReadOnlyTagCoverageData(getUserTagKeysSize());
 	}
 
 	@Override
 	protected ReadOnlyTagCoverageData deserializeData(DataInputStream in)
 			throws IOException, BadZone {
-	    ReadOnlyTagCoverageData result = new ReadOnlyTagCoverageData(getUserTagsSize());
-	    result.deserialize(accountService, productService, userTags.size(), in);
+	    ReadOnlyTagCoverageData result = new ReadOnlyTagCoverageData(getUserTagKeysSize());
+	    result.deserialize(accountService, productService, in);
 	    return result;
 	}
 
@@ -94,7 +94,7 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 			List<TagGroup> tagGroups, UsageUnit usageUnit,
 			TagCoverageMetrics[] data) {
 		
-		TagCoverageMetrics result = new TagCoverageMetrics(getUserTagsSize());
+		TagCoverageMetrics result = new TagCoverageMetrics(getUserTagKeysSize());
 		if (data != null) {
 	        for (int i = 0; i < columns.size(); i++) {
 	        	TagCoverageMetrics d = data[columns.get(i)];
@@ -115,15 +115,13 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
     	return false;
 	}
 	
-	protected List<String> getUserTags() {
-		return userTags;
+	protected List<UserTagKey> getUserTagKeys() {
+		return userTagKeys;
 	}
 
 	@Override
-    protected Map<Tag, double[]> processResult(Map<Tag, TagCoverageMetrics[]> data, TagType groupBy, AggregateType aggregate, List<UserTag> tagKeys) {
-    	List<String> userTags = getUserTags();
-    	
-    	return TagCoverageDataManager.processResult(data, groupBy, aggregate, tagKeys, userTags);
+    protected Map<Tag, double[]> processResult(Map<Tag, TagCoverageMetrics[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
+    	return TagCoverageDataManager.processResult(data, groupBy, aggregate, tagKeys, getUserTagKeys());
     }
     
     /*
@@ -144,12 +142,12 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
     	}
     }
     
-    static public Map<Tag, double[]> processResult(Map<Tag, TagCoverageMetrics[]> data, TagType groupBy, AggregateType aggregate, List<UserTag> tagKeys, List<String> userTags) {
+    static public Map<Tag, double[]> processResult(Map<Tag, TagCoverageMetrics[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys, List<UserTagKey> userTagKeys) {
     	// list of tagKeys we want to export
     	List<Integer> tagKeyIndecies = Lists.newArrayList();
-    	for (UserTag tagKey: tagKeys) {
-    		for (int i = 0; i < userTags.size(); i++) {
-    			if (tagKey.name.equals(userTags.get(i)))
+    	for (UserTagKey tagKey: tagKeys) {
+    		for (int i = 0; i < userTagKeys.size(); i++) {
+    			if (tagKey.name.equals(userTagKeys.get(i).name))
     				tagKeyIndecies.add(i);
     		}
     	}    	

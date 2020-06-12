@@ -15,17 +15,8 @@
  *     limitations under the License.
  *
  */
-package com.netflix.ice.tag;
+package com.netflix.ice.common;
 
-public enum TagType {
-	CostType,
-	OrgUnit,
-    Account,
-    Region,
-    Zone,
-    Product,
-    Operation,
-    UsageType,
-    TagKey,
-    Tag;
+public interface DataVersion {
+	int CUR_WORK_BUCKET_VERSION = 2;
 }

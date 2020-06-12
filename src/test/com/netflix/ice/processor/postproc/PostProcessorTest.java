@@ -60,7 +60,7 @@ public class PostProcessorTest {
 	static public void init() {
 		ps = new BasicProductService();
 		as = new BasicAccountService();
-		rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, new String[]{}, false);
+		rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
 		ps.getProduct(Product.Code.CloudFront);
 		ps.getProduct(Product.Code.CloudWatch);
 	}
@@ -76,10 +76,10 @@ public class PostProcessorTest {
     	String productServiceCode;
     	String operation;
     	String usageType;
-    	String resourceGroup;
+    	String[] resourceGroup;
     	Double value;
     	
-    	public TagGroupSpec(DataType dataType, String account, String region, String product, String operation, String usageType, String resourceGroup, Double value) {
+    	public TagGroupSpec(DataType dataType, String account, String region, String product, String operation, String usageType, String[] resourceGroup, Double value) {
     		this.dataType = dataType;
     		this.account = account;
     		this.region = region;
@@ -143,7 +143,7 @@ public class PostProcessorTest {
 			"operands:\n" + 
 			"  accountAgg:\n" + 
 			"    type: usage\n" +
-			"    groupBy: [Region,Zone,Product,Operation,UsageType,ResourceGroup]\n" +
+			"    groupBy: [Region,Zone,Product,Operation,UsageType]\n" +
 			"    usageType: ${group}-Usage\n" + 
 			"  accountAggByList:\n" + 
 			"    type: usage\n" +
@@ -271,7 +271,7 @@ public class PostProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: ((1000 + 2000) - (4000 * 4 * 8 / 2)) * 0.01 / 1000 == (3000 - 64000) * 0.00001 == 2999.36
-		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", null).getTagGroup();
+		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "Credit - OP1", "US-Requests", null).getTagGroup();
 		Double value = costData.get(0, usReqs);
 		assertNotNull("No cost value for US-Requests", value);
 		assertEquals("Wrong cost value for US-Requests", -0.61, value, .0001);
@@ -281,7 +281,7 @@ public class PostProcessorTest {
 		assertEquals("Wrong usage value for US-Requests", -61000.0, value, .0001);
 		
 		// EU:  ((10000 + 20000) - (40000 * 4 * 8 / 2)) * 0.01 / 1000 == (30000 - 640000) * 0.00001 == 29993.6
-		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", null).getTagGroup();
+		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "Credit - OP1", "EU-Requests", null).getTagGroup();
 		Double euValue = costData.get(0, euReqs);
 		assertNotNull("No cost value for EU-Requests", euValue);
 		assertEquals("Wrong cost value for EU-Requests", -6.1, euValue, .0001);
@@ -293,17 +293,17 @@ public class PostProcessorTest {
 	
 	private void loadComputedCostDataWithResources(ReadWriteData usageData, ReadWriteData costData) throws Exception {
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-1", "tagA|", 1000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-2", "tagA|", 2000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-DataTransfer-Out-Bytes", "tagA|", 4000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-1", new String[]{"tagA", ""}, 1000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-2", new String[]{"tagA", ""}, 2000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-DataTransfer-Out-Bytes", new String[]{"tagA", ""}, 4000.0),
         		
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-1", "tagB|", 8000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-2", "tagB|", 16000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-DataTransfer-Out-Bytes", "tagB|", 32000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-1", new String[]{"tagB", ""}, 8000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-2", new String[]{"tagB", ""}, 16000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-DataTransfer-Out-Bytes", new String[]{"tagB", ""}, 32000.0),
         		
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", "tagC|", 10000.0),
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", "tagC|", 20000.0),
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-DataTransfer-Out-Bytes", "tagC|", 40000.0),
+        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", new String[]{"tagC", ""}, 10000.0),
+        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", new String[]{"tagC", ""}, 20000.0),
+        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-DataTransfer-Out-Bytes", new String[]{"tagC", ""}, 40000.0),
         };
         loadData(dataSpecs, usageData, costData, 0);
 	}
@@ -335,13 +335,13 @@ public class PostProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: (1000 + 2000) - (4000 * 4 * 8 / 2) * 0.01 / 1000 == 3000 - 64000 * 0.00001 == 2999.36
-		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", "tagA|", 0.0).getTagGroup();
+		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "Credit - OP1", "US-Requests", new String[]{"tagA", ""}, 0.0).getTagGroup();
 		Double value = outCostData.get(0, usReqs);
 		assertNotNull("No value for US-Requests", value);
 		assertEquals("Wrong value for US-Requests", -0.61, value, .0001);
 		
 		// EU:  (10000 + 20000) - (40000 * 4 * 8 / 2) * 0.01 / 1000 == 30000 - 640000 * 0.00001 == 29993.6
-		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", "tagC|", 0.0).getTagGroup();
+		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "Credit - OP1", "EU-Requests", new String[]{"tagC", ""}, 0.0).getTagGroup();
 		Double euValue = outCostData.get(0, euReqs);
 		assertNotNull("No value for EU-Requests", euValue);
 		assertEquals("Wrong value for EU-Requests", -6.1, euValue, .0001);
@@ -565,14 +565,14 @@ public class PostProcessorTest {
 	public void testGlobalSplitWithUserTags() throws Exception {
 		// Split $300 (3% of $10,000) of spend across three accounts based on individual account spend
         TagGroupSpec[] globalFeeSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", "|", 300.0),
-        		new TagGroupSpec(DataType.usage, a1, "global", "GlobalFee", "None", "Dollar", "|", 10000.0),
+        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"", ""}, 300.0),
+        		new TagGroupSpec(DataType.usage, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"", ""}, 10000.0),
         };
         TagGroupSpec[] productSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "None", "Dollar", "Tag1|", 5000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", "Tag2|", 3000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", "Tag3|", 1500.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", "Tag4|", 500.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag1", ""}, 5000.0),
+        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag2", ""}, 3000.0),
+        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag3", ""}, 1500.0),
+        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", new String[]{"Tag4", ""}, 500.0),
         };
         
 		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
@@ -616,27 +616,27 @@ public class PostProcessorTest {
 		assertEquals("Wrong number of entries in the single value cache", 2, operandSingleValueCache.size());
 
 		// Should have zeroed out the GlobalFee cost
-		TagGroup globalFeeTag = new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", "|", null).getTagGroup();
+		TagGroup globalFeeTag = new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"", ""}, null).getTagGroup();
 		Double value = outCostData.get(0, globalFeeTag);
 		assertNotNull("No value for global fee", value);
 		assertEquals("Wrong value for global fee", 0.0, value, .001);
 		
 		// Should have 50/30/15/5% split of $300
-		TagGroup a1split = new TagGroupSpec(DataType.cost, a1, "us-east-1", "GlobalFee", "Split", "Dollar", "Tag1|", null).getTagGroup();
+		TagGroup a1split = new TagGroupSpec(DataType.cost, a1, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag1", ""}, null).getTagGroup();
 		value = outCostData.get(0, a1split);
 		assertNotNull("No value for global fee on account 1", value);
 		assertEquals("wrong value for account 1", 300.0 * 0.5, value, .001);
 		
-		TagGroup a2split = new TagGroupSpec(DataType.cost, a2, "us-east-1", "GlobalFee", "Split", "Dollar", "Tag2|", null).getTagGroup();
+		TagGroup a2split = new TagGroupSpec(DataType.cost, a2, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag2", ""}, null).getTagGroup();
 		value = outCostData.get(0, a2split);
 		assertNotNull("No value for global fee on account 2", value);
 		assertEquals("wrong value for account 2", 300.0 * 0.3, value, .001);
 		
-		TagGroup a3split = new TagGroupSpec(DataType.cost, a3, "us-east-1", "GlobalFee", "Split", "Dollar", "Tag3|", null).getTagGroup();
+		TagGroup a3split = new TagGroupSpec(DataType.cost, a3, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag3", ""}, null).getTagGroup();
 		value = outCostData.get(0, a3split);
 		assertNotNull("No value for global fee on account 3", value);
 		assertEquals("wrong value for account 3", 300.0 * 0.15, value, .001);
-		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", "Tag4|", null).getTagGroup();
+		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", new String[]{"Tag4", ""}, null).getTagGroup();
 		value = outCostData.get(0, a3split);
 		assertNotNull("No value for global fee on account 4", value);
 		assertEquals("wrong value for account 3", 300.0 * 0.05, value, .001);
@@ -648,10 +648,10 @@ public class PostProcessorTest {
 		ReadWriteData usageData = new ReadWriteData();
 		ReadWriteData costData = new ReadWriteData();
         TagGroupSpec[] cfSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-1", "Tag1|", 1000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-2", "Tag1|", 2000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-1", "Tag2|", 1000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-2", "Tag2|", 2000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-1", new String[]{"Tag1", ""}, 1000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-2", new String[]{"Tag1", ""}, 2000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-1", new String[]{"Tag2", ""}, 1000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudFront.serviceCode, "OP1", "US-Requests-2", new String[]{"Tag2", ""}, 2000.0),
         };
         loadData(cfSpecs, usageData, costData, 0);
         loadData(cfSpecs, usageData, costData, 1);
@@ -662,8 +662,8 @@ public class PostProcessorTest {
 		usageData = new ReadWriteData();
 		costData = new ReadWriteData();
         TagGroupSpec[] cwSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudWatch.serviceCode, "OP1", "US-DataTransfer-Out-Bytes", "Tag1|", 4000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudWatch.serviceCode, "OP1", "US-DataTransfer-Out-Bytes", "Tag2|", 4000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudWatch.serviceCode, "OP1", "US-DataTransfer-Out-Bytes", new String[]{"Tag1", ""}, 4000.0),
+        		new TagGroupSpec(DataType.usage, a1, "us-east-1", Product.Code.CloudWatch.serviceCode, "OP1", "US-DataTransfer-Out-Bytes", new String[]{"Tag2", ""}, 4000.0),
         };
         loadData(cwSpecs, usageData, costData, 0);
         loadData(cwSpecs, usageData, costData, 1);
@@ -719,8 +719,8 @@ public class PostProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: (1000 + 2000) - (4000 * 4 * 8 / 2) * 0.01 / 1000 == 3000 - 64000 * 0.00001 == 2999.36
-		for (String rg: new String[]{"Tag1|", "Tag2|"}) {
-			TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", rg, null).getTagGroup();
+		for (String[] rg: new String[][]{new String[]{"Tag1", ""}, new String[]{"Tag2", ""}}) {
+			TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "Credit - OP1", "US-Requests", rg, null).getTagGroup();
 			for (int hour = 0; hour < 2; hour++) {
 				Double value = outCostData.get(hour, usReqs);
 				assertNotNull("No value for US-Requests hour " + hour + ", tag " + rg, value);

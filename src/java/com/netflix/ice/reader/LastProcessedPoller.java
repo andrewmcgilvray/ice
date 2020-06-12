@@ -19,32 +19,38 @@ package com.netflix.ice.reader;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
 
 import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.google.common.collect.Lists;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.Config.WorkBucketConfig;
 import com.netflix.ice.common.Poller;
+import com.netflix.ice.common.ProcessorStatus;
 
 /**
- * LastProcessedPoller will periodically scan the timestamps from all the lastProcessedMillis_YYYY-MM files
+ * LastProcessedPoller will periodically scan the timestamps from all the processorStatus_YYYY-MM files
  * to determine the latest timestamp from all the monthly files.
  */
 public class LastProcessedPoller extends Poller {
 	
     private final WorkBucketConfig workBucketConfig;
     private DateTime startDate;
-    private final String dbName;
-    private Long lastProcessedMillis;
+    private DateTime lastProcessed;
+    private List<ProcessorStatus> status;
 
 	public LastProcessedPoller(DateTime startDate, WorkBucketConfig workBucketConfig) {
 		this.startDate = startDate;
 		this.workBucketConfig = workBucketConfig;
-		this.dbName = "lastProcessMillis";
-		this.lastProcessedMillis = 0L;
+		this.lastProcessed = new DateTime(0);
+		this.status = null;
 		
 		// Do the initial poll now
 		try {
@@ -58,49 +64,77 @@ public class LastProcessedPoller extends Poller {
 	}
 	
 	public Long getLastProcessedMillis() {
-		return lastProcessedMillis;
+		return lastProcessed.getMillis();
 	}
 
 	@Override
 	protected void poll() throws Exception {
-        //logger.info(dbName + " start polling...");
-        Long oldLastProcessedMillis = lastProcessedMillis;
+        DateTime oldLastProcessed = lastProcessed;
+		this.status = Lists.newArrayList();
         for (DateTime month = startDate; month.isBefore(DateTime.now()); month = month.plusMonths(1)) {
-        	Long lastProcessedForMonth = getLastMillis(month);
-        	if (lastProcessedForMonth > lastProcessedMillis)
-        		lastProcessedMillis = lastProcessedForMonth;
+        	ProcessorStatus ps = getProcessorStatusForMonth(month);
+        	if (ps == null)
+        		continue;
+        	
+        	status.add(ps);
+        	DateTime lastProcessedForMonth = new DateTime(ps.getLastProcessed(), DateTimeZone.UTC);
+        	if (lastProcessedForMonth.isAfter(lastProcessed))
+        		lastProcessed = lastProcessedForMonth;
         }
-        if (lastProcessedMillis > oldLastProcessedMillis)
-        	logger.info("Data updated at " + lastProcessedMillis);
-        //else
-        //	logger.info("No updates since " + oldLastProcessedMillis);
+        if (lastProcessed.isAfter(oldLastProcessed))
+        	logger.info("Data updated at " + lastProcessed);
 	}
 	
-    private Long getLastMillis(DateTime monthDate) {
-    	String filename = dbName + "_" + AwsUtils.monthDateFormat.print(monthDate);
+    private ProcessorStatus getProcessorStatusForMonth(DateTime monthDate) {
+    	String filename = ProcessorStatus.prefix + AwsUtils.monthDateFormat.print(monthDate) + ProcessorStatus.suffix;
     	
         AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
         InputStream in = null;
         try {
             in = s3Client.getObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename).getObjectContent();
-            Long millis = Long.parseLong(IOUtils.toString(in, StandardCharsets.UTF_8));
-            //logger.info(filename + ": " + millis);
-            return millis;
+            ProcessorStatus ps = new ProcessorStatus(IOUtils.toString(in, StandardCharsets.UTF_8));
+            return ps;
         }
         catch (AmazonS3Exception e) {
             if (e.getStatusCode() == 404)
             	logger.warn("File not found in s3: " + filename);
             else
             	logger.error("Error reading from file " + filename, e);
-            return 0L;
+            return null;
         }
         catch (Exception e) {
             logger.error("Error reading from file " + filename, e);
-            return 0L;
+            return null;
         }
         finally {
             if (in != null)
                 try {in.close();} catch (Exception e){}
         }
+    }
+    
+    public Collection<ProcessorStatus> getStatus() {
+    	return status;
+    }
+    
+    public void reprocess(String month, boolean state) {
+    	for (ProcessorStatus ps: status) {
+    		if (ps.month.equals(month)) {
+    			// Update the reprocess state for the requested month
+    			ps.reprocess = state;
+    			saveProcessorStatus(month, ps);
+    			break;
+    		}
+    	}
+    }
+    
+    private void saveProcessorStatus(String timeStr, ProcessorStatus status) {
+		String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
+		
+	    AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
+	    String statusStr = status.toJSON();
+	    ObjectMetadata metadata = new ObjectMetadata();
+	    metadata.setContentLength(statusStr.length());
+	
+	    s3Client.putObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename, IOUtils.toInputStream(statusStr, StandardCharsets.UTF_8), metadata);
     }
 }

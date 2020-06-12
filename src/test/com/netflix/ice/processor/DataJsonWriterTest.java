@@ -40,7 +40,9 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Product.Code;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UsageType;
+import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
 public class DataJsonWriterTest {
@@ -48,7 +50,7 @@ public class DataJsonWriterTest {
 
 	private ProductService productService = new BasicProductService();
 
-	private TagGroup getTagGroup(Code product, String operation, String usageType, String resource) throws BadZone {
+	private TagGroup getTagGroup(Code product, String operation, String usageType, String[] resource) throws BadZone, ResourceException {
 		Product prod = productService.getProduct(product);
 		return TagGroup.getTagGroup(
 				new Account("123456789012", "a1", Lists.<String>newArrayList()),
@@ -92,15 +94,15 @@ public class DataJsonWriterTest {
 		Data data = new Data();
 		
 		data.add(getTagGroup(Code.S3, "CopyObject", "Requests-Tier1", null), 1.11, 1.0);
-		data.add(getTagGroup(Code.S3, "GetObject", "Requests-Tier2", "foo|bar"), 2.22, 2.0);
+		data.add(getTagGroup(Code.S3, "GetObject", "Requests-Tier2", new String[]{"foo", "bar"}), 2.22, 2.0);
 		
 		DateTime dt = DateTime.parse("2017-08-01T00:00:00Z");
 		
-		List<String> tagNames = Lists.newArrayList();
-		tagNames.add("Tag1");
-		tagNames.add("Tag2");
+		List<UserTagKey> tagKeys = Lists.newArrayList();
+		tagKeys.add(UserTagKey.get("Tag1"));
+		tagKeys.add(UserTagKey.get("Tag2"));
 		
-		DataJsonWriter djw = new DataJsonWriter(dt, tagNames, data.costDataByProduct, data.usageDataByProduct);
+		DataJsonWriter djw = new DataJsonWriter(dt, tagKeys, data.costDataByProduct, data.usageDataByProduct);
 		
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		djw.writer = new OutputStreamWriter(out);		

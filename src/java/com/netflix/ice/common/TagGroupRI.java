@@ -28,6 +28,7 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ReservationArn;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.Zone;
 import com.netflix.ice.tag.Zone.BadZone;
@@ -60,7 +61,8 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
     	return get(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup, null);
     }
     
-    public static TagGroupRI get(String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit, String resourceGroup, String reservationArn, AccountService accountService, ProductService productService) throws BadZone {
+    public static TagGroupRI get(String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit, 
+    		String[] resourceGroup, String reservationArn, AccountService accountService, ProductService productService) throws BadZone, ResourceException {
         Region r = Region.getRegionByName(region);
         return get(
     		accountService.getAccountByName(account),
@@ -68,7 +70,7 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
         	productService.getProductByServiceCode(product),
         	Operation.getOperation(operation),
             UsageType.getUsageType(usageTypeName, usageTypeUnit),
-            StringUtils.isEmpty(resourceGroup) ? null : ResourceGroup.getResourceGroup(resourceGroup),
+            ResourceGroup.getResourceGroup(resourceGroup),
             ReservationArn.get(reservationArn));   	
     }
     

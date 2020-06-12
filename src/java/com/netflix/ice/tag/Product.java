@@ -80,7 +80,7 @@ public class Product extends Tag {
 	    Ec2Instance("EC2 Instance", "EC2Instance", true),
 	    Eip("Elastic IP", "EIP", false),
 	    RdsInstance("RDS Instance", "RDSInstance", true),
-	    Lambda("AWS Lambda", "AWSLambda", true);
+		Lambda("AWS Lambda", "AWSLambda", true);
 		
 		final public String serviceName;
 		final public String serviceCode;

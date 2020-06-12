@@ -100,7 +100,7 @@ public class ReadWriteDataTest {
     	InputStream is = new FileInputStream(file);
     	is = new GZIPInputStream(is);
         DataInputStream in = new DataInputStream(is);
-        ReadWriteData data = new ReadWriteData();
+        ReadWriteData data = new ReadWriteData(0);
         
         try {
             data.deserialize(as, ps, in);
@@ -129,7 +129,7 @@ public class ReadWriteDataTest {
 	}
 	
 	private void testSerializeDeserialize(TagGroup tg, Double value) throws IOException, BadZone {
-		ReadWriteData data = new ReadWriteData();
+		ReadWriteData data = new ReadWriteData(tg.resourceGroup == null ? 0 : tg.resourceGroup.getUserTags().length);
 		
         List<Map<TagGroup, Double>> list = Lists.newArrayList();
         Map<TagGroup, Double> map = ReadWriteData.getCreateData(list, 0);
@@ -138,7 +138,7 @@ public class ReadWriteDataTest {
 		
 		ReadWriteData result = serializeDeserialize(as, ps, data);
 		
-		assertEquals("Wrong number of tags in in tagGroups", 1, result.getTagGroups().size());
+		assertEquals("Wrong number of tag groups in tagGroups", 1, result.getTagGroups().size());
 		assertEquals("Length of data is wrong", 1, result.getNum());
 		assertEquals("Length of first num is wrong", 1, result.getData(0).size());
 		assertEquals("Value of first num is wrong", value, result.get(0, tg), 0.001);

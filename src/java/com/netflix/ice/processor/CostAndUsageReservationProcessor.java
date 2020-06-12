@@ -215,18 +215,18 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 				    if (rtg.account == tg.account) {
 					    // Used by owner account, mark as used
 					    TagGroup usedTagGroup = null;
-					    usedTagGroup = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, Operation.getReservedInstances(purchaseOption), tg.usageType, tg.resourceGroup);
+					    usedTagGroup = tg.withOperation(Operation.getReservedInstances(purchaseOption));
 					    add(usageData, hour, usedTagGroup, used);						    
 					    add(costData, hour, usedTagGroup, adjustedCost);						    
 					    // assign amortization
 					    if (adjustedAmortization > 0.0) {
-					        TagGroup amortTagGroup = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, Operation.getAmortized(purchaseOption), tg.usageType, tg.resourceGroup);
+					        TagGroup amortTagGroup = tg.withOperation(Operation.getAmortized(purchaseOption));
 						    add(costData, hour, amortTagGroup, adjustedAmortization);
 					    }
 				    }
 				    else {
 				    	// Borrowed by other account, mark as borrowed/lent
-					    TagGroup borrowedTagGroup = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, Operation.getBorrowedInstances(purchaseOption), tg.usageType, tg.resourceGroup);
+					    TagGroup borrowedTagGroup = tg.withOperation(Operation.getBorrowedInstances(purchaseOption));
 					    TagGroup lentTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getLentInstances(purchaseOption), rtg.usageType, tg.resourceGroup);
 					    add(usageData, hour, borrowedTagGroup, used);
 					    add(costData, hour, borrowedTagGroup, adjustedCost);
@@ -234,14 +234,14 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 					    add(costData, hour, lentTagGroup, adjustedCost);
 					    // assign amortization
 					    if (adjustedAmortization > 0.0) {
-					        TagGroup borrowedAmortTagGroup = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, Operation.getBorrowedAmortized(purchaseOption), tg.usageType, tg.resourceGroup);
+					        TagGroup borrowedAmortTagGroup = tg.withOperation(Operation.getBorrowedAmortized(purchaseOption));
 					        TagGroup lentAmortTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getLentAmortized(purchaseOption), rtg.usageType, tg.resourceGroup);
 						    add(costData, hour, borrowedAmortTagGroup, adjustedAmortization);
 						    add(costData, hour, lentAmortTagGroup, adjustedAmortization);
 					    }
 				    }
 				    // assign savings
-			        TagGroup savingsTagGroup = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, Operation.getSavings(purchaseOption), tg.usageType, tg.resourceGroup);
+			        TagGroup savingsTagGroup = tg.withOperation(Operation.getSavings(purchaseOption));
 				    add(costData, hour, savingsTagGroup, adjustedSavings);
 			    }
 		    }

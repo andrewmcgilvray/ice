@@ -55,7 +55,7 @@ public class ReadOnlyDataTest {
         ReadOnlyData data = new ReadOnlyData(numUserTags);
         
         try {
-            data.deserialize(as, ps, numUserTags, in, forReservations);
+            data.deserialize(as, ps, in, forReservations);
         }
         finally {
             if (in != null)

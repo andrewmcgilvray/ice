@@ -17,20 +17,35 @@
  */
 package com.netflix.ice.processor;
 
+import java.text.DecimalFormat;
+
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+
 import com.netflix.ice.common.PurchaseOption;
-import com.netflix.ice.tag.SavingsPlanArn;
+import com.netflix.ice.common.TagGroupSP;
 
 public class SavingsPlan {
-	final public SavingsPlanArn arn;
+	final public TagGroupSP tagGroup;
 	final public PurchaseOption paymentOption;
+	final public String term; // 1yr, 3yr
+	final public String offeringType; // ComputeSavingsPlan, EC2InstanceSavingsPlan
+	final public long start;
+	final public long end;
 	final public double hourlyRecurringFee;
 	final public double hourlyAmortization;
 	final public double normalizedRecurring;
 	final public double normalizedAmortization;
-	
-	public SavingsPlan(String arn, PurchaseOption paymentOption, double hourlyRecurringFee, double hourlyAmortization) {
-		this.arn = SavingsPlanArn.get(arn);
+
+	private static DecimalFormat df = new DecimalFormat("#.###");
+
+	public SavingsPlan(TagGroupSP tagGroup, PurchaseOption paymentOption, String term, String offeringType, long start, long end, double hourlyRecurringFee, double hourlyAmortization) {
+		this.tagGroup = tagGroup;
 		this.paymentOption = paymentOption;
+		this.term = term;
+		this.offeringType = offeringType;
+		this.start = start;
+		this.end = end;
 		this.hourlyRecurringFee = hourlyRecurringFee;
 		this.hourlyAmortization = hourlyAmortization;
 		this.normalizedRecurring = hourlyRecurringFee / (hourlyRecurringFee + hourlyAmortization);
@@ -46,6 +61,30 @@ public class SavingsPlan {
 	}
 	
 	public String toString() {
-		return arn.name + "," + paymentOption.name() + "," + ((Double)hourlyRecurringFee).toString() + "," + ((Double)hourlyAmortization).toString();
+		return tagGroup.arn.name + "," + paymentOption.name() + "," + ((Double)hourlyRecurringFee).toString() + "," + ((Double)hourlyAmortization).toString();
 	}
+	
+    public static String[] header() {
+		return new String[] {"SavingsPlanARN", "Account", "AccountID", "Region", "Zone", "ServiceCode", "UsageType", "Start", "End", "PurchaseOption", "Term", "OfferingType", "HourlyAmortization", "HourlyRecurring"};
+    }
+    
+    public String[] values() {
+		return new String[]{
+				tagGroup.arn.toString(),
+				tagGroup.account.getIceName(),
+				tagGroup.account.getId(),
+				tagGroup.region.name,
+				tagGroup.zone == null ? "" : tagGroup.zone.name,
+				tagGroup.product.getServiceCode(),
+				tagGroup.usageType.name,
+				new DateTime(start, DateTimeZone.UTC).toString(),
+				new DateTime(end, DateTimeZone.UTC).toString(),
+				paymentOption.name,
+				term,
+				offeringType,
+				df.format(hourlyAmortization),
+				df.format(hourlyRecurringFee),
+			};
+    }
+    
 }

@@ -19,6 +19,9 @@ package com.netflix.ice.common;
 
 import static org.junit.Assert.*;
 
+import java.io.IOException;
+import java.io.StringWriter;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -29,6 +32,8 @@ import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
+import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UsageType;
 
 public class TagGroupTest {
@@ -72,4 +77,24 @@ public class TagGroupTest {
 		assertFalse("Should not be equal", tga.equals(tgb));
 	}
 	
+	@Test
+	public void testSerializeCsv() throws IOException, ResourceException {
+		// No resource group
+		AccountService as = new BasicAccountService();
+		TagGroup tg1 = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		
+        StringWriter out = new StringWriter();
+
+		TagGroup.Serializer.serializeCsv(out, tg1);
+		String expect = "111111111345,us-east-1,,AmazonRFS,CreateDBInstance,RDS:GP2-Storage,GB";
+		String got = out.toString();
+		assertEquals("no resource tag group csv incorrect", expect, got);
+		
+		TagGroup tg2 = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), ResourceGroup.getResourceGroup(new String[]{"Tag1"}));
+		out = new StringWriter();
+		TagGroup.Serializer.serializeCsv(out, tg2);
+		expect = "111111111345,us-east-1,,AmazonRFS,CreateDBInstance,RDS:GP2-Storage,GB,Tag1";
+		got = out.toString();
+		assertEquals("resource tag group csv incorrect", expect, got);
+	}
 }

@@ -32,6 +32,7 @@ import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
@@ -49,7 +50,7 @@ public class TagListsWithUserTagsTest {
 	ProductService ps = new BasicProductService();
 
 	@Test
-	public void testContainsTagGroup() {
+	public void testContainsTagGroup() throws ResourceException {
 		List<List<UserTag>> userTagLists = Lists.newArrayList();
 		userTagLists.add(tags0);
 		userTagLists.add(tags1);
@@ -68,19 +69,23 @@ public class TagListsWithUserTagsTest {
 		
 		Product product = ps.getProduct("AWS Product", "AWS Product Code");
 		// TagGroup with a match on each user tag
-		TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t0v0|t1v1|t2v0|"));
+		TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t0v0","t1v1","t2v0",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 
 		// TagGroup with a match on first and last and an empty match in the middle
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t0v0||t2v0|"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t0v0","","t2v0",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 
 		// First two user tags should match, but not the third because we don't have an empty element in the tagLists
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("|t1v1||"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"","t1v1","",""}));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg));
 
 		// TagGroup with match on first and last, but second tag has non-empty non-matching value
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t0v0|t1v4|t2v0|"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t0v0","t1v4","t2v0",""}));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg));
 
 		// TagGroup with null resourceGroup
@@ -89,18 +94,20 @@ public class TagListsWithUserTagsTest {
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg, true));
 
 		// Add an empty value to tag2
-		userTagLists.get(2).add(UserTag.get(""));
+		userTagLists.get(2).add(UserTag.empty);
 		
 		// TagGroup with null resourceGroup
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg, true));
 		
 		// TagGroup with a match on the first and second tags and an empty match on the third
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t0v0|t1v0||"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t0v0","t1v0","",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 		
 		
 		// TagGroup with only first user tag
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t0v0|||"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t0v0","","",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg, true));
 		
 		Product cloudWatch = ps.getProduct(Product.Code.CloudWatch);
@@ -113,15 +120,18 @@ public class TagListsWithUserTagsTest {
 				Lists.newArrayList(UsageType.getUsageType("CW:MetricMonitorUsage", "")), // usageTypes
 				userTagLists
 				);		
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), ResourceGroup.getResourceGroup("||t2v0|"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"","","t2v0",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), ResourceGroup.getResourceGroup("|||"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"","","",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), ResourceGroup.getResourceGroup("|t1v2|t2v2|"));
+		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"","t1v2","t2v2",""}));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg));
 
 		
-		List<UserTag> userTags = Lists.newArrayList(UserTag.get(""));
+		List<UserTag> userTags = Lists.newArrayList(UserTag.empty);
 		userTagLists = Lists.newArrayList();
 		userTagLists.add(userTags);
 		userTagLists.add(userTags);
@@ -139,7 +149,7 @@ public class TagListsWithUserTagsTest {
 	}
 	
 	@Test
-	public void testContainsTag() {
+	public void testContainsTag() throws ResourceException {
 		List<List<UserTag>> userTagLists = Lists.newArrayList();
 		userTagLists.add(tags0);
 		userTagLists.add(tags1);
@@ -185,7 +195,7 @@ public class TagListsWithUserTagsTest {
 			t.Run(tagLists);
 		
 		// Add an empty value to tag2
-		userTagLists.get(2).add(UserTag.get(""));
+		userTagLists.get(2).add(UserTag.empty);
 		
 		tests = new Test[]{
 				new Test("", 3, true), // Untagged resource, Check against user tag with a empty tag list
@@ -198,7 +208,8 @@ public class TagListsWithUserTagsTest {
 		
 		Product product = ps.getProduct("AWS Product", "AWS Product Code");
 		
-		TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t1v1|t2v2"));
+		TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t1v1","t2v2"}));
 		assertTrue("Account tag not found in TagLists", tagLists.contains(tg.account, TagType.Account, 0));
 		
 		tests = new Test[]{
@@ -217,14 +228,14 @@ public class TagListsWithUserTagsTest {
 	}
 	
 	@Test
-	public void testGetTagLists() {
+	public void testGetTagLists() throws ResourceException {
 		List<List<UserTag>> userTagLists = Lists.newArrayList();
 		userTagLists.add(tags0);
 		userTagLists.add(tags1);
 		userTagLists.add(tags2);
 		
 		// Add an empty value to tag2
-		userTagLists.get(2).add(UserTag.get(""));
+		userTagLists.get(2).add(UserTag.empty);
 		
 		TagListsWithUserTags tagLists = new TagListsWithUserTags(
 				Lists.newArrayList(accounts),
@@ -248,7 +259,8 @@ public class TagListsWithUserTagsTest {
         assertEquals("wrong product", tag, tl.products.get(0));
 
         Product product = ps.getProduct("Product", "ProductCode");
-		TagGroup userTagTagGroup = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), ResourceGroup.getResourceGroup("t0v0|||"));
+		TagGroup userTagTagGroup = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				ResourceGroup.getResourceGroup(new String[]{"t0v0","","",""}));
 
 		tag = UserTag.get("t0v0");
         tl = tagLists.getTagLists(tag, TagType.Tag, 0);
@@ -258,7 +270,7 @@ public class TagListsWithUserTagsTest {
         
         assertTrue("tagLists didn't contain userTagTagGroup", tl.contains(userTagTagGroup, true));
         
-		tag = UserTag.get("");
+		tag = UserTag.empty;
         tl = tagLists.getTagLists(tag, TagType.Tag, 0);
         assertEquals("wrong number of user tags for product resource", 3, ((TagListsWithUserTags) tl).resourceUserTagLists.size());
         assertEquals("wrong number of tags", 1, ((TagListsWithUserTags) tl).resourceUserTagLists.get(0).size());
