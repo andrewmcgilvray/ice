@@ -232,12 +232,12 @@ public class BillingFileProcessor extends Poller {
         		}
             	reservationProcessor.process(reservationService, costAndUsageData, prod, month, prices);
         	}
-        	savingsPlanProcessor.process(prod);
     	}
-    	// Process SPs for Lambda
-    	Product lambda = config.productService.getProduct(Product.Code.Lambda);
-    	if (costAndUsageData.getCost(lambda) != null)
-    		savingsPlanProcessor.process(lambda);
+    	// Process resource version of data for products that SPs apply to
+    	for (Product p: costAndUsageData.getSavingsPlanProducts()) {
+        	if (costAndUsageData.getCost(p) != null)
+        		savingsPlanProcessor.process(p);
+    	}
     	
     	// Process non-resource version of data for RIs and SPs
     	reservationProcessor.process(reservationService, costAndUsageData, null, month, prices);

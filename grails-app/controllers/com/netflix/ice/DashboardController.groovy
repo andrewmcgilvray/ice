@@ -382,7 +382,7 @@ class DashboardController {
 
         BufferedWriter bwriter = new BufferedWriter(new FileWriter(file));
         Long start = result.start;
-        int num = result.data.values().iterator().next().length;
+        int num = result.data.size() > 0 ? result.data.values().iterator().next().length : 0;
 
         String[] record = new String[result.data.size() + 1];
         record[0] = "Time";

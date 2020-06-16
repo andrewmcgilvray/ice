@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.netflix.ice.basic.BasicReservationService.Reservation;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AwsUtils;
@@ -79,6 +81,7 @@ public class CostAndUsageData {
     private boolean collectTagCoverageWithUserTags;
     private Map<ReservationArn, Reservation> reservations;
     private Map<SavingsPlanArn, SavingsPlan> savingsPlans;
+    private Set<Product> savingsPlanProducts;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -98,6 +101,7 @@ public class CostAndUsageData {
         }
         this.reservations = Maps.newHashMap();
         this.savingsPlans = Maps.newHashMap();
+        this.savingsPlanProducts = Sets.newHashSet();
 	}
 	
 	public long getStartMilli() {
@@ -167,6 +171,7 @@ public class CostAndUsageData {
 		}
 		reservations.putAll(data.reservations);
 		savingsPlans.putAll(data.savingsPlans);
+		savingsPlanProducts.addAll(data.savingsPlanProducts);
 	}
 	
     public void cutData(int hours) {
@@ -211,6 +216,14 @@ public class CostAndUsageData {
 				Double.parseDouble(hourlyRecurringFee), 
 				Double.parseDouble(hourlyAmortization));
     	savingsPlans.put(tagGroup.arn, plan);
+    }
+    
+    public void addSavingsPlanProduct(Product product) {
+    	savingsPlanProducts.add(product);
+    }
+    
+    public Collection<Product> getSavingsPlanProducts() {
+    	return savingsPlanProducts;
     }
     
     public Map<SavingsPlanArn, SavingsPlan> getSavingsPlans() {

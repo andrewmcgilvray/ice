@@ -329,6 +329,9 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         	addUnusedSavingsPlanData(lineItem, tagGroup, resourceTagGroup, product, costAndUsageData, indexes[0]);
         	return;
         }
+        else if (lineItemType == LineItemType.SavingsPlanCoveredUsage) {
+        	costAndUsageData.addSavingsPlanProduct(tagGroup.product);
+        }
         
         final ReadWriteData usageData = costAndUsageData.getUsage(null);
         final ReadWriteData costData = costAndUsageData.getCost(null);
