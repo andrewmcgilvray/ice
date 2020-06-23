@@ -156,6 +156,7 @@ public interface Managers {
     void reprocess(String month, boolean state);
     
     boolean startProcessor();
+    String getProcessorState();
 
     public enum SubscriptionType {
     	RI,

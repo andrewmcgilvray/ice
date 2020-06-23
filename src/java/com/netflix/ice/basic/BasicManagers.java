@@ -19,6 +19,8 @@ package com.netflix.ice.basic;
 
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
@@ -597,7 +599,11 @@ public class BasicManagers extends Poller implements Managers {
     	lastProcessedPoller.reprocess(month, state);
     }
     
+    
     public boolean startProcessor() {
+    	if (StringUtils.isEmpty(config.processorInstanceId) || StringUtils.isEmpty(config.processorRegion))
+    		return false;
+    	
     	boolean started = false;
         AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
         		.withRegion(config.processorRegion)
@@ -615,6 +621,37 @@ public class BasicManagers extends Poller implements Managers {
         }
         ec2.shutdown();
         return started;
+    }
+            
+    public String getProcessorState() {
+    	String state = "unknown";
+    	
+    	if (StringUtils.isEmpty(config.processorInstanceId) || StringUtils.isEmpty(config.processorRegion))
+    		return state;
+    	
+        AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
+        		.withRegion(config.processorRegion)
+        		.withCredentials(AwsUtils.awsCredentialsProvider)
+        		.withClientConfiguration(AwsUtils.clientConfig)
+        		.build();
+
+        try {
+            DescribeInstancesRequest request = new DescribeInstancesRequest().withInstanceIds(new String[] { config.processorInstanceId });
+	        DescribeInstancesResult response = ec2.describeInstances(request);
+	        // return state of first one we find. Should be only one since we specified the instance ID
+	        for (com.amazonaws.services.ec2.model.Reservation reservation: response.getReservations()) {
+	        	for (com.amazonaws.services.ec2.model.Instance instance: reservation.getInstances()) {
+	        		return instance.getState().getName();
+	        	}
+	        }
+        }
+        catch (Exception e) {
+            logger.error("error in describeInstances", e);
+        }
+        finally {
+            ec2.shutdown();
+        }
+        return state;
     }
 
     private List<List<String>> getCsvData(String month, String prefix) {

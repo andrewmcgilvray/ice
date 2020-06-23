@@ -2743,6 +2743,7 @@ function tagconfigsCtrl($scope, $location, $http) {
 
 function processorStatusCtrl($scope, $location, $http) {
   $scope.statusArray = [];
+  $scope.processorState = "unknown";
 
   var getProcessorStatus = function ($scope, fn) {
     var params = {};
@@ -2773,10 +2774,9 @@ function processorStatusCtrl($scope, $location, $http) {
       url: "setReprocess",
       data: params
     }).success(function (result) {
-      if (result.status === 200 && result.data) {
-        $scope.ops = result.data;
+      if (result.status === 200) {
         if (fn)
-          fn(result.data);
+          fn();
       }
     }).error(function (result, status) {
       if (status === 401 || status === 0)
@@ -2786,11 +2786,16 @@ function processorStatusCtrl($scope, $location, $http) {
 
   $scope.updateStatus = function (index) {
     setReprocessStatus($scope, index, function (data) {
-      getProcessorStatus($scope, function (data) {});
+      getProcessorStatus($scope, function (data) {
+        getProcessorState($scope);
+      });
     });
   }
 
   $scope.isDisabled = function () {
+    if ($scope.processorState != "stopped")
+      return true;
+
     for (var i = 0; i < $scope.statusArray.length; i++) {
       if ($scope.statusArray[i].reprocess)
         return false;
@@ -2798,8 +2803,21 @@ function processorStatusCtrl($scope, $location, $http) {
     return true;  
   }
 
+  $scope.refresh = function () {
+    refreshState($scope);
+  }
+
+  var refreshState = function($scope) {
+    getProcessorState($scope, function () {
+      if ($scope.processorState === "pending")
+        setTimeout(() => refreshState($scope), 5000);
+    });
+  }
+
   $scope.process = function() {
-    startProcessor($scope, function (data) {});
+    startProcessor($scope, function () {
+      refreshState($scope);
+    });
   }
 
   var startProcessor = function($scope, fn) {
@@ -2808,10 +2826,9 @@ function processorStatusCtrl($scope, $location, $http) {
       url: "startProcessor",
       data: {}
     }).success(function (result) {
-      if (result.status === 200 && result.data) {
-        $scope.ops = result.data;
+      if (result.status === 200) {
         if (fn)
-          fn(result.data);
+          fn();
       }
     }).error(function (result, status) {
       if (status === 401 || status === 0)
@@ -2819,7 +2836,26 @@ function processorStatusCtrl($scope, $location, $http) {
     });
   }
 
-  getProcessorStatus($scope, function (data) {});
+  var getProcessorState = function($scope, fn) {
+    $http({
+      method: "GET",
+      url: "getProcessorState",
+      data: {}
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.processorState = result.data;
+        if (fn)
+          fn();
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  getProcessorStatus($scope, function (data) {
+    getProcessorState($scope);
+  });
 }
 
 function subscriptionsCtrl($scope, $location, $http) {
