@@ -70,7 +70,7 @@ public class SavingsPlanProcessorTest {
 			// Create accounts of the form Account("111111111111", "Account1")
 			String id = StringUtils.repeat(i.toString(), 12);
 			String name = "Account" + i.toString();
-			accountConfigs.put(id, new AccountConfig(id, name, null, null, null, products, null, null));			
+			accountConfigs.put(id, new AccountConfig(id, name, null, null, null, products, null, null, null));			
 		}
 		AccountService as = new BasicAccountService(accountConfigs);
 		a1 = as.getAccountByName("Account1");

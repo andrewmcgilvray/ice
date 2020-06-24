@@ -2591,6 +2591,11 @@ function accountsCtrl($scope, $location, $http) {
         account.awsName = "";
       if (account.status === null)
         account.status = "";
+        
+      account.accessGroupsStr = "";
+      var accessGroups = account.accessGroups;
+      if (accessGroups && accessGroups.length > 0)
+        account.accessGroupsStr = accessGroups.join(", ");
 
       account.tagsStr = "";
       var tags = account.tags;

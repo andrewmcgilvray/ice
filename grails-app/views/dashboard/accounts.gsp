@@ -42,6 +42,7 @@
 	      <th ng-click="order(accounts, 'id')">ID</th>
 	      <th ng-click="order(accounts, 'path')">Organization Path</th>
 	      <th ng-click="order(accounts, 'status')">Status</th>
+	      <th ng-click="order(accounts, 'accessGroupsStr')">Access Groups</th>
 	      <th ng-click="order(accounts, 'tagsStr')">Tags</th>
 	      <th ng-click="order(accounts, 'email')">Email</th>
 	    </tr>
@@ -53,6 +54,7 @@
 	      <td>{{account.id}}</td>
 	      <td>{{account.path}}</td>
 	      <td>{{account.status}}</td>
+	      <td>{{account.accessGroupsStr}}</td>
 	      <td>{{account.tagsStr}}</td>
 	      <td>{{account.email}}</td>
 	    </tr>

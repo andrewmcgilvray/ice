@@ -491,7 +491,7 @@ public class ProcessorConfig extends Config {
                     riProducts = Lists.newArrayList(products);
                 }
                 String awsName = orgAccounts.containsKey(id) ? orgAccounts.get(id).getAwsName() : null;
-                accountConfigs.put(id, new AccountConfig(id, accountName, awsName, null, null, riProducts, role, externalId));
+                accountConfigs.put(id, new AccountConfig(id, accountName, awsName, null, null, riProducts, role, externalId, null));
     			logger.warn("Using ice.properties config for account " + id + ": " + accountName);
             }
         }

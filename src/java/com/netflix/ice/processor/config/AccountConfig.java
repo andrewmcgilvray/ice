@@ -32,6 +32,8 @@ public class AccountConfig {
 	private static final String tagRiProducts = "IceRiProducts";
 	private static final String tagRole = "IceRole";
 	private static final String tagExternalId = "IceExternalId";
+	private static final String tagAccessGroup = "AccessGroups";
+	private static final String AccessGroupsSeparator = "/";
 	
 	public String id;
 	public String name;
@@ -45,6 +47,7 @@ public class AccountConfig {
 	public List<String> riProducts;
 	public String role;
 	public String externalId;
+	public List<String> accessGroups;
 	
 	public AccountConfig() {		
 	}
@@ -60,7 +63,7 @@ public class AccountConfig {
 	 * @param role
 	 * @param externalId
 	 */
-	public AccountConfig(String id, String name, String awsName, List<String> parents, String status, List<String> riProducts, String role, String externalId) {
+	public AccountConfig(String id, String name, String awsName, List<String> parents, String status, List<String> riProducts, String role, String externalId, List<String> accessGroups) {
 		this.id = id;
 		this.name = name;
 		this.awsName = awsName;
@@ -73,6 +76,7 @@ public class AccountConfig {
 		this.riProducts = riProducts;
 		this.role = role;
 		this.externalId = externalId;
+		this.accessGroups = accessGroups;
 	}
 	
 	public AccountConfig(com.amazonaws.services.organizations.model.Account account, List<String> parents, List<com.amazonaws.services.organizations.model.Tag> tags, List<String> customTags) {
@@ -97,6 +101,8 @@ public class AccountConfig {
 					this.role = tag.getValue();
 				else if (key.equals(tagExternalId))
 					this.externalId = tag.getValue();
+				else if (key.equals(tagAccessGroup))
+					this.accessGroups = Lists.newArrayList(tag.getValue().split(AccessGroupsSeparator));
 				else if (customTags.contains(tag.getKey()))
 						this.tags.put(tag.getKey(), tag.getValue());
 			}
@@ -113,6 +119,7 @@ public class AccountConfig {
 		this.awsName = account.getAwsName();
 		this.parents = account.getParents();
 		this.status = account.getStatus();
+		this.accessGroups = account.getAccessGroups();
 		this.tags = account.getTags();
 	}
 	
@@ -239,6 +246,14 @@ public class AccountConfig {
 
 	public void setExternalId(String externalId) {
 		this.externalId = externalId;
+	}
+
+	public List<String> getAccessGroup() {
+		return accessGroups;
+	}
+
+	public void setAccessGroup(List<String> accessGroups) {
+		this.accessGroups = accessGroups;
 	}
 
 

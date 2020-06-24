@@ -37,6 +37,7 @@ public class Account extends Tag {
 	private String email; // Email address of the account
 	private List<String> parents; // parent organizational units as defined by the Organizations service
 	private String status;  // status as returned by the Organizations service
+	private List<String> accessGroups; // names of groups account is assigned to for controlling access
 	private Map<String, String> tags;
 
     public Account(String accountId, String accountName, List<String> parents) {
@@ -46,16 +47,18 @@ public class Account extends Tag {
         this.email = null;
         this.parents = parents;
         this.status = null;
+        this.accessGroups = null;
         this.tags = null;
     }
     
-    public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, Map<String, String> tags) {
+    public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, List<String> accessGroups, Map<String, String> tags) {
     	super(accountId);
         this.iceName = StringUtils.isEmpty(accountName) ? awsName : accountName;
         this.awsName = awsName;
         this.email = email;
         this.parents = parents;
         this.status = status;
+        this.accessGroups = accessGroups;
         this.tags = tags;
     }
     
@@ -65,6 +68,7 @@ public class Account extends Tag {
 		this.email = a.email;
 		this.parents = a.parents;
 		this.status = a.status;
+		this.accessGroups = a.accessGroups;
 		this.tags = a.tags;
     }
     
@@ -96,13 +100,17 @@ public class Account extends Tag {
 	public String getStatus() {
 		return status;
 	}
+	
+	public List<String> getAccessGroups() {
+		return accessGroups;
+	}
 
 	public Map<String, String> getTags() {
 		return tags;
 	}
 	
 	public static String[] header() {
-		return new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Status", "Tags"};
+		return new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Access Groups", "Status", "Tags"};
 	}
 	
 	public String[] values() {
@@ -117,10 +125,15 @@ public class Account extends Tag {
 			getAwsName(),
 			getId(),
 			getEmail(),
-			String.join("/", getParents()),
+			String.join("/", parents),
+			accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups),
 			getStatus(),
 			String.join(",", tagSet)
 		};
+	}
+	
+	public static String[] headerWithoutTags() {
+		return new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Access Groups", "Status"};
 	}
 	
 	public List<String> values(Collection<String> tagKeys) {
@@ -129,7 +142,8 @@ public class Account extends Tag {
 		values.add(getAwsName());
 		values.add(getId());
 		values.add(getEmail());
-		values.add(String.join("/", getParents()));
+		values.add(String.join("/", parents));
+		values.add(accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups));
 		values.add(getStatus());
 		for (String key: tagKeys) {
 			String v = tags.get(key);

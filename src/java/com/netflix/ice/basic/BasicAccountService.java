@@ -51,7 +51,7 @@ public class BasicAccountService implements AccountService {
     public BasicAccountService(Map<String, AccountConfig> configs) {
     	for (AccountConfig a: configs.values()) {
     		String iceName = StringUtils.isEmpty(a.name) ? a.awsName : a.name;
-			Account account = new Account(a.id, iceName, a.awsName, a.email, a.parents, a.status, a.tags);
+			Account account = new Account(a.id, iceName, a.awsName, a.email, a.parents, a.status, a.accessGroups, a.tags);
 			accountsByIceName.put(iceName, account);
 			accountsById.put(a.id, account);
 			if (a.riProducts != null && a.riProducts.size() > 0) {
@@ -185,7 +185,7 @@ public class BasicAccountService implements AccountService {
 		Set<String> sortedTagKeys = Sets.newTreeSet(tagKeys);
 		
 		// Build the header
-		List<String> names = Lists.newArrayList(new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Status"});
+		List<String> names = Lists.newArrayList(Account.headerWithoutTags());
 		for (String key: sortedTagKeys)
 			names.add(key);
 
