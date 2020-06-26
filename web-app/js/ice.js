@@ -2591,7 +2591,7 @@ function accountsCtrl($scope, $location, $http) {
         account.awsName = "";
       if (account.status === null)
         account.status = "";
-        
+
       account.accessGroupsStr = "";
       var accessGroups = account.accessGroups;
       if (accessGroups && accessGroups.length > 0)
@@ -2810,6 +2810,8 @@ function processorStatusCtrl($scope, $location, $http) {
 
   $scope.refresh = function () {
     refreshState($scope);
+    if ($scope.processorState === "stopped")
+      getProcessorStatus($scope);
   }
 
   var refreshState = function($scope) {
@@ -2821,7 +2823,8 @@ function processorStatusCtrl($scope, $location, $http) {
 
   $scope.process = function() {
     startProcessor($scope, function () {
-      refreshState($scope);
+      $scope.processorState = "pending";
+      setTimeout(() => refreshState($scope), 2000);
     });
   }
 

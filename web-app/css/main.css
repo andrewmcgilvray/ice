@@ -426,4 +426,6 @@ div.legendIcon {float: left; margin-right: 3px; width: 16px; height: 12px; borde
     background: none no-repeat scroll 5px 50% #FFF; white-space: nowrap; padding: 6px 6px 6px 6px;
     border-radius: 4px; -moz-border-radius: 4px; -webkit-border-radius: 4px;
 }
+.processorStatusButton:hover  { background-color: #D8E6FF !important; border-color: #C2D2EF #A7BBDF #A7BBDF #C2D2EF; color: #00263F; }
+.processorStatusButton:active { background-color: #6299C5 !important; border-color: #6299C5 #8BBBDF #8BBBDF #6299C5; color: #FFF;    }
 .processorStatusButton:disabled { filter: alpha(opacity=50); opacity: 0.5; -moz-opacity: 0.50; background-color: inherit !important; border-color: inherit; color: inherit; cursor: default; }
