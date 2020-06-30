@@ -1555,7 +1555,10 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.reservationSharingChanged = function () {
-    $scope.updateOperations($scope);
+    usage_db.getReservationOps($scope, function () {
+      $scope.predefinedQuery = { operation: $scope.reservationOps.join(","), forReservation: true };
+      $scope.updateOperations($scope);
+    });
   }
 
   $scope.orgUnitChanged = function () {
@@ -1593,9 +1596,6 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   var fn = function () {
     $scope.predefinedQuery = { operation: $scope.reservationOps.join(","), forReservation: true };
 
-    usage_db.getParams($location.hash(), $scope);
-    usage_db.processParams($scope);
-
     $scope.updateAccounts($scope);
     $scope.getData();
 
@@ -1610,6 +1610,8 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     jQuery('#start').datetimepicker().val($scope.start);
   }
 
+  usage_db.getParams($location.hash(), $scope);
+  usage_db.processParams($scope);
   usage_db.getReservationOps($scope, fn);
 }
 
@@ -1725,7 +1727,13 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.reservationSharingChanged = function () {
-    $scope.updateOperations($scope);
+    usage_db.getSavingsPlanOps($scope, function() {
+      usage_db.getReservationOps($scope, function () {
+        var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
+        $scope.predefinedQuery = { operation: ops.join(","), forSavingsPlans: true };
+        $scope.updateOperations($scope);
+      });
+    });
   }
 
   $scope.accountsChanged = function () {
@@ -1759,9 +1767,6 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
     $scope.predefinedQuery = { operation: ops.join(","), forSavingsPlans: true };
 
-    usage_db.getParams($location.hash(), $scope);
-    usage_db.processParams($scope);
-
     $scope.updateAccounts($scope);
     $scope.getData();
 
@@ -1787,11 +1792,11 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     }, query);
   }
 
-  var fn1 = function () {
+  usage_db.getParams($location.hash(), $scope);
+  usage_db.processParams($scope);
+  usage_db.getSavingsPlanOps($scope, function() {
     usage_db.getReservationOps($scope, fn);
-  }
-
-  usage_db.getSavingsPlanOps($scope, fn1);
+  });
 }
 
 function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
