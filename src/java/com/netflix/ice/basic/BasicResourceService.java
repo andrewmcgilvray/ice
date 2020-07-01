@@ -66,6 +66,7 @@ public class BasicResourceService extends ResourceService {
     private final Map<String, Integer> tagResourceGroupIndeces;
     
     private static final String USER_TAG_PREFIX = "user:";
+    private static final String AWS_TAG_PREFIX = "aws:";
     private static final String reservationIdsKeyName = "RI/SP ID";
     private static final String defaultTagSeparator = "/";
     private static final String defaultTagEffectiveDateSeparator = "=";
@@ -539,7 +540,7 @@ public class BasicResourceService extends ResourceService {
             	TagConfig config = configs.get(tagKey.name);
             	if (config != null && config.aliases != null) {
 	            	for (String alias: config.aliases) {
-	            		String fullAlias = USER_TAG_PREFIX + alias;
+	            		String fullAlias = alias.startsWith(AWS_TAG_PREFIX) ? alias : USER_TAG_PREFIX + alias;
 	                    for (int i = 0; i < header.length; i++) {
 	                    	if (fullAlias.equalsIgnoreCase(header[i])) {
 	                    		indeces.add(i);
