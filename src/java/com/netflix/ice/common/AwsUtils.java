@@ -168,11 +168,13 @@ public class AwsUtils {
     	//   AWS Organizations can't complete your request because another request is already in progress. Try again later.
     	//    (Service: AWSOrganizations; Status Code: 400; Error Code: TooManyRequestsException
     	// The DynamoDB retry policy with 10 retries seems to ride through the worst delays. Max retries I saw were 6 or 7
-    	clientConfigOrganizationsTags.setMaxErrorRetry(PredefinedRetryPolicies.DYNAMODB_DEFAULT_MAX_ERROR_RETRY);
+    	//  As of 7/2020 I'm seeing occasional recurrences of this error. Now doubling the retry count.
+    	final int ORG_TAGS_MAX_ERROR_RETRY = PredefinedRetryPolicies.DYNAMODB_DEFAULT_MAX_ERROR_RETRY * 2;
+    	clientConfigOrganizationsTags.setMaxErrorRetry(ORG_TAGS_MAX_ERROR_RETRY);
     	clientConfigOrganizationsTags.setRetryPolicy(
     			new RetryPolicy(new OrgRetryCondition(),
     				PredefinedRetryPolicies.DYNAMODB_DEFAULT_BACKOFF_STRATEGY,
-    				PredefinedRetryPolicies.DYNAMODB_DEFAULT_MAX_ERROR_RETRY, false));
+    				ORG_TAGS_MAX_ERROR_RETRY, false));
     	
     	if (!StringUtils.isEmpty(metricsNamespace)) {
     		AwsSdkMetrics.enableDefaultMetrics();

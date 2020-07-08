@@ -605,7 +605,7 @@ public class BasicLineItemProcessor implements LineItemProcessor {
             	operation = getReservationOperation(lineItem, product, defaultReservationPurchaseOption);
             }
             else if (spot)
-            	operation = Operation.spotInstances;
+            	operation = isCredit ? Operation.spotInstanceCredits : Operation.spotInstances;
             else
                 operation = isCredit ? Operation.ondemandInstanceCredits : Operation.ondemandInstances;
             os = getInstanceOs(operationStr);
