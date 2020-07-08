@@ -152,6 +152,7 @@ public class Operation extends Tag {
     private static int sequence = 0;
     public static final ReservationOperation spotInstanceSavings = new ReservationOperation("Savings - Spot", Category.Savings);
     public static final ReservationOperation spotInstances = new ReservationOperation("Spot Instances", Category.None);
+    public static final ReservationOperation spotInstanceCredits = new ReservationOperation(creditPrefix + "Spot Instances", Category.Credit);
     public static final ReservationOperation ondemandInstances = new ReservationOperation("On-Demand Instances", Category.None);
     public static final ReservationOperation ondemandInstanceCredits = new ReservationOperation(creditPrefix + "On-Demand Instance", Category.Credit);
 
