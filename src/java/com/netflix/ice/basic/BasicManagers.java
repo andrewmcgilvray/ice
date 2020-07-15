@@ -192,29 +192,25 @@ public class BasicManagers extends Poller implements Managers {
             for (ConsolidateType consolidateType: ConsolidateType.values()) {
                 Key key = new Key(product, consolidateType);
                 
-            	if (consolidateType == ConsolidateType.hourly && !config.hourlyData) {
-            		if (product != null)
-            			continue;
-            		
+            	boolean forReservations = consolidateType == ConsolidateType.hourly && !config.hourlyData;
+            	
+            	if (forReservations && product != null && !product.hasReservations()) {
             		// Create hourly cost and usage managers only for reservation and savings plan operations
-	                costManagers.put(key, new BasicDataManager(config.startDate, "cost_hourly_all", consolidateType, tagGroupManager, compress, 0,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null, true));
-	                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_hourly_all", consolidateType, tagGroupManager, compress, 0,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, true));
+            		continue;
             	}
-            	else {                
-	            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
-	            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
+            	
+            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
+            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
+            		
 	               
-	                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null));
-	                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService));
-	                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
-	    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
-	            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
-	                }
-            	}
+                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
+                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null, forReservations));
+                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
+                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, forReservations));
+                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
+    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
+            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
+                }
             }
         }
 

@@ -86,7 +86,7 @@
           </select>
         </div>
         <div style="padding-top: 5px">Plot type
-          <select ng-model="plotType">
+          <select ng-model="plotType" ng-change="plotTypeChanged()">
             <option>area</option>
             <option>column</option>
           </select>
@@ -148,6 +148,11 @@
       </td>
     </tr>
   </table>
+  <table ng-show="!showUserTags" class="userTags">
+    <tr>
+      <td><input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input></td>
+    </tr>
+  </table>
   <table ng-show="showUserTags" class="userTags">
     <g:set var="numRows" value="${(ReaderConfig.getInstance().userTagKeys.size() + 5) / 6}"/>
     <g:set var="rowIndex" value="${0}"/>
@@ -156,7 +161,7 @@
       <tr ng-show="userTagValues.length > 0">
         <td>
           <g:if test="${rowIndex == 0}">
-   	        Tags:
+   	        <input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input>
             <div ng-show="isGroupByTag()" style="padding-top: 10px">Group by
               <select ng-model="groupByTag" ng-options="a.name for a in groupByTags"></select>
             </div>      
