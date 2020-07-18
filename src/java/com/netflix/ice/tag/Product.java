@@ -80,7 +80,9 @@ public class Product extends Tag {
 	    Ec2Instance("EC2 Instance", "EC2Instance", true),
 	    Eip("Elastic IP", "EIP", false),
 	    RdsInstance("RDS Instance", "RDSInstance", true),
-		Lambda("AWS Lambda", "AWSLambda", true);
+		Lambda("AWS Lambda", "AWSLambda", true),
+		Ecs("Amazon EC2 Container Service", "AmazonECS", true),
+		ComputeSavingsPlans("Savings Plans for AWS Compute usage", "ComputeSavingsPlans", false);
 		
 		final public String serviceName;
 		final public String serviceCode;
@@ -299,11 +301,27 @@ public class Product extends Tag {
     	return code == Code.Elasticsearch;
     }
     
+    public boolean isEcs() {
+    	return code == Code.Ecs;
+    }
+    
+    public boolean isLambda() {
+    	return code == Code.Lambda;
+    }
+    
+    public boolean isComputeSavingsPlans() {
+    	return code == Code.ComputeSavingsPlans;
+    }
+    
     public boolean enableTagCoverage() {
     	return code != null && code.enableTagCoverage;
     }
     
     public boolean hasReservations() {
     	return isEc2Instance() || isRdsInstance() || isRedshift() || isElastiCache() || isElasticsearch();
+    }
+    
+    public boolean hasSavingsPlans() {
+    	return isEc2Instance() || isEcs() || isLambda() || isComputeSavingsPlans();
     }
 }

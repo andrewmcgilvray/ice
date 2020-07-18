@@ -413,7 +413,7 @@ public class CostAndUsageData {
     private void archiveHourly(Map<Product, ReadWriteData> dataMap, String prefix, boolean archiveHourlyData, ExecutorService pool, List<Future<Status>> futures) {
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
         for (Product product: dataMap.keySet()) {
-        	if (!archiveHourlyData && product != null && !product.hasReservations())
+        	if (!archiveHourlyData && product != null && !product.hasReservations() && !product.hasSavingsPlans())
         		continue;
         	
             String name = prefix + "hourly_" + getProdName(product) + "_" + AwsUtils.monthDateFormat.print(monthDateTime);

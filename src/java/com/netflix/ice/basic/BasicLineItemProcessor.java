@@ -571,6 +571,7 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         UsageType usageType = null;
         InstanceOs os = null;
         InstanceDb db = null;
+        boolean dedicated = false;
 
         String usageTypeStr = getUsageTypeStr(lineItem.getUsageType(), product);
         final String operationStr = lineItem.getOperation();
@@ -595,9 +596,13 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         else if (usageTypeStr.startsWith("CW:")) {
             product = productService.getProduct(Product.Code.CloudWatch);
         }
-        else if ((product.isEc2() || product.isEmr()) && (usageTypeStr.startsWith("BoxUsage") || usageTypeStr.startsWith("SpotUsage")) && operationStr.startsWith("RunInstances")) {
+        else if ((product.isEc2() || product.isEmr()) &&
+        		(usageTypeStr.startsWith("BoxUsage") || usageTypeStr.startsWith("SpotUsage") || usageTypeStr.startsWith("DedicatedUsage")) && 
+        		operationStr.startsWith("RunInstances")) {
+        	
         	// Line item for hourly "All Upfront", "Spot", or "On-Demand" EC2 instance usage
         	boolean spot = usageTypeStr.startsWith("SpotUsage");
+        	dedicated = usageTypeStr.startsWith("DedicatedUsage");
             int index = usageTypeStr.indexOf(":");
             usageTypeStr = index < 0 ? "m1.small" : usageTypeStr.substring(index+1);
 
@@ -707,7 +712,7 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         if (operation instanceof Operation.ReservationOperation) {
 	        if (product.isEc2()) {
 	            product = productService.getProduct(Product.Code.Ec2Instance);
-	            usageTypeStr = usageTypeStr + os.usageType;
+	            usageTypeStr = usageTypeStr + os.usageType + (dedicated ? ".dedicated" : "");
 	        }
 	        else if (product.isRds()) {
 	            product = productService.getProduct(Product.Code.RdsInstance);

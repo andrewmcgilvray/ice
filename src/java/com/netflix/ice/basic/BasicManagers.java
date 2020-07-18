@@ -194,7 +194,7 @@ public class BasicManagers extends Poller implements Managers {
                 
             	boolean forReservations = consolidateType == ConsolidateType.hourly && !config.hourlyData;
             	
-            	if (forReservations && product != null && !product.hasReservations()) {
+            	if (forReservations && product != null && !product.hasReservations() && !product.hasSavingsPlans()) {
             		// Create hourly cost and usage managers only for reservation and savings plan operations
             		continue;
             	}
