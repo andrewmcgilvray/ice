@@ -193,7 +193,7 @@ public class BasicAccountService implements AccountService {
 		CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader((String[]) names.toArray(new String[names.size()])));
 		
 		for (Account a: accountsById.values()) {			
-			printer.printRecord(a.values(sortedTagKeys));
+			printer.printRecord(a.values(sortedTagKeys, true));
 		}
 		printer.close(true);
 		return writer.toString();

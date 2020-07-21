@@ -54,6 +54,15 @@ import com.netflix.ice.tag.UserTagKey;
 public class BasicResourceServiceTest {
     private static final String resourcesDir = "src/test/resources";
 
+    private Account makeAccountWithDefaultTag(String id, String key, String value) {
+    	Map<String, String> tags = null;
+    	if (key != null) {
+    		tags = Maps.newHashMap();
+    		tags.put(key, value);
+    	}
+    	return new Account(id, "account", "account", "email", Lists.newArrayList("Org"), "ACTIVE", null, tags);
+    }
+    
 	@Test
 	public void testGetResourceGroup() throws ResourceException {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
@@ -77,14 +86,11 @@ public class BasicResourceServiceTest {
 		String[] customTags = new String[]{
 				"TagKey2", "TagKey4", "VirtualTagKey"
 			};
-		BasicAccountService as = new BasicAccountService();
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.initHeader(li.getResourceTagsHeader(), "123456789012");
-		Map<String, String> defaultTags = Maps.newHashMap();
-		defaultTags.put("VirtualTagKey", "1234");
-		rs.putDefaultTags("123456789012", defaultTags);
+		Account a = makeAccountWithDefaultTag("123456789012", "VirtualTagKey", "1234");
 		
-		ResourceGroup resource = rs.getResourceGroup(as.getAccountByName("123456789012"), Region.US_EAST_1, ps.getProduct(Product.Code.Ec2Instance), li, 0);
+		ResourceGroup resource = rs.getResourceGroup(a, Region.US_EAST_1, ps.getProduct(Product.Code.Ec2Instance), li, 0);
 		UserTag[] tags = resource.getUserTags();
 		UserTag[] expected = {UserTag.get("Prod"), UserTag.get("serviceAPI"), UserTag.get("1234")};
 		for (int i = 0; i < tags.length; i++)
@@ -227,14 +233,12 @@ public class BasicResourceServiceTest {
 		String[] customTags = new String[]{
 				"Environment", "Product"
 			};
-		Map<String, String> defaultTags = Maps.newHashMap();
-		defaultTags.put("Environment", "Prod");
+		Account a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod");
 		
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
-		rs.putDefaultTags("12345", defaultTags);
 		rs.initHeader(li.getResourceTagsHeader(), "12345");		
 		
-		ResourceGroup resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		ResourceGroup resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		UserTag[] userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set", "Prod", userTags[0].name);
 		
@@ -242,50 +246,46 @@ public class BasicResourceServiceTest {
 		// Test multiple default tags with effective dates
 		//
 		// First set the effective date for a new value
-		defaultTags.put("Environment", "Prod/2020-02=Dev");
-		rs.putDefaultTags("12345", defaultTags);
-		resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=Dev");
+		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "Prod", userTags[0].name);
 		
 		// Now check after the effective date of the second value
 		item[2] = "2020-02-01T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "Dev", userTags[0].name);
 		
 		// Make sure out-of-time-ordered effective dates don't break things
-		defaultTags.put("Environment", "Prod/2020-02=Dev/2018=QA/2018-02=Test");
-		rs.putDefaultTags("12345", defaultTags);
+		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=Dev/2018=QA/2018-02=Test");
 		
 		item[2] = "2018-01-01T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "QA", userTags[0].name);
 		
 		item[2] = "2019-01-01T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "Test", userTags[0].name);
 		
 		// Check that we can stop setting values with a trailing '='
-		defaultTags.put("Environment", "Prod/2020-02=/2018=QA/2018-02=Test");
-		rs.putDefaultTags("12345", defaultTags);
+		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=/2018=QA/2018-02=Test");
 		item[2] = "2020-02-21T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "", userTags[0].name);
 		
 		// Check that we ignore a trailing '/'
-		defaultTags.put("Environment", "Prod/2020-02=/2018=QA/2018-02=Test/");
-		rs.putDefaultTags("12345", defaultTags);
+		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=/2018=QA/2018-02=Test/");
 		item[2] = "2020-02-21T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(new Account("12345", "AccountTagTest", null), null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "", userTags[0].name);		
 	}
@@ -359,7 +359,7 @@ public class BasicResourceServiceTest {
 		assertTrue("Email not set", coverage[2]);
 	}
 	
-	private ResourceGroup getResourceGroup(String yaml, String start, String[] tags, String[] customTags, Map<String, String> payerDefaultTags, String payerAccount, String account) throws Exception {
+	private ResourceGroup getResourceGroup(String yaml, String start, String[] tags, String[] customTags, Account payerAccount, Account account) throws Exception {
 		List<TagConfig> tagConfigs = Lists.newArrayList();
 		if (yaml.startsWith("tags:")) {
 			tagConfigs = new BillingDataConfig(yaml).tags;
@@ -371,20 +371,16 @@ public class BasicResourceServiceTest {
 			tagConfigs.add(tc);
 		}
 		
-		BasicAccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
-		rs.setTagConfigs(payerAccount, tagConfigs);
-		
-		if (payerDefaultTags != null)
-			rs.putDefaultTags(payerAccount, payerDefaultTags);
+		rs.setTagConfigs(payerAccount.getId(), tagConfigs);
 		
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
 		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null);
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		
-		rs.initHeader(li.getResourceTagsHeader(), payerAccount);
+		rs.initHeader(li.getResourceTagsHeader(), payerAccount.getId());
 		
 		String[] item = {
 				"123456789012", // PayerAccountId
@@ -398,7 +394,7 @@ public class BasicResourceServiceTest {
 		
 		// Test with mapped value
 		li.setItems(item);
-		return rs.getResourceGroup(as.getAccountByName(account), Region.US_EAST_1, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		return rs.getResourceGroup(account, Region.US_EAST_1, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 	}
 	
 	@Test
@@ -408,17 +404,17 @@ public class BasicResourceServiceTest {
 		"aliases: ['aws:createdBy',TagKey2]\n";
 		
 		String[] customTags = new String[]{"TagKey1", "TagKey3"};
-		String payerAccount = "123456789012";
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
 		String start = "2020-01-01T00:00:00Z";
 		
 		// Test without alias
 		String[] tags = { "", "SrcValue1", "", "SrcValue3", "SrcValue4" };		
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, null, payerAccount, payerAccount);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"SrcValue1", "SrcValue3"}), resource);
 		
 		// Test with aws:createdBy value as alias
 		tags = new String[]{ "awsCreatedByValue", "", "", "SrcValue3", "SrcValue4" };		
-		resource = getResourceGroup(yaml, start, tags, customTags, null, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"awsCreatedByValue", "SrcValue3"}), resource);
 	}
 	
@@ -438,44 +434,43 @@ public class BasicResourceServiceTest {
 		"        TagKey4: [SrcValue4b]\n";
 
 		String[] customTags = new String[]{"DestKey", "TagKey4"};
-		Map<String, String> defaultTags = Maps.newHashMap();
-		defaultTags.put("DestKey", "DestValueDefault");
-		String payerAccount = "123456789012";
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", "DestKey", "DestValueDefault");
 		String start = "2020-01-01T00:00:00Z";
 		
 		String[] tags = { "", "SrcValue1", "", "", "SrcValue4a" };
 		
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValue1", "SrcValue4a"}), resource);
 		
 		// Test with value on resource
 		tags = new String[]{ "", "TagValue1", "test", "", "SrcValue4a" };
-		resource = getResourceGroup(yaml, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"test", "SrcValue4a"}), resource);
 		
 		// Test without mapped value or resource tag - should use account default
 		tags = new String[]{ "", "TagValue1", "", "", "" };
-		resource = getResourceGroup(yaml, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValueDefault", null}), resource);
 		
 		// Test include filtering
 		String yamlWithFilters = yaml +
 				"    include: [123456789012]\n";
 		tags = new String[]{ "", "TagValue1", "", "", "SrcValue4a" };
-		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValue1", "SrcValue4a"}), resource);
 		
-		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, defaultTags, payerAccount, "234567890123");		
+		Account account = makeAccountWithDefaultTag("234567890123", null, null);
+		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, payerAccount, account);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{null, "SrcValue4a"}), resource);
 		
 		// Test exclude filtering
 		yamlWithFilters = yaml +
 				"    exclude: [123456789012]\n";
 		
-		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValueDefault", "SrcValue4a"}), resource);
 		
-		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, defaultTags, payerAccount, "234567890123");		
+		resource = getResourceGroup(yamlWithFilters, start, tags, customTags, payerAccount, account);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValue1", "SrcValue4a"}), resource);
 		
 		// Test start date
@@ -486,17 +481,17 @@ public class BasicResourceServiceTest {
 				"        TagKey4: [SrcValue4a]\n" +
 				"      DestValue2a:\n" +
 				"        TagKey4: [SrcValue4b]\n";
-		resource = getResourceGroup(yamlWithStart, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yamlWithStart, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValue1", "SrcValue4a"}), resource);
 		
 		start = "2020-02-01T00:00:00Z";
-		resource = getResourceGroup(yamlWithStart, start, tags, customTags, defaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yamlWithStart, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValue1a", "SrcValue4a"}), resource);		
 	}
 	
 	@Test
 	public void testGetTagGroupMappedMultipleSrcKeys() throws Exception {
-		String payerAccount = "123456789012";
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", "DestKey", "DestValueDefault");
 		
 		// Mapping rules for new virtual tag
 		String yaml = "" +
@@ -504,7 +499,7 @@ public class BasicResourceServiceTest {
 		"values:\n" +
 		"  DestValueDefault: [DestValueDefaultVariant]\n" +
 		"mapped:\n" +
-		"  - include: [" + payerAccount + "]\n" +
+		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue1:\n" +
 		"        TagKey1: [SrcValue1]\n" +
@@ -512,32 +507,30 @@ public class BasicResourceServiceTest {
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
-		Map<String, String> payerDefaultTags = Maps.newHashMap();
-		payerDefaultTags.put("DestKey", "DestValueDefault");
 		
 		// Test default - should be DestValueDefault
 		String[] tags = { "", "", "", "", ""};
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValueDefault", "", "", ""});
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test TagKey1 - should give SrcValue1
 		tags = new String[]{ "", "SrcValue1", "", "", "SrcValue4"};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "SrcValue4", "SrcValue1", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 
 		// Test TagKey2 - should give SrcValue1
 		tags = new String[]{ "", "", "SrcValue2", "", "SrcValue4"};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "SrcValue4", "", "SrcValue2"});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 	}
 	
 	@Test
 	public void testGetTagGroupMappedMultiple() throws Exception {
-		String payerAccount = "123456789012";
-		String account = "234567890123";
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", "DestKey", "DestValueDefault");
+		Account account = makeAccountWithDefaultTag("234567890123", null, null);
 		
 		// Mapping rules for new virtual tag
 		String yaml = "" +
@@ -545,51 +538,49 @@ public class BasicResourceServiceTest {
 		"values:\n" +
 		"  DestValueDefault: [DestValueDefaultVariant]\n" +
 		"mapped:\n" +
-		"  - include: [" + payerAccount + "]\n" +
+		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue1:\n" +
 		"        TagKey1: [SrcValue1]\n" +
-		"  - include: [" + account + "]\n" +
+		"  - include: [" + account.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue2:\n" +
 		"        TagKey2: [SrcValue2]";
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
-		Map<String, String> payerDefaultTags = Maps.newHashMap();
-		payerDefaultTags.put("DestKey", "DestValueDefault");
 		
 		// Test default on payerAccount - should be DestValueDefault
 		String[] tags = { "", "", "", "", ""};
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValueDefault", "", "", ""});
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 
 		// Test default on account - should be empty
 		expect = ResourceGroup.getResourceGroup(new String[]{ "", "", "", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, account);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, account);		
 		assertEquals("Resource name doesn't match", expect, resource);
 
 		// Test DestValue1 on payerAccount - should give DestValue1
 		tags = new String[]{ "", "SrcValue1", "", "", "SrcValue4"};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "SrcValue4", "SrcValue1", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue1 on account - should be empty
 		expect = ResourceGroup.getResourceGroup(new String[]{ "", "SrcValue4", "SrcValue1", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, account);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, account);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue2 on payerAccount - should give DestValueDefault
 		tags = new String[]{ "", "", "SrcValue2", "", "SrcValue4"};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValueDefault", "SrcValue4", "", "SrcValue2"});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue2 on account - should give DestValue2
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue2", "SrcValue4", "", "SrcValue2"});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, account);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, account);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		/* Possible future feature
@@ -602,13 +593,13 @@ public class BasicResourceServiceTest {
 	
 	@Test
 	public void testGetTagGroupMappedMultipleStarts() throws Exception {
-		String payerAccount = "123456789012";
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
 		
 		// Mapping rules for new virtual tag
 		String yaml = "" +
 		"name: DestKey\n" +
 		"mapped:\n" +
-		"  - include: [" + payerAccount + "]\n" +
+		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue1:\n" +
 		"        TagKey1: [SrcValue1a]\n" +
@@ -616,7 +607,7 @@ public class BasicResourceServiceTest {
 		"        TagKey1: [SrcValue1b]\n" +
 		"      DestValue3:\n" +
 		"        TagKey1: [SrcValue1c]\n" +
-		"  - include: [" + payerAccount + "]\n" +
+		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    start: 2020-02\n" +
 		"    suspend:\n" +
 		"      TagKey1: [SrcValue1c]\n" +
@@ -626,7 +617,6 @@ public class BasicResourceServiceTest {
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
-		Map<String, String> payerDefaultTags = Maps.newHashMap();
 		
 		//
 		// Check that items processed before 2020-02 are correct
@@ -634,19 +624,19 @@ public class BasicResourceServiceTest {
 		// Test DestValue1
 		String[] tags = new String[]{ "", "SrcValue1a", "", "", ""};		
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "", "SrcValue1a", ""});
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue2
 		tags = new String[]{ "", "SrcValue1b", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue2", "", "SrcValue1b", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue3
 		tags = new String[]{ "", "SrcValue1c", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue3", "", "SrcValue1c", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		//
@@ -655,25 +645,25 @@ public class BasicResourceServiceTest {
 		// Test DestValue1 - should give DestValue1
 		tags = new String[]{ "", "SrcValue1a", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "", "SrcValue1a", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue2 - should give DestValue2
 		tags = new String[]{ "", "SrcValue1d", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue2", "", "SrcValue1d", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		// Test DestValue3
 		tags = new String[]{ "", "SrcValue1c", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "", "", "SrcValue1c", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 	}
 	
 	@Test
 	public void testGetTagGroupMappedFromAlias() throws Exception {
-		String payerAccount = "123456789012";
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
 		
 		// Mapping rules for new virtual tag
 		String yaml = "" +
@@ -690,12 +680,11 @@ public class BasicResourceServiceTest {
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4"};
-		Map<String, String> payerDefaultTags = Maps.newHashMap();
 		
 		// Test that mapping is being ignored due to using an alias
 		String[] tags = new String[]{ "", "SrcValue1", "", "SrcValue3", "SrcValue4"};		
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "", "SrcValue4"});
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerDefaultTags, payerAccount, payerAccount);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);		
 	}
 }

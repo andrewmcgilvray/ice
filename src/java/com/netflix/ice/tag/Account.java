@@ -23,12 +23,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class Account extends Tag {
 	private static final long serialVersionUID = 1L;
-	
+
+	// Configuration separator values used for account default settings
+    private static final String defaultTagSeparator = "/";
+    private static final String defaultTagEffectiveDateSeparator = "=";
+
 	// Account ID goes into the parent name since it's immutable. Hide the value so it can't be accessed directly
 	// All other values associated with the account can be modified in the AWS Organizations service,
 	// so we can't make them final.
@@ -39,6 +46,7 @@ public class Account extends Tag {
 	private String status;  // status as returned by the Organizations service
 	private List<String> accessGroups; // names of groups account is assigned to for controlling access
 	private Map<String, String> tags;
+	private Map<String, DefaultTag> defaultTags;
 
     public Account(String accountId, String accountName, List<String> parents) {
         super(accountId);
@@ -49,6 +57,7 @@ public class Account extends Tag {
         this.status = null;
         this.accessGroups = null;
         this.tags = null;
+        this.defaultTags = null;
     }
     
     public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, List<String> accessGroups, Map<String, String> tags) {
@@ -60,6 +69,7 @@ public class Account extends Tag {
         this.status = status;
         this.accessGroups = accessGroups;
         this.tags = tags;
+        this.defaultTags = getDefaultTags(this.tags);
     }
     
     public void update(Account a) {
@@ -70,6 +80,16 @@ public class Account extends Tag {
 		this.status = a.status;
 		this.accessGroups = a.accessGroups;
 		this.tags = a.tags;
+		this.defaultTags = getDefaultTags(this.tags);
+    }
+    
+    private Map<String, DefaultTag> getDefaultTags(Map<String, String> tags) {
+    	Map<String, DefaultTag> dt = Maps.newHashMap();
+    	if (tags != null) {
+        	for (String key: tags.keySet())
+        		dt.put(key, new DefaultTag(tags.get(key)));
+    	}
+    	return dt;
     }
     
     @Override
@@ -136,7 +156,7 @@ public class Account extends Tag {
 		return new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Access Groups", "Status"};
 	}
 	
-	public List<String> values(Collection<String> tagKeys) {
+	public List<String> values(Collection<String> tagKeys, boolean onlyEffective) {
 		List<String> values = Lists.newArrayList();
 		values.add(getIceName());
 		values.add(getAwsName());
@@ -145,11 +165,69 @@ public class Account extends Tag {
 		values.add(String.join("/", parents));
 		values.add(accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups));
 		values.add(getStatus());
-		for (String key: tagKeys) {
-			String v = tags.get(key);
-			values.add(v == null ? "" : v);
+		if (onlyEffective) {
+			long now = DateTime.now().getMillis();
+			for (String key: tagKeys) {
+				values.add(getDefaultUserTagValue(key, now));
+			}
+		}
+		else {
+			for (String key: tagKeys) {
+				String v = tags.get(key);
+				values.add(v == null ? "" : v);
+			}
 		}
 		return values;
 	}
+
+    public String getDefaultUserTagValue(String tagKey, long startMillis) {
+    	// return the default user tag value if there is one.
+    	Account.DefaultTag dt = defaultTags == null ? null : defaultTags.get(tagKey);
+    	return dt == null ? null : dt.getValue(startMillis);
+    }
+
+    // Default user tag values for the account. These are returned if the requested resource doesn't
+    // have a tag value nor a mapped value. Map key is the tag key name.
+    private class DefaultTag {
+    	private class DateValue {
+    		public long startMillis;
+    		public String value;
+    		
+    		DateValue(long startMillis, String value) {
+    			this.startMillis = startMillis;
+    			this.value = value;
+    		}
+    	}
+    	private List<DateValue> timeOrderedValues;
+    	
+    	DefaultTag(String config) {
+    		Map<Long, String> sortedMap = Maps.newTreeMap();
+    		String[] dateValues = config.split(defaultTagSeparator);
+    		for (String dv: dateValues) {
+    			String[] parts = dv.split(defaultTagEffectiveDateSeparator);
+    			if (dv.contains(defaultTagEffectiveDateSeparator)) {
+    				// If only one part, it's the start time and value should be empty
+        			sortedMap.put(new DateTime(parts[0], DateTimeZone.UTC).getMillis(), parts.length < 2 ? "" : parts[1]);    				
+    			}
+    			else {
+    				// If only one part, it's the value that starts at time 0
+    				sortedMap.put(parts.length < 2 ? 0 : new DateTime(parts[0], DateTimeZone.UTC).getMillis(), parts[parts.length < 2 ? 0 : 1]);
+    			}
+    		}
+    		timeOrderedValues = Lists.newArrayList();
+    		for (Long start: sortedMap.keySet())
+    			timeOrderedValues.add(new DateValue(start, sortedMap.get(start)));
+    	}
+    	
+    	String getValue(long startMillis) {
+    		String value = null;
+    		for (DateValue dv: timeOrderedValues) {
+    			if (dv.startMillis > startMillis)
+    				break;
+    			value = dv.value;
+    		}
+    		return value;
+    	}
+    }
 
 }

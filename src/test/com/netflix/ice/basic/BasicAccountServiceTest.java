@@ -122,4 +122,40 @@ public class BasicAccountServiceTest {
 		assertEquals("Wrong parent for unlinked account", BasicAccountService.unlinkedAccountParents, bas.getAccountById("123456789012", "").getParents());
 	}
 
+	@Test
+	public void testValues() {
+		com.amazonaws.services.organizations.model.Account account = new com.amazonaws.services.organizations.model.Account()
+			.withId("123456789012")
+			.withName("account")
+			.withStatus("ACTIVE");
+		
+		// Three tags: Tag1 with single value, Tag2 with initial value and updated with new effective date, Tag3 clearing tag.
+		// Tag3 is out of time order to make sure we're not assuming time ordered effective dates.
+		List<com.amazonaws.services.organizations.model.Tag> tags = Lists.newArrayList();
+		tags.add(new com.amazonaws.services.organizations.model.Tag().withKey("Tag1").withValue("foobar"));
+		tags.add(new com.amazonaws.services.organizations.model.Tag().withKey("Tag2").withValue("foo/2020-04=bar"));
+		tags.add(new com.amazonaws.services.organizations.model.Tag().withKey("Tag3").withValue("2020-06=/foo/2020-04=bar"));
+		
+		List<String> customTags = Lists.newArrayList(new String[]{"Tag1", "Tag2", "Tag3"});
+		Map<String, AccountConfig> configs = Maps.newHashMap();
+		
+		configs.put("123456789012", new AccountConfig(account, Lists.newArrayList("Org"), tags, customTags));
+		BasicAccountService bas = new BasicAccountService(configs);
+		
+		// Get the headers
+		Account a = bas.getAccountById("123456789012");
+		int tagStartIndex = Account.headerWithoutTags().length;
+		
+		// Check for returning full tag values
+		List<String> values = a.values(customTags, false);
+		assertEquals("wrong tag1 full value", "foobar", values.get(tagStartIndex));
+		assertEquals("wrong tag2 full value", "foo/2020-04=bar", values.get(tagStartIndex+1));
+		assertEquals("wrong tag3 full value", "2020-06=/foo/2020-04=bar", values.get(tagStartIndex+2));
+		
+		// Check for returning only effective tag values
+		values = bas.getAccountById("123456789012").values(customTags, true);
+		assertEquals("wrong tag1 effective value", "foobar", values.get(tagStartIndex));
+		assertEquals("wrong tag2 effective value", "bar", values.get(tagStartIndex+1));
+		assertEquals("wrong tag3 effective value", "", values.get(tagStartIndex+2));
+	}
 }
