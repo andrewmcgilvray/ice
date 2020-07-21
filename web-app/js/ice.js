@@ -2981,15 +2981,15 @@ function processorStatusCtrl($scope, $location, $http) {
   }
 
   $scope.refresh = function () {
+    $scope.statusArray = [];
     refreshState($scope);
-    if ($scope.processorState === "stopped")
-      getProcessorStatus($scope);
   }
 
   var refreshState = function($scope) {
     getProcessorState($scope, function () {
       if ($scope.processorState === "pending")
         setTimeout(() => refreshState($scope), 5000);
+      getProcessorStatus($scope);
     });
   }
 

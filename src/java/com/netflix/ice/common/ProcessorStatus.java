@@ -21,7 +21,7 @@ import java.util.Collection;
 
 import com.google.gson.Gson;
 
-public class ProcessorStatus {
+public class ProcessorStatus implements Comparable<ProcessorStatus> {
 	public static final String prefix = "processorStatus_";
 	public static final String suffix = ".json";
 	
@@ -95,5 +95,10 @@ public class ProcessorStatus {
 
 	public boolean isReprocess() {
 		return reprocess;
+	}
+
+	@Override
+	public int compareTo(ProcessorStatus o) {
+		return month.compareTo(o.month);
 	}
 }
