@@ -44,7 +44,8 @@ public class Account extends Tag {
 	private String email; // Email address of the account
 	private List<String> parents; // parent organizational units as defined by the Organizations service
 	private String status;  // status as returned by the Organizations service
-	private List<String> accessGroups; // names of groups account is assigned to for controlling access
+	private String joinedMethod;
+	private String joinedDate;
 	private Map<String, String> tags;
 	private Map<String, DefaultTag> defaultTags;
 
@@ -55,19 +56,21 @@ public class Account extends Tag {
         this.email = null;
         this.parents = parents;
         this.status = null;
-        this.accessGroups = null;
+        this.joinedMethod = null;
+        this.joinedDate = null;
         this.tags = null;
         this.defaultTags = null;
     }
     
-    public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, List<String> accessGroups, Map<String, String> tags) {
+    public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, String joinedMethod, String joinedDate, Map<String, String> tags) {
     	super(accountId);
         this.iceName = StringUtils.isEmpty(accountName) ? awsName : accountName;
         this.awsName = awsName;
         this.email = email;
         this.parents = parents;
         this.status = status;
-        this.accessGroups = accessGroups;
+        this.joinedMethod = joinedMethod;
+        this.joinedDate = joinedDate;
         this.tags = tags;
 		initDefaultTags();
     }
@@ -78,7 +81,8 @@ public class Account extends Tag {
 		this.email = a.email;
 		this.parents = a.parents;
 		this.status = a.status;
-		this.accessGroups = a.accessGroups;
+        this.joinedMethod = a.joinedMethod;
+        this.joinedDate = a.joinedDate;
 		this.tags = a.tags;
 		initDefaultTags();
     }
@@ -125,16 +129,20 @@ public class Account extends Tag {
 		return status;
 	}
 	
-	public List<String> getAccessGroups() {
-		return accessGroups;
+	public String getJoinedMethod() {
+		return joinedMethod;
 	}
-
+	
+	public String getJoinedDate() {
+		return joinedDate;
+	}
+	
 	public Map<String, String> getTags() {
 		return tags;
 	}
 	
 	public static String[] header() {
-		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Access Groups", "Status", "Tags"};
+		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Status", "Joined Method", "Joined Date", "Tags"};
 	}
 	
 	public String[] values() {
@@ -150,14 +158,15 @@ public class Account extends Tag {
 			getAwsName(),
 			getEmail(),
 			String.join("/", parents),
-			accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups),
 			getStatus(),
+			joinedMethod,
+			joinedDate,
 			String.join(",", tagSet)
 		};
 	}
 	
 	public static String[] headerWithoutTags() {
-		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Access Groups", "Status"};
+		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Status", "Joined Method", "Joined Date"};
 	}
 	
 	public List<String> values(Collection<String> tagKeys, boolean onlyEffective) {
@@ -167,8 +176,9 @@ public class Account extends Tag {
 		values.add(getAwsName());
 		values.add(getEmail());
 		values.add(String.join("/", parents));
-		values.add(accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups));
 		values.add(getStatus());
+		values.add(joinedMethod);
+		values.add(joinedDate);
 		if (onlyEffective) {
 			long now = DateTime.now().getMillis();
 			for (String key: tagKeys) {

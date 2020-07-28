@@ -2776,9 +2776,13 @@ function accountsCtrl($scope, $location, $http, $window) {
     })
     sortedTagKeys.sort();
 
-    $scope.header = ["ID","ICE Name", "AWS Name", "Organization Path", "Status", "Email"];
-    $scope.revs = [false,false,false,false,false,false];
-    $scope.showColumn = [true,true,true,true,true,true];
+    $scope.header = ["ID","ICE Name", "AWS Name", "Organization Path", "Status", "Joined Method", "Joined Date", "Email"];
+    $scope.revs = [];
+    $scope.showColumn = [];
+    for (var i = 0; i < $scope.header.length; i++) {
+      $scope.revs.push(false);
+      $scope.showColumn.push(true);
+    }
     for (var i = 0; i < sortedTagKeys.length; i++) {
       $scope.header.push(sortedTagKeys[i]);
       $scope.revs.push(false);
@@ -2810,6 +2814,8 @@ function accountsCtrl($scope, $location, $http, $window) {
       else
         row.push(parents.length > 0 ? account.parents.join("/") : "");
       row.push(account.status === null ? "" : account.status);
+      row.push(account.joinedMethod == null ? "" : account.joinedMethod);
+      row.push(account.joinedDate == null ? "" : account.joinedDate);
       row.push(account.email);
       for (var j = 0; j < sortedTagKeys.length; j++) {
         var tag = account.tags[sortedTagKeys[j]];

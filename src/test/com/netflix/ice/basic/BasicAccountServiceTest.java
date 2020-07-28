@@ -35,8 +35,8 @@ public class BasicAccountServiceTest {
 	public void testAccountConfigMapConstructor() {
 		Map<String, AccountConfig> configs = Maps.newHashMap();
 		
-		configs.put("123456789012", new AccountConfig("123456789012", "account1", "account 1", Lists.newArrayList("Org"), "ACTIVE", Lists.newArrayList("ec2"), "role", "12345", null));
-		configs.put("234567890123", new AccountConfig("234567890123", "account2", "account 2", null, null, null, null, null, null));
+		configs.put("123456789012", new AccountConfig("123456789012", "account1", "account 1", Lists.newArrayList("Org"), "ACTIVE", Lists.newArrayList("ec2"), "role", "12345"));
+		configs.put("234567890123", new AccountConfig("234567890123", "account2", "account 2", null, null, null, null, null));
 		BasicAccountService bas = new BasicAccountService(configs);
 		
 		assertEquals("Wrong number of accounts", 2, bas.getAccounts().size());
@@ -61,7 +61,7 @@ public class BasicAccountServiceTest {
 	public void testUpdateAccounts() {
 		List<Account> accounts = Lists.newArrayList();
 		String id = "123456789012";
-		accounts.add(new Account(id, "OldName", "OldAwsName", "OldEmail", null, "ACTIVE", null, null));
+		accounts.add(new Account(id, "OldName", "OldAwsName", "OldEmail", null, "ACTIVE", null, null, null));
 		
 		BasicAccountService bas = new BasicAccountService(accounts);
 		
@@ -80,7 +80,7 @@ public class BasicAccountServiceTest {
 		List<String> parents = Lists.newArrayList("OrgRoot");
 		Map<String, String> tags = Maps.newHashMap();
 		tags.put("Environment", "Production");
-		Account newAccount = new Account(id, "NewName", "NewAwsName", "NewEmail", parents, "SUSPENDED", null, tags);
+		Account newAccount = new Account(id, "NewName", "NewAwsName", "NewEmail", parents, "SUSPENDED", null, null, tags);
 		accounts.add(newAccount);
 		
 		bas.updateAccounts(accounts);
@@ -103,7 +103,7 @@ public class BasicAccountServiceTest {
 		assertEquals("Wrong tags", tags, bas.getAccountById(id).getTags());
 		
 		// Remove separate ICE name
-		newAccount = new Account(id, "NewAwsName", "NewAwsName", "NewEmail", parents, "SUSPENDED", null, tags);
+		newAccount = new Account(id, "NewAwsName", "NewAwsName", "NewEmail", parents, "SUSPENDED", null, null, tags);
 		accounts = Lists.newArrayList();	
 		accounts.add(newAccount);
 		bas.updateAccounts(accounts);

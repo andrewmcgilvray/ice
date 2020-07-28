@@ -60,7 +60,7 @@ public class BasicResourceServiceTest {
     		tags = Maps.newHashMap();
     		tags.put(key, value);
     	}
-    	return new Account(id, "account", "account", "email", Lists.newArrayList("Org"), "ACTIVE", null, tags);
+    	return new Account(id, "account", "account", "email", Lists.newArrayList("Org"), "ACTIVE", null, null, tags);
     }
     
 	@Test

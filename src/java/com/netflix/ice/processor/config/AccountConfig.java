@@ -17,11 +17,14 @@
  */
 package com.netflix.ice.processor.config;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -32,22 +35,20 @@ public class AccountConfig {
 	private static final String tagRiProducts = "IceRiProducts";
 	private static final String tagRole = "IceRole";
 	private static final String tagExternalId = "IceExternalId";
-	private static final String tagAccessGroup = "AccessGroups";
-	private static final String AccessGroupsSeparator = "/";
+    private static DateTimeFormatter dayFormatter = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(DateTimeZone.UTC);
 	
 	public String id;
 	public String name;
 	public String awsName;
 	public String email;
 	public String joinedMethod;
-	public Date joinedTimestamp;
+	public String joinedDate;
 	public String status;
 	public List<String> parents;
 	public Map<String, String> tags;
 	public List<String> riProducts;
 	public String role;
 	public String externalId;
-	public List<String> accessGroups;
 	
 	public AccountConfig() {		
 	}
@@ -63,20 +64,19 @@ public class AccountConfig {
 	 * @param role
 	 * @param externalId
 	 */
-	public AccountConfig(String id, String name, String awsName, List<String> parents, String status, List<String> riProducts, String role, String externalId, List<String> accessGroups) {
+	public AccountConfig(String id, String name, String awsName, List<String> parents, String status, List<String> riProducts, String role, String externalId) {
 		this.id = id;
 		this.name = name;
 		this.awsName = awsName;
 		this.email = null;
 		this.joinedMethod = null;
-		this.joinedTimestamp = null;
+		this.joinedDate = null;
 		this.status = status;
 		this.parents = parents;
 		this.tags = null;
 		this.riProducts = riProducts;
 		this.role = role;
 		this.externalId = externalId;
-		this.accessGroups = accessGroups;
 	}
 	
 	public AccountConfig(com.amazonaws.services.organizations.model.Account account, List<String> parents, List<com.amazonaws.services.organizations.model.Tag> tags, List<String> customTags) {
@@ -86,7 +86,7 @@ public class AccountConfig {
 		this.awsName = account.getName();
 		this.email = account.getEmail();
 		this.joinedMethod = account.getJoinedMethod();
-		this.joinedTimestamp = account.getJoinedTimestamp();
+		this.joinedDate = account.getJoinedTimestamp() == null ? null : new DateTime(account.getJoinedTimestamp().getTime()).toString(dayFormatter);
 		this.status = account.getStatus();
 		this.parents = parents;
 		this.tags = Maps.newHashMap();
@@ -101,10 +101,8 @@ public class AccountConfig {
 					this.role = tag.getValue();
 				else if (key.equals(tagExternalId))
 					this.externalId = tag.getValue();
-				else if (key.equals(tagAccessGroup))
-					this.accessGroups = Lists.newArrayList(tag.getValue().split(AccessGroupsSeparator));
-				else if (customTags.contains(tag.getKey()))
-						this.tags.put(tag.getKey(), tag.getValue());
+				else
+					this.tags.put(tag.getKey(), tag.getValue());
 			}
 		}
 	}
@@ -119,7 +117,8 @@ public class AccountConfig {
 		this.awsName = account.getAwsName();
 		this.parents = account.getParents();
 		this.status = account.getStatus();
-		this.accessGroups = account.getAccessGroups();
+		this.joinedMethod = account.getJoinedMethod();
+		this.joinedDate = account.getJoinedDate();
 		this.tags = account.getTags();
 	}
 	
@@ -134,6 +133,10 @@ public class AccountConfig {
 		}
 		if (status != null && !status.isEmpty())
 			sb.append(", status: " + status);
+		if (joinedMethod != null && !joinedMethod.isEmpty())
+			sb.append(", joinedMethod: " + joinedMethod);
+		if (joinedDate != null)
+			sb.append(", joinedDate: " + joinedDate);
 		if (riProducts != null && !riProducts.isEmpty())
 			sb.append(", riProducts: " + riProducts.toString());
 		if (role != null && !role.isEmpty())
@@ -192,12 +195,12 @@ public class AccountConfig {
 		this.joinedMethod = joinedMethod;
 	}
 
-	public Date getJoinedTimestamp() {
-		return joinedTimestamp;
+	public String getJoinedDate() {
+		return joinedDate;
 	}
 
-	public void setJoinedTimestamp(Date joinedTimestamp) {
-		this.joinedTimestamp = joinedTimestamp;
+	public void setJoinedDate(String joinedDate) {
+		this.joinedDate = joinedDate;
 	}
 
 	public String getStatus() {
@@ -247,14 +250,5 @@ public class AccountConfig {
 	public void setExternalId(String externalId) {
 		this.externalId = externalId;
 	}
-
-	public List<String> getAccessGroup() {
-		return accessGroups;
-	}
-
-	public void setAccessGroup(List<String> accessGroups) {
-		this.accessGroups = accessGroups;
-	}
-
 
 }
