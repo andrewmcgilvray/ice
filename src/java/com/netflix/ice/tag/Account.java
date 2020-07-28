@@ -69,7 +69,7 @@ public class Account extends Tag {
         this.status = status;
         this.accessGroups = accessGroups;
         this.tags = tags;
-        this.defaultTags = getDefaultTags(this.tags);
+		initDefaultTags();
     }
     
     public void update(Account a) {
@@ -80,7 +80,11 @@ public class Account extends Tag {
 		this.status = a.status;
 		this.accessGroups = a.accessGroups;
 		this.tags = a.tags;
-		this.defaultTags = getDefaultTags(this.tags);
+		initDefaultTags();
+    }
+    
+    public void initDefaultTags() {
+    	defaultTags = getDefaultTags(tags);
     }
     
     private Map<String, DefaultTag> getDefaultTags(Map<String, String> tags) {
@@ -130,7 +134,7 @@ public class Account extends Tag {
 	}
 	
 	public static String[] header() {
-		return new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Access Groups", "Status", "Tags"};
+		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Access Groups", "Status", "Tags"};
 	}
 	
 	public String[] values() {
@@ -141,9 +145,9 @@ public class Account extends Tag {
 			}
 		}
 		return new String[]{
+			getId(),
 			getIceName(),
 			getAwsName(),
-			getId(),
 			getEmail(),
 			String.join("/", parents),
 			accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups),
@@ -153,14 +157,14 @@ public class Account extends Tag {
 	}
 	
 	public static String[] headerWithoutTags() {
-		return new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Access Groups", "Status"};
+		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Access Groups", "Status"};
 	}
 	
 	public List<String> values(Collection<String> tagKeys, boolean onlyEffective) {
 		List<String> values = Lists.newArrayList();
+		values.add(getId());
 		values.add(getIceName());
 		values.add(getAwsName());
-		values.add(getId());
 		values.add(getEmail());
 		values.add(String.join("/", parents));
 		values.add(accessGroups == null || accessGroups.size() == 0 ? "" : String.join("/", accessGroups));

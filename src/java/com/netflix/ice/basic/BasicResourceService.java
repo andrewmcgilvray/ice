@@ -356,6 +356,7 @@ public class BasicResourceService extends ResourceService {
 	        	if (!mt.exclude.isEmpty() && mt.exclude.contains(account.getId()))
 	        		continue;
 	        	
+	        	// Grab the first matching source tag
 	        	for (Integer sourceTagIndex: sourceTags.keySet()) {
 	        		String have = tags[sourceTagIndex];
 	        		if (have == null)

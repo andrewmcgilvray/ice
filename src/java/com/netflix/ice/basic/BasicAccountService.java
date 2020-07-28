@@ -70,6 +70,7 @@ public class BasicAccountService implements AccountService {
     // Also used by unit test code.
     public BasicAccountService(List<Account> accounts) {
     	for (Account a: accounts) {
+    		a.initDefaultTags();
     		accountsById.put(a.getId(), a);
     		accountsByIceName.put(a.getIceName(), a);
     	}
@@ -94,6 +95,7 @@ public class BasicAccountService implements AccountService {
     		Account existing = accountsById.get(a.getId());
     		if (existing == null) {
     			// Add the new account
+    			a.initDefaultTags();
     			accountsById.put(a.getId(), a);
     			accountsByIceName.put(a.getIceName(), a);
     		}
@@ -192,8 +194,10 @@ public class BasicAccountService implements AccountService {
 		StringWriter writer = new StringWriter(1024);
 		CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader((String[]) names.toArray(new String[names.size()])));
 		
-		for (Account a: accountsById.values()) {			
-			printer.printRecord(a.values(sortedTagKeys, true));
+		// generate report in account ID order
+		Set<String> ids = Sets.newTreeSet(accountsById.keySet());		
+		for (String id: ids) {			
+			printer.printRecord(accountsById.get(id).values(sortedTagKeys, true));
 		}
 		printer.close(true);
 		return writer.toString();

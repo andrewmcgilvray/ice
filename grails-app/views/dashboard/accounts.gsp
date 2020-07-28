@@ -29,35 +29,30 @@
 	      <input ng-model="filter_accounts" type="text" class="resourcesFilter" placeholder="Filter"/>&nbsp;
 	      <a href="javascript:void(0)" style="background-image: url(${resource(dir: '/')}images/tango/16/actions/document-save.png)"
 	       ng-click="download()"
-	       ng-disabled="accounts.length == 0">Download</a>	       
+	       ng-disabled="accounts.length == 0">Download</a>
+	      <img src="${resource(dir: '/')}images/gear.png" ng-click="settings()"/>   
 	    </span>
   </h1>
-  
+  <div ng-show="showSettings" class="modal">
+    <table class="settingsModal">
+      <tr><td><h1>Show/Hide Columns</h1></td></tr>
+      <tr ng-repeat="col in header">
+        <td><input type="checkbox" ng-model="showColumn[$index]"> {{col}}</input></td>
+      </tr>
+      <tr><td><button type="submit" class="processorStatusButton" ng-click="close()">Close</button></td></tr>
+    </table>
+  </div>
   <div class="list">
 	  <table style="width: 100%;">
 	    <thead>
-	    <tr>
-	      <th ng-click="order(accounts, 'name')">ICE Name</th>
-	      <th ng-click="order(accounts, 'awsName')">AWS Name</th>
-	      <th ng-click="order(accounts, 'id')">ID</th>
-	      <th ng-click="order(accounts, 'path')">Organization Path</th>
-	      <th ng-click="order(accounts, 'status')">Status</th>
-	      <th ng-click="order(accounts, 'accessGroupsStr')">Access Groups</th>
-	      <th ng-click="order(accounts, 'tagsStr')">Tags</th>
-	      <th ng-click="order(accounts, 'email')">Email</th>
-	    </tr>
+	      <tr>
+	        <th ng-repeat="col in header" ng-show="showColumn[$index]" ng-click="order($index)">{{col}}</th>
+	      </tr>
 	    </thead>
 	    <tbody>
-	    <tr ng-repeat="account in accounts | filter:filter_accounts" class="{{getTrClass($index)}}">
-	      <td>{{account.name}}</td>
-	      <td>{{account.awsName}}</td>
-	      <td>{{account.id}}</td>
-	      <td>{{account.path}}</td>
-	      <td>{{account.status}}</td>
-	      <td>{{account.accessGroupsStr}}</td>
-	      <td>{{account.tagsStr}}</td>
-	      <td>{{account.email}}</td>
-	    </tr>
+	      <tr ng-repeat="row in accounts | filter:filter_accounts" class="{{getTrClass($index)}}">
+	        <td ng-repeat="col in row" ng-show="showColumn[$index]">{{col}}</td>
+	      </tr>
 	    </tbody>
 	  </table>
   </div>

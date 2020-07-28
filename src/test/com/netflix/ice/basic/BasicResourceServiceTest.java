@@ -610,10 +610,12 @@ public class BasicResourceServiceTest {
 		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    start: 2020-02\n" +
 		"    suspend:\n" +
-		"      TagKey1: [SrcValue1c]\n" +
+		"      TagKey1: [SrcValue1c]\n" +  // suspend SrcValue1c
 		"    maps:\n" +
 		"      DestValue2:\n" +
-		"        TagKey1: [SrcValue1d]\n";
+		"        TagKey1: [SrcValue1d]\n" + // add new SrcValue1d
+		"      DestValue3:\n" +
+		"        TagKey1: [SrcValue1b]\n"; // remap SrcValue1b to DestValue3
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
@@ -640,7 +642,7 @@ public class BasicResourceServiceTest {
 		assertEquals("Resource name doesn't match", expect, resource);
 		
 		//
-		// Check that items processed afger 2020-02 are correct
+		// Check that items processed after 2020-02 are correct
 		start = "2020-02-01T00:00:00Z";
 		// Test DestValue1 - should give DestValue1
 		tags = new String[]{ "", "SrcValue1a", "", "", ""};		
@@ -654,9 +656,15 @@ public class BasicResourceServiceTest {
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
-		// Test DestValue3
+		// Test DestValue3 with suspended value
 		tags = new String[]{ "", "SrcValue1c", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "", "", "SrcValue1c", ""});
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
+		assertEquals("Resource name doesn't match", expect, resource);
+		
+		// Test DestValue3 with remap of 1b
+		tags = new String[]{ "", "SrcValue1b", "", "", ""};		
+		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue3", "", "SrcValue1b", ""});
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 	}

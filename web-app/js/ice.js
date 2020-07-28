@@ -2476,7 +2476,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     getUserTags();
 }
 
-function summaryCtrl($scope, $location, usage_db, highchart) {
+function summaryCtrl($scope, $location, $window, usage_db, highchart) {
 
   $scope.init($scope);
   $scope.usageUnit = "";
@@ -2681,35 +2681,35 @@ function resourceInfoCtrl($scope, $location, $http) {
   }
 }
 
-function accountsCtrl($scope, $location, $http) {
+function accountsCtrl($scope, $location, $http, $window) {
   $scope.accounts = [];
-  $scope.revs = {
-    name: false,
-    awsName: false,
-    id: false,
-    status: false
-  };
-  $scope.predicate = null;
+  $scope.header = [];
+  $scope.showSettings = false;
+  $scope.showColumn = [];
 
-  $scope.order = function (data, name) {
+  $scope.rev = false;
+  $scope.revs = [];
+  $scope.predicateIndex = null;
 
-    if ($scope.predicate != name) {
-      $scope.rev = $scope.revs[name];
-      $scope.predicate = name;
+  $scope.order = function (index) {
+
+    if ($scope.predicateIndex != index) {
+      $scope.rev = $scope.revs[index];
+      $scope.predicateIndex = index;
     }
     else {
-      $scope.rev = $scope.revs[name] = !$scope.revs[name];
+      $scope.rev = $scope.revs[index] = !$scope.revs[index];
     }
 
     var compare = function (a, b) {
-      if (a[name] < b[name])
+      if (a[index] < b[index])
         return $scope.rev ? 1 : -1;
-      if (a[name] > b[name])
+      if (a[index] > b[index])
         return $scope.rev ? -1 : 1;
       return 0;
     }
 
-    data.sort(compare);
+    $scope.accounts.sort(compare);
   }
 
   var getAccounts = function ($scope, fn, download) {
@@ -2736,9 +2736,7 @@ function accountsCtrl($scope, $location, $http) {
         params: params
       }).success(function (result) {
         if (result.status === 200 && result.data) {
-          $scope.accounts = result.data;
-          if (fn)
-            fn(result.data);
+          fn($scope, result.data);
         }
       }).error(function (result, status) {
         if (status === 401 || status === 0)
@@ -2751,35 +2749,78 @@ function accountsCtrl($scope, $location, $http) {
     getAccounts($scope, null, true);
   }
 
-  getAccounts($scope, function (data) {
-    for (var i = 0; i < $scope.accounts.length; i++) {
-      var account = $scope.accounts[i];
-      var parents = account.parents;
-      if (!parents)
-        account.path = "Unlinked";
-      else
-        account.path = parents.length > 0 ? account.parents.join("/") : "";
-      if (account.awsName === null)
-        account.awsName = "";
-      if (account.status === null)
-        account.status = "";
+  $scope.settings = function () {
+    $scope.showSettings = true;
+  }
 
-      account.accessGroupsStr = "";
-      var accessGroups = account.accessGroups;
-      if (accessGroups && accessGroups.length > 0)
-        account.accessGroupsStr = accessGroups.join(", ");
+  $scope.close = function () {
+    $scope.showSettings = false;
+    var hideCols = [];
+    for (var i = 0; i < $scope.header.length; i++) {
+      if (!$scope.showColumn[i])
+        hideCols.push($scope.header[i])
+    }
+    $window.localStorage.setItem('hideAccountColumns', hideCols);
+  }
 
-      account.tagsStr = "";
-      var tags = account.tags;
-      if (tags) {
-        var tagArray = [];
-        for (var j in tags)
-          tagArray.push(j + "=" + tags[j])
-        account.tagsStr = tagArray.join(", ");
+  var loadData = function($scope, data) {
+    let tagKeys = new Set();
+    for (var i = 0; i < data.length; i++) {
+      var account = data[i];
+      for (let key in account.tags)
+        tagKeys.add(key);
+    }
+    var sortedTagKeys = [];
+    tagKeys.forEach((key) => {
+      sortedTagKeys.push(key);
+    })
+    sortedTagKeys.sort();
+
+    $scope.header = ["ID","ICE Name", "AWS Name", "Organization Path", "Status", "Email"];
+    $scope.revs = [false,false,false,false,false,false];
+    $scope.showColumn = [true,true,true,true,true,true];
+    for (var i = 0; i < sortedTagKeys.length; i++) {
+      $scope.header.push(sortedTagKeys[i]);
+      $scope.revs.push(false);
+      $scope.showColumn.push(true);
+    }
+    $scope.accounts = [];
+
+    var hideCols = $window.localStorage.getItem('hideAccountColumns').split(",");    
+    if (hideCols) {
+      for (var i = 0; i < $scope.header.length; i++) {
+        for (var j = 0; j < hideCols.length; j++) {
+          if ($scope.header[i] == hideCols[j]) {
+            $scope.showColumn[i] = false;
+            break;
+          }
+        }
       }
     }
-    $scope.order($scope.accounts, 'name');
-  });
+    
+    for (var i = 0; i < data.length; i++) {
+      var account = data[i];
+      var row = []
+      row.push(account.id);
+      row.push(account.name);
+      row.push(account.awsName === null ? "" : account.awsName);
+      var parents = account.parents;
+      if (!parents)
+        row.push("Unlinked");
+      else
+        row.push(parents.length > 0 ? account.parents.join("/") : "");
+      row.push(account.status === null ? "" : account.status);
+      row.push(account.email);
+      for (var j = 0; j < sortedTagKeys.length; j++) {
+        var tag = account.tags[sortedTagKeys[j]];
+        row.push(tag === null ? "" : tag);
+      }
+      $scope.accounts.push(row);
+    }
+    $scope.order(0);
+  }
+
+  getAccounts($scope, loadData);
 }
 
 function tagconfigsCtrl($scope, $location, $http) {
@@ -2918,7 +2959,7 @@ function tagconfigsCtrl($scope, $location, $http) {
   });
 }
 
-function processorStatusCtrl($scope, $location, $http) {
+function processorStatusCtrl($scope, $location, $http, $window) {
   $scope.statusArray = [];
   $scope.processorState = "unknown";
 
@@ -3038,7 +3079,7 @@ function processorStatusCtrl($scope, $location, $http) {
   });
 }
 
-function subscriptionsCtrl($scope, $location, $http) {
+function subscriptionsCtrl($scope, $location, $http, $window) {
   $scope.ri_sp = "RI";
   $scope.month = "";
   $scope.months = [];
@@ -3142,7 +3183,7 @@ function subscriptionsCtrl($scope, $location, $http) {
     for (var i = 0; i < $scope.subscriptions.length; i++)
       $scope.revs.push(false);
     $scope.order($scope.subscriptions, 0);
-}
+  }
 
   getMonths($scope, function (data) {
     $scope.months = data;

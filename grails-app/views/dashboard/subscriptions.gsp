@@ -40,14 +40,14 @@
   <div class="list">
 	  <table style="width: 100%;">
 	    <thead>
-	    <tr>
-	      <th ng-repeat="col in header" ng-click="order($index)">{{col}}</th>
-	    </tr>
+	      <tr>
+	        <th ng-repeat="col in header" ng-click="order($index)">{{col}}</th>
+	      </tr>
 	    </thead>
 	    <tbody>
-	    <tr ng-repeat="row in subscriptions | filter:filter_subscriptions" class="{{getTrClass($index)}}">
-	      <td ng-repeat="col in row">{{col}}</td>
-	    </tr>
+	      <tr ng-repeat="row in subscriptions | filter:filter_subscriptions" class="{{getTrClass($index)}}">
+	        <td ng-repeat="col in row">{{col}}</td>
+	      </tr>
 	    </tbody>
 	  </table>
   </div>
