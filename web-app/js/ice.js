@@ -1419,7 +1419,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
 
     usage_db.getProducts($scope, function (data) {
       if ($scope.showUserTags)
-        $scope.updateUserTagValues($scope, 0, true);
+        $scope.updateUserTagValues($scope, 0, true, true);
       else
         $scope.updateOperations($scope);
     }, query);
@@ -1439,16 +1439,33 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     usage_db.getUsageTypes($scope, null, query);
   }
 
-  $scope.updateUserTagValues = function ($scope, index, all) {
+  $scope.updateUserTagValues = function ($scope, index, all, updateOps) {
     usage_db.getUserTagValues($scope, index, function (data) {
       if (all) {
         index++;
         if (index < $scope.userTags.length)
-          $scope.updateUserTagValues($scope, index, all);
-        else
+          $scope.updateUserTagValues($scope, index, all, updateOps);
+        else if (updateOps)
           $scope.updateOperations($scope);
       }
     });
+  }
+
+  $scope.showHideUserTags = function ($scope) {
+    if ($scope.showUserTags && $scope.groupBys.length < $scope.groupBysFullLen)
+      $scope.groupBys.push({name: "Tag"});
+    if ($scope.groupBy.name === "Tag")
+      $scope.groupBy = $scope.defaultGroupBy;
+    if ($scope.showUserTags) {
+      if ($scope.userTags.length == 0) {
+        usage_db.getUserTags($scope, function () {
+          $scope.updateUserTagValues($scope, 0, true, false);
+        });
+      }
+      else {
+        $scope.updateUserTagValues($scope, 0, true, false);
+      }
+    }
   }
 }
 
@@ -1469,9 +1486,9 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "UsageType" },
     { name: "Tag" }
   ];
-  var groupBysFullLen = $scope.groupBys.length;
-  var defaultGroupBy = $scope.groupBys[6];
-  $scope.groupBy = defaultGroupBy;
+  $scope.groupBysFullLen = $scope.groupBys.length;
+  $scope.defaultGroupBy = $scope.groupBys[6];
+  $scope.groupBy = $scope.defaultGroupBy;
   var startMonth = $scope.end.getUTCMonth() - 1;
   var startYear = $scope.end.getUTCFullYear();
   if (startMonth < 0) {
@@ -1543,6 +1560,13 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     });
   }
 
+  $scope.getUserTagKeys = function (index, count) {
+    var keys = [];
+    for (var i = index; i < index + count && i < $scope.userTags.length; i++)
+      keys.push($scope.userTags[i]);
+    return keys;
+  }
+
   $scope.getUserTagValues = function (index, count) {
     var vals = [];
     for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
@@ -1575,11 +1599,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.userTagsEnabled = function () {
-    if ($scope.showUserTags && $scope.groupBys.length < groupBysFullLen)
-      $scope.groupBys.push({name: "Tag"});
-    if ($scope.groupBy.name === "Tag")
-      $scope.groupBy = defaultGroupBy;
-    getUserTags();
+    $scope.showHideUserTags($scope);
   }
 
   $scope.filterAccount = function (filter_accounts) {
@@ -1627,7 +1647,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.productsChanged = function () {
     if ($scope.showUserTags)
-      $scope.updateUserTagValues($scope, 0, true);
+      $scope.updateUserTagValues($scope, 0, true, true);
     else
       $scope.updateOperations($scope);
   }
@@ -1704,9 +1724,9 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "UsageType" },
     { name: "Tag" }
   ];
-  var groupBysFullLen = $scope.groupBys.length;
-  var defaultGroupBy = $scope.groupBys[6];
-  $scope.groupBy = defaultGroupBy;
+  $scope.groupBysFullLen = $scope.groupBys.length;
+  $scope.defaultGroupBy = $scope.groupBys[6];
+  $scope.groupBy = $scope.defaultGroupBy;
   var startMonth = $scope.end.getUTCMonth() - 1;
   var startYear = $scope.end.getUTCFullYear();
   if (startMonth < 0) {
@@ -1780,6 +1800,13 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     });
   }
 
+  $scope.getUserTagKeys = function (index, count) {
+    var keys = [];
+    for (var i = index; i < index + count && i < $scope.userTags.length; i++)
+      keys.push($scope.userTags[i]);
+    return keys;
+  }
+
   $scope.getUserTagValues = function (index, count) {
     var vals = [];
     for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
@@ -1812,11 +1839,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.userTagsEnabled = function () {
-    if ($scope.showUserTags && $scope.groupBys.length < groupBysFullLen)
-      $scope.groupBys.push({name: "Tag"});
-    if ($scope.groupBy.name === "Tag")
-      $scope.groupBy = defaultGroupBy;
-    getUserTags();
+    $scope.showHideUserTags($scope);
   }
 
   $scope.filterAccount = function (filter_accounts) {
@@ -1867,7 +1890,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.productsChanged = function () {
     if ($scope.showUserTags)
-      $scope.updateUserTagValues($scope, 0, true);
+      $scope.updateUserTagValues($scope, 0, true, true);
     else
       $scope.updateOperations($scope);
   }
@@ -1932,7 +1955,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
 
     usage_db.getProducts($scope, function (data) {
       if ($scope.showUserTags)
-        $scope.updateUserTagValues($scope, 0, true);
+        $scope.updateUserTagValues($scope, 0, true, true);
       else
         $scope.updateOperations($scope);
     }, query);
@@ -2078,7 +2101,7 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.productsChanged = function () {
     if ($scope.showUserTags)
-      $scope.updateUserTagValues($scope, 0, true);
+      $scope.updateUserTagValues($scope, 0, true, true);
     else
       $scope.updateOperations($scope);
   }
@@ -2276,9 +2299,9 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "UsageType" },
     { name: "Tag" }
   ];
-  var groupBysFullLen = $scope.groupBys.length;
-  var defaultGroupBy = $scope.groupBys[4];
-  $scope.groupBy = defaultGroupBy;
+  $scope.groupBysFullLen = $scope.groupBys.length;
+  $scope.defaultGroupBy = $scope.groupBys[4];
+  $scope.groupBy = $scope.defaultGroupBy;
   var startMonth = $scope.end.getUTCMonth() - 1;
   var startYear = $scope.end.getUTCFullYear();
   if (startMonth < 0) {
@@ -2343,6 +2366,13 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     });
   }
 
+  $scope.getUserTagKeys = function (index, count) {
+    var keys = [];
+    for (var i = index; i < index + count && i < $scope.userTags.length; i++)
+      keys.push($scope.userTags[i]);
+    return keys;
+  }
+
   $scope.getUserTagValues = function (index, count) {
     var vals = [];
     for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
@@ -2371,11 +2401,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.userTagsEnabled = function () {
-    if ($scope.showUserTags && $scope.groupBys.length < groupBysFullLen)
-      $scope.groupBys.push({name: "Tag"});
-    if ($scope.groupBy.name === "Tag")
-      $scope.groupBy = defaultGroupBy;
-    getUserTags();
+    $scope.showHideUserTags($scope);
   }
 
   $scope.filterAccount = function (filter_accounts) {
@@ -2413,7 +2439,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.productsChanged = function () {
     if ($scope.showUserTags)
-      $scope.updateUserTagValues($scope, 0, true);
+      $scope.updateUserTagValues($scope, 0, true, true);
     else
       $scope.updateOperations($scope);
   }

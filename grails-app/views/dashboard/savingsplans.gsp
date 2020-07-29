@@ -162,11 +162,11 @@
     </tr>
   </table>
   <table ng-show="showUserTags" class="userTags">
-    <g:set var="numRows" value="${(ReaderConfig.getInstance().userTagKeys.size() + 5) / 6}"/>
+    <g:set var="numRows" value="${ReaderConfig.getInstance().userTagKeys.size() / 6}"/>
     <g:set var="rowIndex" value="${0}"/>
     <g:while test="${rowIndex < numRows}">
       <g:set var="rowStartIndex" value="${rowIndex * 6}"/>
-      <tr ng-show="userTagValues.length > 0">
+      <tr>
         <td>
           <g:if test="${rowIndex == 0}">
    	        <input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input>
@@ -175,7 +175,7 @@
             </div>      
           </g:if>
         </td>
-        <td ng-repeat="tagValue in getUserTagValues(${rowStartIndex}, 6)">
+        <td ng-repeat="tagKey in getUserTagKeys(${rowStartIndex}, 6)">
           <input type="checkbox" ng-model="enabledUserTags[${rowStartIndex}+$index]" ng-change="userTagsChanged(${rowStartIndex}+$index)"> {{getUserTagDisplayName(${rowStartIndex}+$index)}}</input>
       	  <div ng-show="enabledUserTags[${rowStartIndex}+$index]">
             <select ng-model="selected_userTagValues[${rowStartIndex}+$index]" ng-options="a.name for a in userTagValues[${rowStartIndex}+$index] | filter:filter_userTagValues[${rowStartIndex}+$index]" multiple="multiple" class="metaUserTags metaSelect"></select>
