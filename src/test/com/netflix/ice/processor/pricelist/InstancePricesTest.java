@@ -44,23 +44,32 @@ public class InstancePricesTest {
 		LeaseContractLength leaseContractLength;
 		PurchaseOption purchaseOption;
 		OfferingClass offeringClass;
+		double onDemandRate;
+		double upfrontRate;
+		double hourlyRate;
 		
-		TestCase(Region r, String ut, LeaseContractLength lcl, PurchaseOption po, OfferingClass oc) {
-			region = r;
-			usageType = UsageType.getUsageType(ut, "hours");
-			leaseContractLength = lcl;
-			purchaseOption = po;
-			offeringClass = oc;			
+		TestCase(Region r, String ut, LeaseContractLength lcl, PurchaseOption po, OfferingClass oc, double onDemandRate, double upfrontRate, double hourlyRate) {
+			this.region = r;
+			this.usageType = UsageType.getUsageType(ut, "hours");
+			this.leaseContractLength = lcl;
+			this.purchaseOption = po;
+			this.offeringClass = oc;
+			this.onDemandRate = onDemandRate;
+			this.upfrontRate = upfrontRate;
+			this.hourlyRate = hourlyRate;
 		}
 		
 		void runOnDemand(InstancePrices prices) {
 			double od = prices.getOnDemandRate(region, usageType);
-			assertNotEquals("No on-demand rate for " + region + ", " + usageType, od, 0, 0.001);
+			assertNotEquals("No on-demand rate for " + region + ", " + usageType, 0, od, 0.001);
+			assertEquals("Wrong on-demand rate for " + region + ", " + usageType, onDemandRate, od, 0.001);
 		}
 		
 		void runReservation(InstancePrices prices) {
 			Rate rsv = prices.getReservationRate(region, usageType, leaseContractLength, purchaseOption, offeringClass);
 			assertNotEquals("No reservation rate for " + this, rsv, null);
+			assertEquals("Wrong RI upfront rate for " + region + ", " + usageType, upfrontRate, rsv.fixed, 0.001);
+			assertEquals("Wrong RI hourly rate for " + region + ", " + usageType, hourlyRate, rsv.hourly, 0.001);
 		}
 		
 		public String toString() {
@@ -87,10 +96,13 @@ public class InstancePricesTest {
        	prices.importPriceList(priceList, PriceListService.tenancies);
        	
        	TestCase[] testCases = new TestCase[] {
-       			new TestCase(Region.US_EAST_1, "t2.small", LeaseContractLength.oneyear, PurchaseOption.AllUpfront, OfferingClass.standard),
-       			new TestCase(Region.US_EAST_1, "t2.small", LeaseContractLength.threeyear, PurchaseOption.AllUpfront, OfferingClass.standard),
-       			new TestCase(Region.US_EAST_1, "t2.small", LeaseContractLength.threeyear, PurchaseOption.AllUpfront, OfferingClass.convertible),
-       			new TestCase(Region.AP_SOUTHEAST_1, "c5.9xlarge.linsqlent", LeaseContractLength.oneyear, PurchaseOption.AllUpfront, OfferingClass.standard),
+       			new TestCase(Region.US_EAST_1, "t2.small", LeaseContractLength.oneyear, PurchaseOption.AllUpfront, OfferingClass.standard, 0.023, 137.0, 0.0),
+       			new TestCase(Region.US_EAST_1, "t2.small", LeaseContractLength.threeyear, PurchaseOption.AllUpfront, OfferingClass.standard, 0.023, 272.0, 0.0),
+       			new TestCase(Region.US_EAST_1, "t2.small", LeaseContractLength.threeyear, PurchaseOption.AllUpfront, OfferingClass.convertible, 0.023, 332.0, 0.0),
+       			new TestCase(Region.AP_SOUTHEAST_1, "c5.9xlarge.linsqlent", LeaseContractLength.oneyear, PurchaseOption.AllUpfront, OfferingClass.standard, 15.264, 127983.0, 0.0),
+       			new TestCase(Region.US_EAST_1, "c5.xlarge", LeaseContractLength.oneyear, PurchaseOption.NoUpfront, OfferingClass.convertible, 0.170, 0.0, 0.123),
+       			new TestCase(Region.US_EAST_1, "c5.xlarge.dedicated", LeaseContractLength.oneyear, PurchaseOption.NoUpfront, OfferingClass.convertible, 0.180, 0.0, 0.133),
+       			new TestCase(Region.US_EAST_1, "c5.xlarge.windows.dedicated", LeaseContractLength.oneyear, PurchaseOption.NoUpfront, OfferingClass.convertible, 0.364, 0.0, 0.317),
        	};
        	
        	for (TestCase tc: testCases) {

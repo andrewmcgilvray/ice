@@ -58,8 +58,8 @@ public class PriceListService {
 	private static final String domain = "https://pricing.us-east-1.amazonaws.com";
 	private static final String priceListIndexUrl = "/offers/v1.0/aws/index.json";
 
-	// Add other Tenancy values when needed - must also add to Key if more than one
-	public static Set<Tenancy> tenancies = Sets.newHashSet(Tenancy.Shared);
+	// Add other Tenancy values when needed - must also add to Key if more than one or have the tenancy reflected in the usage type
+	public static Set<Tenancy> tenancies = Sets.newHashSet(new Tenancy[]{Tenancy.Shared, Tenancy.Dedicated});
 	
 	private final String localDir;
 	private final String workS3BucketName;
@@ -511,8 +511,7 @@ public class PriceListService {
 			break;
 		}
 	}
-		
-	        
+	
     private InstancePrices.Product getProduct(InstancePrices prices, Getter getter, String[] items) {
     	// Get the product key
     	String location = getter.value(items, Column.Location);
@@ -523,8 +522,11 @@ public class PriceListService {
     	String usageType = getter.value(items, Column.UsageType);
     	String deploymentOption = getter.value(items, Column.DeploymentOption);
     	String instanceType = getter.value(items, Column.InstanceType);
+    	String capacityStatus = getter.value(items, Column.CapacityStatus);
     	
-    	Key key = prices.getKey(location, productFamily, tenancy, operation, operatingSystem, usageType, instanceType, deploymentOption, PriceListService.tenancies);
+    	//if (capacityStatus )
+    	
+    	Key key = prices.getKey(location, productFamily, tenancy, operation, operatingSystem, usageType, instanceType, deploymentOption, PriceListService.tenancies, capacityStatus);
     	if (key == null)
     		return null;
     	
