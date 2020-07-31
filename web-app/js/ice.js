@@ -1661,7 +1661,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.usageCostChanged = function () {
-    updateOperations($scope);
+    $scope.updateOperations($scope);
   }
 
   $scope.userTagsChanged = function (index) {
@@ -1904,7 +1904,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.usageCostChanged = function () {
-    updateOperations($scope);
+    $scope.updateOperations($scope);
   }
 
   $scope.userTagsChanged = function (index) {
@@ -2413,7 +2413,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
   }
   
   $scope.usageCostChanged = function () {
-    updateOperations($scope);
+    $scope.updateOperations($scope);
   }
 
   $scope.plotTypeChanged = function () {
