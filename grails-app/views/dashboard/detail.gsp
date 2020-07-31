@@ -61,8 +61,8 @@
         </div>
       </td>
       <td nowrap="">
-        <input type="radio" ng-model="usage_cost" value="cost" id="radio_cost"> <label for="radio_cost" style="cursor: pointer">Cost</label>&nbsp;&nbsp;
-        <input type="radio" ng-model="usage_cost" value="usage" id="radio_usage"> <label for="radio_usage" style="cursor: pointer">Usage</label>
+        <input type="radio" ng-model="usage_cost" value="cost" id="radio_cost" ng-change="usageCostChanged()"> <label for="radio_cost" style="cursor: pointer">Cost</label>&nbsp;&nbsp;
+        <input type="radio" ng-model="usage_cost" value="usage" id="radio_usage" ng-change="usageCostChanged()"> <label for="radio_usage" style="cursor: pointer">Usage</label>
         <select ng-show="usage_cost=='usage'" ng-model="usageUnit">
           <option>Instances</option>
           <option>ECUs</option>

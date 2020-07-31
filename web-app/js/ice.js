@@ -962,20 +962,22 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       }
       params["usage_cost"] = $scope.usage_cost;
       params["showLent"] = $scope.reservationSharing === "lent";
-      if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
-        categories = [];
-        if (!$scope.recurring)
-          categories.push("recurring");
-        if (!$scope.amortized)
-          categories.push("amortized");
-        if (!$scope.credit)
-          categories.push("credit");
-        if (!$scope.tax)
-          categories.push("tax");
-        if (!$scope.savings)
-          categories.push("savings");
+      if ($scope.usage_cost === "cost") {
+        if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
+          categories = [];
+          if (!$scope.recurring)
+            categories.push("recurring");
+          if (!$scope.amortized)
+            categories.push("amortized");
+          if (!$scope.credit)
+            categories.push("credit");
+          if (!$scope.tax)
+            categories.push("tax");
+          if (!$scope.savings)
+            categories.push("savings");
 
-        params["exclude"] = categories.join(',');
+          params["exclude"] = categories.join(',');
+        }
       }
       if ($scope.dimensions[$scope.ACCOUNT_INDEX])
         this.addParams(params, "account", $scope.accounts, $scope.selected_accounts);
@@ -2408,6 +2410,10 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.filterAccount = function (filter_accounts) {
     return usage_db.filterAccount($scope, filter_accounts);
+  }
+  
+  $scope.usageCostChanged = function () {
+    updateOperations($scope);
   }
 
   $scope.plotTypeChanged = function () {
