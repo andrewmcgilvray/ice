@@ -2712,10 +2712,12 @@ function accountsCtrl($scope, $location, $http, $window) {
   $scope.header = [];
   $scope.showSettings = false;
   $scope.showColumn = [];
+  $scope.showTagHistory = false;
 
   $scope.rev = false;
   $scope.revs = [];
   $scope.predicateIndex = null;
+  var FIRST_TAG_INDEX = 8;
 
   $scope.order = function (index) {
 
@@ -2728,9 +2730,9 @@ function accountsCtrl($scope, $location, $http, $window) {
     }
 
     var compare = function (a, b) {
-      if (a[index] < b[index])
+      if (a[index].display < b[index].display)
         return $scope.rev ? 1 : -1;
-      if (a[index] > b[index])
+      if (a[index].display > b[index].display)
         return $scope.rev ? -1 : 1;
       return 0;
     }
@@ -2831,25 +2833,65 @@ function accountsCtrl($scope, $location, $http, $window) {
     for (var i = 0; i < data.length; i++) {
       var account = data[i];
       var row = []
-      row.push(account.id);
-      row.push(account.name);
-      row.push(account.awsName === null ? "" : account.awsName);
+      row.push({display: account.id});
+      row.push({display: account.name});
+      row.push({display: account.awsName === null ? "" : account.awsName});
       var parents = account.parents;
       if (!parents)
-        row.push("Unlinked");
+        row.push({display: "Unlinked"});
       else
-        row.push(parents.length > 0 ? account.parents.join("/") : "");
-      row.push(account.status === null ? "" : account.status);
-      row.push(account.joinedMethod == null ? "" : account.joinedMethod);
-      row.push(account.joinedDate == null ? "" : account.joinedDate);
-      row.push(account.email);
+        row.push({display: parents.length > 0 ? account.parents.join("/") : ""});
+      row.push({display: account.status === null ? "" : account.status});
+      row.push({display: account.joinedMethod == null ? "" : account.joinedMethod});
+      row.push({display: account.joinedDate == null ? "" : account.joinedDate});
+      row.push({display: account.email});
       for (var j = 0; j < sortedTagKeys.length; j++) {
         var tag = account.tags[sortedTagKeys[j]];
-        row.push(tag === null ? "" : tag);
+        row.push(tagValue(tag));
       }
       $scope.accounts.push(row);
     }
     $scope.order(0);
+  }
+
+  $scope.showTagHistoryChanged = function () {
+    for (var i = 0; i < $scope.accounts.length; i++) {
+      var row = $scope.accounts[i];
+      for (var j = FIRST_TAG_INDEX; j < row.length; j++) {
+        row[j].display = $scope.showTagHistory ? row[j].history : row[j].current;
+      }
+    }
+  }
+
+  var current = function(history) {
+    if (history == "")
+      return history;
+
+    var values = history.split("/");
+    var date = "";
+    var current = "";
+    for (var i = 0; i < values.length; i++) {
+      if (values[i].includes('=')) {
+        var pair = values[i].split("=");
+        if (pair[0] > date) {
+          current = pair.length > 1 ? pair[1] : "";
+        }
+      }
+      else {
+        current = values[i];
+      }
+    }
+    return current;
+  }
+
+  var tagValue = function (history) {
+    var value = {display: "", history: "", current: ""};
+    if (history) {
+      value.history = history;
+      value.current = current(history);
+      value.display = $scope.showTagHistory ? value.history : value.current;
+    }
+    return value;
   }
 
   getAccounts($scope, loadData);

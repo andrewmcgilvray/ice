@@ -404,6 +404,16 @@ div.legendIcon {float: left; margin-right: 3px; width: 16px; height: 12px; borde
     background: none no-repeat scroll 5px 50% #FFF; white-space: nowrap; padding: 6px 6px 6px 32px;
     border-radius: 4px; -moz-border-radius: 4px; -webkit-border-radius: 4px;
 }
+.accountsButtons {
+    float: right;
+    background: #FFF; color: #333; font: 11px verdana, arial, helvetica, sans-serif;    
+}
+.accountsButtons button div, .accountsButtons a  {
+    color: #333; cursor: pointer; font-size: 10px; font-weight: bold; margin: 1px; overflow: visible;
+    line-height: 14px; border-style: solid; border-color: #DDD #BBB #BBB #DDD; border-width: 1px 2px 2px 1px;
+    background: none no-repeat scroll 5px 50% #FFF; white-space: nowrap; padding: 6px 6px 6px 32px;
+    border-radius: 4px; -moz-border-radius: 4px; -webkit-border-radius: 4px;
+}
 
 .processorStatusControls {
     padding: 5px 6px;

@@ -24,8 +24,9 @@
 </head>
 <body>
 <div class="" style="margin: auto; width: 1600px; padding: 20px 30px" ng-controller="accountsCtrl">
-  <h1>Accounts  	
-	    <span class="resourcesButtons">
+  <h1>Accounts	
+	    <span class="accountsButtons">
+	      <input type="checkbox" ng-model="showTagHistory" ng-click="showTagHistoryChanged()"> Show Tag History</input>&nbsp;&nbsp;
 	      <input ng-model="filter_accounts" type="text" class="resourcesFilter" placeholder="Filter"/>&nbsp;
 	      <a href="javascript:void(0)" style="background-image: url(${resource(dir: '/')}images/tango/16/actions/document-save.png)"
 	       ng-click="download()"
@@ -51,7 +52,7 @@
 	    </thead>
 	    <tbody>
 	      <tr ng-repeat="row in accounts | filter:filter_accounts" class="{{getTrClass($index)}}">
-	        <td ng-repeat="col in row" ng-show="showColumn[$index]">{{col}}</td>
+	        <td ng-repeat="col in row" ng-show="showColumn[$index]">{{col.display}}</td>
 	      </tr>
 	    </tbody>
 	  </table>
