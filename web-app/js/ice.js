@@ -690,8 +690,10 @@ ice.factory('usage_db', function ($window, $http, $filter) {
           }
         }
         for (var key in $scope.tagFilterParams) {
-          if ($scope.userTags[j].name === key) {
-            $scope.filter_userTagValues[j] = $scope.tagFilterParams[key];
+          for (j = 0; j < $scope.userTags.length; j++) {
+            if ($scope.userTags[j].name === key) {
+              $scope.filter_userTagValues[j] = $scope.tagFilterParams[key];
+            }
           }
         }
       }
@@ -960,20 +962,22 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       }
       params["usage_cost"] = $scope.usage_cost;
       params["showLent"] = $scope.reservationSharing === "lent";
-      if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
-        categories = [];
-        if (!$scope.recurring)
-          categories.push("recurring");
-        if (!$scope.amortized)
-          categories.push("amortized");
-        if (!$scope.credit)
-          categories.push("credit");
-        if (!$scope.tax)
-          categories.push("tax");
-        if (!$scope.savings)
-          categories.push("savings");
+      if ($scope.usage_cost === "cost") {
+        if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
+          categories = [];
+          if (!$scope.recurring)
+            categories.push("recurring");
+          if (!$scope.amortized)
+            categories.push("amortized");
+          if (!$scope.credit)
+            categories.push("credit");
+          if (!$scope.tax)
+            categories.push("tax");
+          if (!$scope.savings)
+            categories.push("savings");
 
-        params["exclude"] = categories.join(',');
+          params["exclude"] = categories.join(',');
+        }
       }
       if ($scope.dimensions[$scope.ACCOUNT_INDEX])
         this.addParams(params, "account", $scope.accounts, $scope.selected_accounts);
@@ -1127,20 +1131,22 @@ ice.factory('usage_db', function ($window, $http, $filter) {
         showLent: $scope.reservationSharing === "lent",
       }, params);
       
-      if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
-        categories = [];
-        if (!$scope.recurring)
-          categories.push("recurring");
-        if (!$scope.amortized)
-          categories.push("amortized");
-        if (!$scope.credit)
-          categories.push("credit");
-        if (!$scope.tax)
-          categories.push("tax");
-        if (!$scope.savings)
-          categories.push("savings");
-
-        params["exclude"] = categories.join(',');
+      if ($scope.usage_cost === "cost") {
+        if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
+          categories = [];
+          if (!$scope.recurring)
+            categories.push("recurring");
+          if (!$scope.amortized)
+            categories.push("amortized");
+          if (!$scope.credit)
+            categories.push("credit");
+          if (!$scope.tax)
+            categories.push("tax");
+          if (!$scope.savings)
+            categories.push("savings");
+  
+          params["exclude"] = categories.join(',');
+        }
       }
 
       if ($scope.dimensions[$scope.ACCOUNT_INDEX])
@@ -1417,7 +1423,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
 
     usage_db.getProducts($scope, function (data) {
       if ($scope.showUserTags)
-        $scope.updateUserTagValues($scope, 0, true);
+        $scope.updateUserTagValues($scope, 0, true, true);
       else
         $scope.updateOperations($scope);
     }, query);
@@ -1437,16 +1443,33 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     usage_db.getUsageTypes($scope, null, query);
   }
 
-  $scope.updateUserTagValues = function ($scope, index, all) {
+  $scope.updateUserTagValues = function ($scope, index, all, updateOps) {
     usage_db.getUserTagValues($scope, index, function (data) {
       if (all) {
         index++;
         if (index < $scope.userTags.length)
-          $scope.updateUserTagValues($scope, index, all);
-        else
+          $scope.updateUserTagValues($scope, index, all, updateOps);
+        else if (updateOps)
           $scope.updateOperations($scope);
       }
     });
+  }
+
+  $scope.showHideUserTags = function ($scope) {
+    if ($scope.showUserTags && $scope.groupBys.length < $scope.groupBysFullLen)
+      $scope.groupBys.push({name: "Tag"});
+    if ($scope.groupBy.name === "Tag")
+      $scope.groupBy = $scope.defaultGroupBy;
+    if ($scope.showUserTags) {
+      if ($scope.userTags.length == 0) {
+        usage_db.getUserTags($scope, function () {
+          $scope.updateUserTagValues($scope, 0, true, false);
+        });
+      }
+      else {
+        $scope.updateUserTagValues($scope, 0, true, false);
+      }
+    }
   }
 }
 
@@ -1454,6 +1477,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.init($scope);
   $scope.consolidate = "hourly";
+  $scope.initUserTagVars($scope);
   $scope.usageUnit = "Instances";
   $scope.groupBys = [
     { name: "CostType" },
@@ -1463,9 +1487,12 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "Zone" },
     { name: "Product" },
     { name: "Operation" },
-    { name: "UsageType" }
+    { name: "UsageType" },
+    { name: "Tag" }
   ];
-  $scope.groupBy = $scope.groupBys[6];
+  $scope.groupBysFullLen = $scope.groupBys.length;
+  $scope.defaultGroupBy = $scope.groupBys[6];
+  $scope.groupBy = $scope.defaultGroupBy;
   var startMonth = $scope.end.getUTCMonth() - 1;
   var startYear = $scope.end.getUTCFullYear();
   if (startMonth < 0) {
@@ -1480,12 +1507,26 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
   $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
+  $scope.isGroupByTag = function () {
+    return $scope.groupBy.name === 'Tag';
+  }
+
+  $scope.getUserTagDisplayName = function (index) {
+    var display = $scope.userTags[index].name;
+    if ($scope.userTags[index].aliases.length > 0)
+      display += "/" + $scope.userTags[index].aliases.join("/");
+    return display;
+  }
+  
   $scope.updateUrl = function () {
     $scope.end = jQuery('#end').datetimepicker().val();
     $scope.start = jQuery('#start').datetimepicker().val();
     var params = {};
     $scope.addCommonParams($scope, params);
     usage_db.addDimensionParams($scope, params);
+    if ($scope.showUserTags) {
+      usage_db.addUserTagParams($scope, params);
+    }
     usage_db.updateUrl($location, params);
   }
 
@@ -1507,6 +1548,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
       for (var key in result.data) {
         hourlydata.push({ name: key, data: result.data[key] });
       }
+      $scope.result = result;
       result.data = hourlydata;
       $scope.legends = [];
       $scope.stats = result.stats;
@@ -1520,6 +1562,20 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
       $scope.errorMessage = "Error: " + status;
       $scope.loading = false;
     });
+  }
+
+  $scope.getUserTagKeys = function (index, count) {
+    var keys = [];
+    for (var i = index; i < index + count && i < $scope.userTags.length; i++)
+      keys.push($scope.userTags[i]);
+    return keys;
+  }
+
+  $scope.getUserTagValues = function (index, count) {
+    var vals = [];
+    for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
+      vals.push($scope.userTagValues[i]);
+    return vals;
   }
 
   $scope.accountsEnabled = function () {
@@ -1544,6 +1600,10 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   
   $scope.usageTypesEnabled = function () {
     $scope.updateUsageTypes($scope);
+  }
+
+  $scope.userTagsEnabled = function () {
+    $scope.showHideUserTags($scope);
   }
 
   $scope.filterAccount = function (filter_accounts) {
@@ -1561,6 +1621,14 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     });
   }
 
+  $scope.plotTypeChanged = function () {
+    if ($scope.result) {
+      $scope.legends = [];
+      $scope.stats = $scope.result.stats;
+      highchart.drawGraph($scope.result, $scope);
+    }
+  }
+
   $scope.orgUnitChanged = function () {
     usage_db.updateOrganizationalUnit($scope);
     $scope.accountsChanged();
@@ -1582,7 +1650,10 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.productsChanged = function () {
-    $scope.updateOperations($scope);
+    if ($scope.showUserTags)
+      $scope.updateUserTagValues($scope, 0, true, true);
+    else
+      $scope.updateOperations($scope);
   }
 
   $scope.operationsChanged = function () {
@@ -1590,13 +1661,38 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.usageCostChanged = function () {
-    updateOperations($scope);
+    $scope.updateOperations($scope);
   }
 
-  var fn = function () {
-    $scope.predefinedQuery = { operation: $scope.reservationOps.join(","), forReservation: true };
+  $scope.userTagsChanged = function (index) {
+    $scope.updateUserTagValues($scope, index, false);
+  }
 
+  var getUserTags = function () {
+    if ($scope.showUserTags)
+      usage_db.getUserTags($scope, fn);
+    else
+      fn();
+  }
+
+  var getOps = function () {
+    usage_db.getReservationOps($scope, initOps);  
+  }
+
+  var initOps = function () {
+    $scope.predefinedQuery = { operation: $scope.reservationOps.join(","), forReservation: true };
+    getUserTags();
+  }
+
+  var initializing = true;
+
+  var fn = function () {
+    usage_db.processParams($scope);
     $scope.updateAccounts($scope);
+
+    if (!initializing)
+      return;
+
     $scope.getData();
 
     jQuery("#start, #end").datetimepicker({
@@ -1608,16 +1704,17 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     });
     jQuery('#end').datetimepicker().val($scope.end);
     jQuery('#start').datetimepicker().val($scope.start);
+    initializing = false;
   }
 
   usage_db.getParams($location.hash(), $scope);
-  usage_db.processParams($scope);
-  usage_db.getReservationOps($scope, fn);
+  getOps();
 }
 
 function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.init($scope);
+  $scope.initUserTagVars($scope);
   $scope.consolidate = "hourly";
   $scope.usageUnit = "Instances";
   $scope.groupBys = [
@@ -1628,9 +1725,12 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "Zone" },
     { name: "Product" },
     { name: "Operation" },
-    { name: "UsageType" }
+    { name: "UsageType" },
+    { name: "Tag" }
   ];
-  $scope.groupBy = $scope.groupBys[6];
+  $scope.groupBysFullLen = $scope.groupBys.length;
+  $scope.defaultGroupBy = $scope.groupBys[6];
+  $scope.groupBy = $scope.defaultGroupBy;
   var startMonth = $scope.end.getUTCMonth() - 1;
   var startYear = $scope.end.getUTCFullYear();
   if (startMonth < 0) {
@@ -1645,12 +1745,26 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
   $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
+  $scope.isGroupByTag = function () {
+    return $scope.groupBy.name === 'Tag';
+  }
+
+  $scope.getUserTagDisplayName = function (index) {
+    var display = $scope.userTags[index].name;
+    if ($scope.userTags[index].aliases.length > 0)
+      display += "/" + $scope.userTags[index].aliases.join("/");
+    return display;
+  }
+  
   $scope.updateUrl = function () {
     $scope.end = jQuery('#end').datetimepicker().val();
     $scope.start = jQuery('#start').datetimepicker().val();
     var params = {};
     $scope.addCommonParams($scope, params);
     usage_db.addDimensionParams($scope, params);
+    if ($scope.showUserTags) {
+      usage_db.addUserTagParams($scope, params);
+    }
     usage_db.updateUrl($location, params);
   }
 
@@ -1674,6 +1788,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
       for (var key in result.data) {
         hourlydata.push({ name: key, data: result.data[key] });
       }
+      $scope.result = result;
       result.data = hourlydata;
       $scope.legends = [];
       $scope.stats = result.stats;
@@ -1687,6 +1802,20 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
       $scope.errorMessage = "Error: " + status;
       $scope.loading = false;
     });
+  }
+
+  $scope.getUserTagKeys = function (index, count) {
+    var keys = [];
+    for (var i = index; i < index + count && i < $scope.userTags.length; i++)
+      keys.push($scope.userTags[i]);
+    return keys;
+  }
+
+  $scope.getUserTagValues = function (index, count) {
+    var vals = [];
+    for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
+      vals.push($scope.userTagValues[i]);
+    return vals;
   }
 
   $scope.accountsEnabled = function () {
@@ -1713,13 +1842,12 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.updateUsageTypes($scope);
   }
 
-  $scope.filterAccount = function (filter_accounts) {
-    return usage_db.filterAccount($scope, filter_accounts);
+  $scope.userTagsEnabled = function () {
+    $scope.showHideUserTags($scope);
   }
 
-  $scope.orgUnitChanged = function () {
-    usage_db.updateOrganizationalUnit($scope);
-    $scope.accountsChanged();
+  $scope.filterAccount = function (filter_accounts) {
+    return usage_db.filterAccount($scope, filter_accounts);
   }
 
   $scope.includeChanged = function () {
@@ -1734,6 +1862,19 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
         $scope.updateOperations($scope);
       });
     });
+  }
+
+  $scope.plotTypeChanged = function () {
+    if ($scope.result) {
+      $scope.legends = [];
+      $scope.stats = $scope.result.stats;
+      highchart.drawGraph($scope.result, $scope);
+    }
+  }
+
+  $scope.orgUnitChanged = function () {
+    usage_db.updateOrganizationalUnit($scope);
+    $scope.accountsChanged();
   }
 
   $scope.accountsChanged = function () {
@@ -1752,7 +1893,10 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.productsChanged = function () {
-    $scope.updateOperations($scope);
+    if ($scope.showUserTags)
+      $scope.updateUserTagValues($scope, 0, true, true);
+    else
+      $scope.updateOperations($scope);
   }
 
   $scope.operationsChanged = function () {
@@ -1760,14 +1904,42 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.usageCostChanged = function () {
-    updateOperations($scope);
+    $scope.updateOperations($scope);
   }
 
-  var fn = function () {
+  $scope.userTagsChanged = function (index) {
+    $scope.updateUserTagValues($scope, index, false);
+  }
+
+  var getUserTags = function () {
+    if ($scope.showUserTags)
+      usage_db.getUserTags($scope, fn);
+    else
+      fn();
+  }
+
+  var getOps = function () {
+    usage_db.getSavingsPlanOps($scope, function() {
+      usage_db.getReservationOps($scope, initOps);
+    });  
+  }
+
+  var initOps = function () {
     var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
     $scope.predefinedQuery = { operation: ops.join(","), forSavingsPlans: true };
 
+    getUserTags();
+  }
+
+  var initializing = true;
+
+  var fn = function () {
+    usage_db.processParams($scope);
     $scope.updateAccounts($scope);
+
+    if (!initializing)
+      return;
+
     $scope.getData();
 
     jQuery("#start, #end").datetimepicker({
@@ -1779,6 +1951,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     });
     jQuery('#end').datetimepicker().val($scope.end);
     jQuery('#start').datetimepicker().val($scope.start);
+    initializing = false;
   }
 
   $scope.updateProducts = function ($scope) {
@@ -1786,17 +1959,14 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
 
     usage_db.getProducts($scope, function (data) {
       if ($scope.showUserTags)
-        $scope.updateUserTagValues($scope, 0, true);
+        $scope.updateUserTagValues($scope, 0, true, true);
       else
         $scope.updateOperations($scope);
     }, query);
   }
 
   usage_db.getParams($location.hash(), $scope);
-  usage_db.processParams($scope);
-  usage_db.getSavingsPlanOps($scope, function() {
-    usage_db.getReservationOps($scope, fn);
-  });
+  getOps();
 }
 
 function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
@@ -1935,7 +2105,7 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.productsChanged = function () {
     if ($scope.showUserTags)
-      $scope.updateUserTagValues($scope, 0, true);
+      $scope.updateUserTagValues($scope, 0, true, true);
     else
       $scope.updateOperations($scope);
   }
@@ -2132,8 +2302,10 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "Operation" },
     { name: "UsageType" },
     { name: "Tag" }
-  ],
-  $scope.groupBy = $scope.groupBys[4];
+  ];
+  $scope.groupBysFullLen = $scope.groupBys.length;
+  $scope.defaultGroupBy = $scope.groupBys[4];
+  $scope.groupBy = $scope.defaultGroupBy;
   var startMonth = $scope.end.getUTCMonth() - 1;
   var startYear = $scope.end.getUTCFullYear();
   if (startMonth < 0) {
@@ -2168,7 +2340,6 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     if ($scope.showUserTags) {
       usage_db.addUserTagParams($scope, params);
     }
-
     usage_db.updateUrl($location, params);
   }
 
@@ -2185,6 +2356,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
         hourlydata.push({ name: key, data: result.data[key] });
       }
       result.data = hourlydata;
+      $scope.result = result;
       $scope.legends = [];
       $scope.stats = result.stats;
       highchart.drawGraph(result, $scope);
@@ -2196,6 +2368,13 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
       $scope.errorMessage = "Error: " + status;
       $scope.loading = false;
     });
+  }
+
+  $scope.getUserTagKeys = function (index, count) {
+    var keys = [];
+    for (var i = index; i < index + count && i < $scope.userTags.length; i++)
+      keys.push($scope.userTags[i]);
+    return keys;
   }
 
   $scope.getUserTagValues = function (index, count) {
@@ -2225,8 +2404,24 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.updateUsageTypes($scope);
   }
 
+  $scope.userTagsEnabled = function () {
+    $scope.showHideUserTags($scope);
+  }
+
   $scope.filterAccount = function (filter_accounts) {
     return usage_db.filterAccount($scope, filter_accounts);
+  }
+  
+  $scope.usageCostChanged = function () {
+    $scope.updateOperations($scope);
+  }
+
+  $scope.plotTypeChanged = function () {
+    if ($scope.result) {
+      $scope.legends = [];
+      $scope.stats = $scope.result.stats;
+      highchart.drawGraph($scope.result, $scope);
+    }
   }
 
   $scope.orgUnitChanged = function () {
@@ -2252,7 +2447,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.productsChanged = function () {
     if ($scope.showUserTags)
-      $scope.updateUserTagValues($scope, 0, true);
+      $scope.updateUserTagValues($scope, 0, true, true);
     else
       $scope.updateOperations($scope);
   }
@@ -2272,12 +2467,17 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
       fn();
   }
 
+  var initializing = true;
+
   var fn = function () {
     usage_db.processParams($scope);
 
     usage_db.getAccounts($scope, function () {
         $scope.updateRegions($scope);
     });
+    
+    if (!initializing)
+      return;
 
     $scope.getData();
 
@@ -2290,6 +2490,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     });
     jQuery('#end').datetimepicker().val($scope.end);
     jQuery('#start').datetimepicker().val($scope.start);
+    initializing = false;
   }
 
   usage_db.getParams($location.hash(), $scope);
@@ -2309,7 +2510,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     getUserTags();
 }
 
-function summaryCtrl($scope, $location, usage_db, highchart) {
+function summaryCtrl($scope, $location, $window, usage_db, highchart) {
 
   $scope.init($scope);
   $scope.usageUnit = "";
@@ -2514,35 +2715,37 @@ function resourceInfoCtrl($scope, $location, $http) {
   }
 }
 
-function accountsCtrl($scope, $location, $http) {
+function accountsCtrl($scope, $location, $http, $window) {
   $scope.accounts = [];
-  $scope.revs = {
-    name: false,
-    awsName: false,
-    id: false,
-    status: false
-  };
-  $scope.predicate = null;
+  $scope.header = [];
+  $scope.showSettings = false;
+  $scope.showColumn = [];
+  $scope.showTagHistory = false;
 
-  $scope.order = function (data, name) {
+  $scope.rev = false;
+  $scope.revs = [];
+  $scope.predicateIndex = null;
+  var FIRST_TAG_INDEX = 8;
 
-    if ($scope.predicate != name) {
-      $scope.rev = $scope.revs[name];
-      $scope.predicate = name;
+  $scope.order = function (index) {
+
+    if ($scope.predicateIndex != index) {
+      $scope.rev = $scope.revs[index];
+      $scope.predicateIndex = index;
     }
     else {
-      $scope.rev = $scope.revs[name] = !$scope.revs[name];
+      $scope.rev = $scope.revs[index] = !$scope.revs[index];
     }
 
     var compare = function (a, b) {
-      if (a[name] < b[name])
+      if (a[index].display < b[index].display)
         return $scope.rev ? 1 : -1;
-      if (a[name] > b[name])
+      if (a[index].display > b[index].display)
         return $scope.rev ? -1 : 1;
       return 0;
     }
 
-    data.sort(compare);
+    $scope.accounts.sort(compare);
   }
 
   var getAccounts = function ($scope, fn, download) {
@@ -2569,9 +2772,7 @@ function accountsCtrl($scope, $location, $http) {
         params: params
       }).success(function (result) {
         if (result.status === 200 && result.data) {
-          $scope.accounts = result.data;
-          if (fn)
-            fn(result.data);
+          fn($scope, result.data);
         }
       }).error(function (result, status) {
         if (status === 401 || status === 0)
@@ -2584,30 +2785,124 @@ function accountsCtrl($scope, $location, $http) {
     getAccounts($scope, null, true);
   }
 
-  getAccounts($scope, function (data) {
-    for (var i = 0; i < $scope.accounts.length; i++) {
-      var account = $scope.accounts[i];
-      var parents = account.parents;
-      if (!parents)
-        account.path = "Unlinked";
-      else
-        account.path = parents.length > 0 ? account.parents.join("/") : "";
-      if (account.awsName === null)
-        account.awsName = "";
-      if (account.status === null)
-        account.status = "";
+  $scope.settings = function () {
+    $scope.showSettings = true;
+  }
 
-      account.tagsStr = "";
-      var tags = account.tags;
-      if (tags) {
-        var tagArray = [];
-        for (var j in tags)
-          tagArray.push(j + "=" + tags[j])
-        account.tagsStr = tagArray.join(", ");
+  $scope.close = function () {
+    $scope.showSettings = false;
+    var hideCols = [];
+    for (var i = 0; i < $scope.header.length; i++) {
+      if (!$scope.showColumn[i])
+        hideCols.push($scope.header[i])
+    }
+    $window.localStorage.setItem('hideAccountColumns', hideCols);
+  }
+
+  var loadData = function($scope, data) {
+    let tagKeys = new Set();
+    for (var i = 0; i < data.length; i++) {
+      var account = data[i];
+      for (let key in account.tags)
+        tagKeys.add(key);
+    }
+    var sortedTagKeys = [];
+    tagKeys.forEach((key) => {
+      sortedTagKeys.push(key);
+    })
+    sortedTagKeys.sort();
+
+    $scope.header = ["ID","ICE Name", "AWS Name", "Organization Path", "Status", "Joined Method", "Joined Date", "Email"];
+    $scope.revs = [];
+    $scope.showColumn = [];
+    for (var i = 0; i < $scope.header.length; i++) {
+      $scope.revs.push(false);
+      $scope.showColumn.push(true);
+    }
+    for (var i = 0; i < sortedTagKeys.length; i++) {
+      $scope.header.push(sortedTagKeys[i]);
+      $scope.revs.push(false);
+      $scope.showColumn.push(true);
+    }
+    $scope.accounts = [];
+
+    var hideCols = $window.localStorage.getItem('hideAccountColumns').split(",");    
+    if (hideCols) {
+      for (var i = 0; i < $scope.header.length; i++) {
+        for (var j = 0; j < hideCols.length; j++) {
+          if ($scope.header[i] == hideCols[j]) {
+            $scope.showColumn[i] = false;
+            break;
+          }
+        }
       }
     }
-    $scope.order($scope.accounts, 'name');
-  });
+    
+    for (var i = 0; i < data.length; i++) {
+      var account = data[i];
+      var row = []
+      row.push({display: account.id});
+      row.push({display: account.name});
+      row.push({display: account.awsName === null ? "" : account.awsName});
+      var parents = account.parents;
+      if (!parents)
+        row.push({display: "Unlinked"});
+      else
+        row.push({display: parents.length > 0 ? account.parents.join("/") : ""});
+      row.push({display: account.status === null ? "" : account.status});
+      row.push({display: account.joinedMethod == null ? "" : account.joinedMethod});
+      row.push({display: account.joinedDate == null ? "" : account.joinedDate});
+      row.push({display: account.email});
+      for (var j = 0; j < sortedTagKeys.length; j++) {
+        var tag = account.tags[sortedTagKeys[j]];
+        row.push(tagValue(tag));
+      }
+      $scope.accounts.push(row);
+    }
+    $scope.order(0);
+  }
+
+  $scope.showTagHistoryChanged = function () {
+    for (var i = 0; i < $scope.accounts.length; i++) {
+      var row = $scope.accounts[i];
+      for (var j = FIRST_TAG_INDEX; j < row.length; j++) {
+        row[j].display = $scope.showTagHistory ? row[j].history : row[j].current;
+      }
+    }
+  }
+
+  var current = function(history) {
+    if (history == "")
+      return history;
+
+    var values = history.split("/");
+    var date = "";
+    var current = "";
+    for (var i = 0; i < values.length; i++) {
+      if (values[i].includes('=')) {
+        var pair = values[i].split("=");
+        if (pair[0] > date) {
+          current = pair.length > 1 ? pair[1] : "";
+        }
+      }
+      else {
+        current = values[i];
+      }
+    }
+    return current;
+  }
+
+  var tagValue = function (history) {
+    var value = {display: "", history: "", current: ""};
+    if (history) {
+      value.history = history;
+      value.current = current(history);
+      value.display = $scope.showTagHistory ? value.history : value.current;
+    }
+    return value;
+  }
+
+  getAccounts($scope, loadData);
 }
 
 function tagconfigsCtrl($scope, $location, $http) {
@@ -2746,8 +3041,9 @@ function tagconfigsCtrl($scope, $location, $http) {
   });
 }
 
-function processorStatusCtrl($scope, $location, $http) {
+function processorStatusCtrl($scope, $location, $http, $window) {
   $scope.statusArray = [];
+  $scope.processorState = "unknown";
 
   var getProcessorStatus = function ($scope, fn) {
     var params = {};
@@ -2778,10 +3074,9 @@ function processorStatusCtrl($scope, $location, $http) {
       url: "setReprocess",
       data: params
     }).success(function (result) {
-      if (result.status === 200 && result.data) {
-        $scope.ops = result.data;
+      if (result.status === 200) {
         if (fn)
-          fn(result.data);
+          fn();
       }
     }).error(function (result, status) {
       if (status === 401 || status === 0)
@@ -2791,11 +3086,16 @@ function processorStatusCtrl($scope, $location, $http) {
 
   $scope.updateStatus = function (index) {
     setReprocessStatus($scope, index, function (data) {
-      getProcessorStatus($scope, function (data) {});
+      getProcessorStatus($scope, function (data) {
+        getProcessorState($scope);
+      });
     });
   }
 
   $scope.isDisabled = function () {
+    if ($scope.processorState != "stopped")
+      return true;
+
     for (var i = 0; i < $scope.statusArray.length; i++) {
       if ($scope.statusArray[i].reprocess)
         return false;
@@ -2803,8 +3103,24 @@ function processorStatusCtrl($scope, $location, $http) {
     return true;  
   }
 
+  $scope.refresh = function () {
+    $scope.statusArray = [];
+    refreshState($scope);
+  }
+
+  var refreshState = function($scope) {
+    getProcessorState($scope, function () {
+      if ($scope.processorState === "pending")
+        setTimeout(() => refreshState($scope), 5000);
+      getProcessorStatus($scope);
+    });
+  }
+
   $scope.process = function() {
-    startProcessor($scope, function (data) {});
+    startProcessor($scope, function () {
+      $scope.processorState = "pending";
+      setTimeout(() => refreshState($scope), 2000);
+    });
   }
 
   var startProcessor = function($scope, fn) {
@@ -2813,10 +3129,9 @@ function processorStatusCtrl($scope, $location, $http) {
       url: "startProcessor",
       data: {}
     }).success(function (result) {
-      if (result.status === 200 && result.data) {
-        $scope.ops = result.data;
+      if (result.status === 200) {
         if (fn)
-          fn(result.data);
+          fn();
       }
     }).error(function (result, status) {
       if (status === 401 || status === 0)
@@ -2824,10 +3139,29 @@ function processorStatusCtrl($scope, $location, $http) {
     });
   }
 
-  getProcessorStatus($scope, function (data) {});
+  var getProcessorState = function($scope, fn) {
+    $http({
+      method: "GET",
+      url: "getProcessorState",
+      data: {}
+    }).success(function (result) {
+      if (result.status === 200 && result.data) {
+        $scope.processorState = result.data;
+        if (fn)
+          fn();
+      }
+    }).error(function (result, status) {
+      if (status === 401 || status === 0)
+        $window.location.reload();
+    });
+  }
+
+  getProcessorStatus($scope, function (data) {
+    getProcessorState($scope);
+  });
 }
 
-function subscriptionsCtrl($scope, $location, $http) {
+function subscriptionsCtrl($scope, $location, $http, $window) {
   $scope.ri_sp = "RI";
   $scope.month = "";
   $scope.months = [];
@@ -2931,7 +3265,7 @@ function subscriptionsCtrl($scope, $location, $http) {
     for (var i = 0; i < $scope.subscriptions.length; i++)
       $scope.revs.push(false);
     $scope.order($scope.subscriptions, 0);
-}
+  }
 
   getMonths($scope, function (data) {
     $scope.months = data;

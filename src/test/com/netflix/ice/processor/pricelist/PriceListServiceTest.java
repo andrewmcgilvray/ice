@@ -73,7 +73,8 @@ public class PriceListServiceTest {
        	InstancePrices prices = new InstancePrices(ServiceCode.AmazonEC2, id, version.getBeginDate(), version.getEndDate());
        	prices.importPriceList(priceList, PriceListService.tenancies);
        	
-       	verify(prices.getPrices().entrySet().iterator().next().getValue());
+       	Product p = prices.getProduct(Region.US_EAST_1, UsageType.getUsageType("t2.small", "hours"));
+       	verify(p);
 
        	ByteArrayOutputStream buf = new ByteArrayOutputStream();
        	DataOutputStream out = new DataOutputStream(buf);
@@ -86,7 +87,8 @@ public class PriceListServiceTest {
         InstancePrices ip = InstancePrices.Serializer.deserialize(in);
         
         assertNotEquals("No object returned from readObject", ip, null);
-       	verify(ip.getPrices().entrySet().iterator().next().getValue());
+        p = ip.getProduct(Region.US_EAST_1, UsageType.getUsageType("t2.small", "hours"));
+       	verify(p);
 	}
 	
 	private void verify(Product p) {

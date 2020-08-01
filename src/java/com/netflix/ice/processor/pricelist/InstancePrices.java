@@ -153,24 +153,34 @@ public class InstancePrices implements Comparable<InstancePrices> {
 			String usageTypeStr,
 			String instanceType,
 			String deploymentOption, 
-			Set<Tenancy> tenancies) {
+			Set<Tenancy> tenancies,
+			String capacityStatusStr) {
     	// There is one entry for RDS db.t1.micro with location of "Any". We'll ignore that one.
     	// Also skip GovCloud and non-instance SKUs.
     	if (productFamily == null || !productFamily.contains("Instance") || location.contains("GovCloud") || location.equals("Any"))
     		return null;
+    	
+    	Tenancy tenancy = StringUtils.isEmpty(tenancyStr) ? Tenancy.NA : Tenancy.valueOf(tenancyStr);
     	switch (serviceCode) {
         	case AmazonEC2:
             	if (productFamily.equals("Compute Instance") && !tenancyStr.isEmpty()) {
-                	Tenancy tenancy = Tenancy.valueOf(tenancyStr);
                 	if (!tenancies.contains(tenancy))
                 		return null;
             	}
+            	// Skip anything related to reserved capacity if attribute is available
+            	if (!StringUtils.isEmpty(capacityStatusStr)) {
+	            	CapacityStatus capacityStatus = CapacityStatus.valueOf(capacityStatusStr);
+	            	if (capacityStatus == CapacityStatus.AllocatedCapacityReservation || capacityStatus == CapacityStatus.UnusedCapacityReservation)
+	            		return null;
+            	}
+            	
         		if (!operation.startsWith("RunInstances") ||
         				operatingSystem.equals("NA")) {
         			return null;
         		}
-    			// Two new usage types called Reservation and UnusedBox introduced in 10/2018, so now make sure it's BoxUsage
-        		if (!usageTypeStr.contains("BoxUsage") || (usageTypeStr.contains("HostBoxUsage") && !tenancies.contains(Tenancy.Host))) {
+        		// Check that Dedicated Host and Dedicated Instance tenancies are enabled
+        		if ((usageTypeStr.contains("HostBoxUsage") && !tenancies.contains(Tenancy.Host))
+        				|| (usageTypeStr.contains("DedicatedUsage") && !tenancies.contains(Tenancy.Dedicated))) {
         			return null;
         		}
     			break;
@@ -189,7 +199,7 @@ public class InstancePrices implements Comparable<InstancePrices> {
     			return null; // unsupported region
     		}
     	}
-    	UsageType usageType = getUsageType(instanceType, operation, deploymentOption);
+    	UsageType usageType = getUsageType(instanceType, operation, deploymentOption, tenancy);
 		return new Key(region, usageType);
 	}
 	
@@ -204,8 +214,9 @@ public class InstancePrices implements Comparable<InstancePrices> {
         	String usageTypeStr = p.getAttribute(Attributes.usagetype);
         	String deploymentOption = p.getAttribute(Attributes.deploymentOption);
         	String instanceType = p.getAttribute(Attributes.instanceType);
+        	String capacityStatusStr = p.getAttribute(Attributes.capacitystatus);
         	
-        	Key key = getKey(location, p.productFamily, t, operation, operatingSystem, usageTypeStr, instanceType, deploymentOption, tenancies);
+        	Key key = getKey(location, p.productFamily, t, operation, operatingSystem, usageTypeStr, instanceType, deploymentOption, tenancies, capacityStatusStr);
         	if (key == null)
         		continue;
         	
@@ -247,7 +258,7 @@ public class InstancePrices implements Comparable<InstancePrices> {
         }
     }
     
-    private UsageType getUsageType(String instanceType, String operation, String deploymentOption) {
+    private UsageType getUsageType(String instanceType, String operation, String deploymentOption, Tenancy tenancy) {
     	String usageTypeStr = instanceType;
     	
         int index = operation.indexOf(":");
@@ -256,6 +267,8 @@ public class InstancePrices implements Comparable<InstancePrices> {
         if (operation.startsWith("RunInstances")) {
         	// EC2 instance
             usageTypeStr = usageTypeStr + InstanceOs.withCode(osStr).usageType;
+            if (tenancy == Tenancy.Dedicated)
+            	usageTypeStr += ".dedicated";
         }
         else if (operation.startsWith("CreateDBInstance")) {
         	// RDS instance
@@ -694,4 +707,12 @@ public class InstancePrices implements Comparable<InstancePrices> {
     	Windows;
     }
 
+	public enum CapacityStatus {
+		AllocatedCapacityReservation,
+		UnusedCapacityReservation,
+		Used,
+		None,
+		NA;
+	}
+			        
 }

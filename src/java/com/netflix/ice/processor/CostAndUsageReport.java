@@ -163,7 +163,7 @@ public class CostAndUsageReport extends MonthlyReport {
 					return header.toArray(new String[header.size()]);
 				}
 			}
-			return null;
+			return new String[]{};
 		}
 	}
 	

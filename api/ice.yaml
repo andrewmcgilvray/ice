@@ -540,6 +540,16 @@ paths:
                 month:
                   type: string
       
+  /getProcessorState:
+    get:
+      description: Get the current state of the processor.
+      responses:
+        '200':
+          description: processor state.
+          schema:
+            type: string
+            enum: [unknown, pending, running, shutting-down, terminated, stopping, stopped]
+      
   /reprocess:
     post:
       description: Update a monthly report for reprocess flag

@@ -28,8 +28,13 @@
 <div class="list" style="margin: auto; width: 1200px; padding: 20px 30px" ng-controller="processorStatusCtrl">
   <h1>Processor Status
 	<g:if test="${ReaderConfig.getInstance().enableReprocessRequests}">
-      <span class="processorStatusButtons">
-        <button ng-disabled="isDisabled()" type="submit" class="save" ng-click="process()"><div>Process</div></button>
+	  <span class="processorStatusControls">
+	    <img style="padding-right: 4px" src="${resource(dir: '/')}images/refresh.png" border="0" ng-click="refresh()"/>
+	    <img ng-show="processorState == 'stopped'" src="${resource(dir: '/')}images/redball.png" border="0"/>
+	    <img ng-show="processorState == 'pending' || processorState == 'stopping'" src="${resource(dir: '/')}images/yellowball.png" border="0"/>
+	    <img ng-show="processorState == 'running'" src="${resource(dir: '/')}images/greenball.png" border="0"/>
+		{{processorState}}&nbsp;&nbsp;
+        <button ng-disabled="isDisabled()" type="submit" class="processorStatusButton" ng-click="process()">Start</button>
       </span>
 	</g:if>
   </h1>

@@ -88,13 +88,19 @@ public class PriceList {
 	        licenseModel,
 	        usagetype,
 	        operation,
+	        capacitystatus,
+	        dedicatedEbsThroughput,
 	        ecu,
 	        usageFamily,
+	        enhancedNetworkingSupported,
+	        instancesku,
+	        intelAvxAvailable,
+	        intelAvx2Available,
+	        intelTurboAvailable,
 	        normalizationSizeFactor,
 	        preInstalledSw,
 	        processorFeatures,
 	        deploymentOption,
-	        enhancedNetworkingSupported,
 	        servicename;
 		}
 

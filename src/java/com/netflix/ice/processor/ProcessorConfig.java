@@ -142,11 +142,6 @@ public class ProcessorConfig extends Config {
         Map<String, AccountConfig> accountConfigs = overlayAccountConfigsFromProperties(properties, orgAccounts);
         processBillingDataConfig(accountConfigs);
         processWorkBucketConfig(accountConfigs);
-        for (AccountConfig ac: accountConfigs.values()) {
-        	logger.debug("  Account " + ac.toString());
-    		if (resourceService != null)
-    			resourceService.putDefaultTags(ac.getId(), ac.getDefaultTags());        			
-        }
         	
         accountService = new BasicAccountService(accountConfigs);
                

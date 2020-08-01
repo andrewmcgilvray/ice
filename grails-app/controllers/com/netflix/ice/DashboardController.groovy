@@ -105,6 +105,7 @@ class DashboardController {
 		savingsplans: "GET",
 		utilization: "GET",
 		getProcessorStatus: "GET",
+		getProcessorState: "GET",
 		setReprocess: "POST",
 		startProcessor: "POST",
 		getSubscriptions: "GET",
@@ -485,6 +486,11 @@ class DashboardController {
         render result as JSON
 	}
 	
+	def getProcessorState = {		
+        def result = [status: 200, data: getManagers().getProcessorState()];
+        render result as JSON
+	}
+	
 	def setReprocess = {
 		if (getConfig().enableReprocessRequests) {
 			def text = request.reader.text;
@@ -507,7 +513,7 @@ class DashboardController {
 	}
 	
 	def startProcessor = {
-		if (getConfig().enableReprocessRequests && getConfig().processorInstanceId != null) {
+		if (getConfig().enableReprocessRequests) {
 			if (getManagers().startProcessor())
 				response.status = 200;
 			else

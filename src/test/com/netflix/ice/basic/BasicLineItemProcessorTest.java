@@ -1234,7 +1234,7 @@ public class BasicLineItemProcessorTest {
 	public void testSavingsPlanRecurringFee() throws Exception {
 		// Test No Upfront with 50% usage
 		Line line = new Line(LineItemType.SavingsPlanRecurringFee, "global", "", "Savings Plans for AWS Compute usage", "ComputeSP:1yrNoUpfront", "", "1 year No Upfront Compute Savings Plan", PricingTerm.none, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "1", "0.12", "");
-		line.setSavingsPlanRecurringFeeFields("0", "0.12", "2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "NoUpfront");
+		line.setSavingsPlanRecurringFeeFields("0", "0.12", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "NoUpfront");
 		String[] tag = new String[] { "global", null, "Savings Plans for AWS Compute usage", "SavingsPlan Unused - No Upfront", "ComputeSP:1yrNoUpfront" };
 		
 		// Should produce one cost item for the unused recurring portion of the plan.
@@ -1244,7 +1244,7 @@ public class BasicLineItemProcessorTest {
 		
 		// Test Partial Upfront with 50% usage
 		line = new Line(LineItemType.SavingsPlanRecurringFee, "global", "", "Savings Plans for AWS Compute usage", "ComputeSP:1yrPartialUpfront", "", "1 year No Upfront Compute Savings Plan", PricingTerm.none, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "1", "0.12", "");
-		line.setSavingsPlanRecurringFeeFields("0.07", "0.05", "2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "PartialUpfront");
+		line.setSavingsPlanRecurringFeeFields("0.07", "0.05", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "PartialUpfront");
 		tag = new String[] { "global", null, "Savings Plans for AWS Compute usage", "SavingsPlan Unused - Partial Upfront", "ComputeSP:1yrPartialUpfront" };
 		
 		// Should produce two cost items for the unused recurring and amortized portions of the plan.
@@ -1254,7 +1254,7 @@ public class BasicLineItemProcessorTest {
 		
 		// Test All Upfront with 50% usage
 		line = new Line(LineItemType.SavingsPlanRecurringFee, "global", "", "Savings Plans for AWS Compute usage", "ComputeSP:1yrAllUpfront", "", "1 year No Upfront Compute Savings Plan", PricingTerm.none, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "1", "0.12", "");
-		line.setSavingsPlanRecurringFeeFields("0.12", "0", "2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "AllUpfront");
+		line.setSavingsPlanRecurringFeeFields("0.12", "0", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "AllUpfront");
 		tag = new String[] { "global", null, "Savings Plans for AWS Compute usage", "SavingsPlan Unused - All Upfront", "ComputeSP:1yrAllUpfront" };
 		
 		// Should produce one cost item for the unused amortized portion of the plan.

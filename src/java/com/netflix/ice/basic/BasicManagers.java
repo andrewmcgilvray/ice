@@ -19,6 +19,8 @@ package com.netflix.ice.basic;
 
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
@@ -52,6 +54,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -190,29 +193,25 @@ public class BasicManagers extends Poller implements Managers {
             for (ConsolidateType consolidateType: ConsolidateType.values()) {
                 Key key = new Key(product, consolidateType);
                 
-            	if (consolidateType == ConsolidateType.hourly && !config.hourlyData) {
-            		if (product != null)
-            			continue;
-            		
+            	boolean forReservations = consolidateType == ConsolidateType.hourly && !config.hourlyData;
+            	
+            	if (forReservations && product != null && !product.hasReservations() && !product.hasSavingsPlans()) {
             		// Create hourly cost and usage managers only for reservation and savings plan operations
-	                costManagers.put(key, new BasicDataManager(config.startDate, "cost_hourly_all", consolidateType, tagGroupManager, compress, 0,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null, true));
-	                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_hourly_all", consolidateType, tagGroupManager, compress, 0,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, true));
+            		continue;
             	}
-            	else {                
-	            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
-	            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
+            	
+            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
+            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
+            		
 	               
-	                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null));
-	                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
-	                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService));
-	                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
-	    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
-	            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
-	                }
-            	}
+                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
+                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null, forReservations));
+                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
+                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, forReservations));
+                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
+    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
+            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
+                }
             }
         }
 
@@ -590,14 +589,21 @@ public class BasicManagers extends Poller implements Managers {
 	}
 	
 	public Collection<ProcessorStatus> getProcessorStatus() {
-		return lastProcessedPoller.getStatus();
+		// Return sorted list - most recent month first
+		List<ProcessorStatus> status = Lists.newArrayList(lastProcessedPoller.getStatus());
+		Collections.sort(status, Collections.reverseOrder());
+		return status;
 	}
 	
     public void reprocess(String month, boolean state) {
     	lastProcessedPoller.reprocess(month, state);
     }
     
+    
     public boolean startProcessor() {
+    	if (StringUtils.isEmpty(config.processorInstanceId) || StringUtils.isEmpty(config.processorRegion))
+    		return false;
+    	
     	boolean started = false;
         AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
         		.withRegion(config.processorRegion)
@@ -615,6 +621,37 @@ public class BasicManagers extends Poller implements Managers {
         }
         ec2.shutdown();
         return started;
+    }
+            
+    public String getProcessorState() {
+    	String state = "unknown";
+    	
+    	if (StringUtils.isEmpty(config.processorInstanceId) || StringUtils.isEmpty(config.processorRegion))
+    		return state;
+    	
+        AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
+        		.withRegion(config.processorRegion)
+        		.withCredentials(AwsUtils.awsCredentialsProvider)
+        		.withClientConfiguration(AwsUtils.clientConfig)
+        		.build();
+
+        try {
+            DescribeInstancesRequest request = new DescribeInstancesRequest().withInstanceIds(new String[] { config.processorInstanceId });
+	        DescribeInstancesResult response = ec2.describeInstances(request);
+	        // return state of first one we find. Should be only one since we specified the instance ID
+	        for (com.amazonaws.services.ec2.model.Reservation reservation: response.getReservations()) {
+	        	for (com.amazonaws.services.ec2.model.Instance instance: reservation.getInstances()) {
+	        		return instance.getState().getName();
+	        	}
+	        }
+        }
+        catch (Exception e) {
+            logger.error("error in describeInstances", e);
+        }
+        finally {
+            ec2.shutdown();
+        }
+        return state;
     }
 
     private List<List<String>> getCsvData(String month, String prefix) {

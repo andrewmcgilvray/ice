@@ -86,7 +86,7 @@
           </select>
         </div>
         <div style="padding-top: 5px">Plot Type
-          <select ng-model="plotType">
+          <select ng-model="plotType" ng-change="plotTypeChanged()">
             <option>area</option>
             <option>column</option>
           </select>
@@ -155,6 +155,38 @@
       	</div>
       </td>
     </tr>
+  </table>
+  <table ng-show="!showUserTags" class="userTags">
+    <tr>
+      <td><input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input></td>
+    </tr>
+  </table>
+  <table ng-show="showUserTags" class="userTags">
+    <g:set var="numRows" value="${ReaderConfig.getInstance().userTagKeys.size() / 6}"/>
+    <g:set var="rowIndex" value="${0}"/>
+    <g:while test="${rowIndex < numRows}">
+      <g:set var="rowStartIndex" value="${rowIndex * 6}"/>
+      <tr>
+        <td>
+          <g:if test="${rowIndex == 0}">
+   	        <input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input>
+            <div ng-show="isGroupByTag()" style="padding-top: 10px">Group by
+              <select ng-model="groupByTag" ng-options="a.name for a in groupByTags"></select>
+            </div>      
+          </g:if>
+        </td>
+        <td ng-repeat="tagKey in getUserTagKeys(${rowStartIndex}, 6)">
+          <input type="checkbox" ng-model="enabledUserTags[${rowStartIndex}+$index]" ng-change="userTagsChanged(${rowStartIndex}+$index)"> {{getUserTagDisplayName(${rowStartIndex}+$index)}}</input>
+      	  <div ng-show="enabledUserTags[${rowStartIndex}+$index]">
+            <select ng-model="selected_userTagValues[${rowStartIndex}+$index]" ng-options="a.name for a in userTagValues[${rowStartIndex}+$index] | filter:filter_userTagValues[${rowStartIndex}+$index]" multiple="multiple" class="metaUserTags metaSelect"></select>
+            <br><input ng-model="filter_userTagValues[${rowStartIndex}+$index]" type="text" class="metaFilter" placeholder="filter">
+            <button ng-click="selected_userTagValues[${rowStartIndex}+$index] = userTagValues[${rowStartIndex}+$index]" class="allNoneButton">+</button>
+            <button ng-click="selected_userTagValues[${rowStartIndex}+$index] = []" class="allNoneButton">-</button>
+		  </div>      
+        </td>
+      </tr>
+      <g:set var="rowIndex" value="${rowIndex+1}"/>
+    </g:while>
   </table>
 
   <div class="buttons">

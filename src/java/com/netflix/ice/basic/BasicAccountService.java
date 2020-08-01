@@ -51,7 +51,7 @@ public class BasicAccountService implements AccountService {
     public BasicAccountService(Map<String, AccountConfig> configs) {
     	for (AccountConfig a: configs.values()) {
     		String iceName = StringUtils.isEmpty(a.name) ? a.awsName : a.name;
-			Account account = new Account(a.id, iceName, a.awsName, a.email, a.parents, a.status, a.tags);
+			Account account = new Account(a.id, iceName, a.awsName, a.email, a.parents, a.status, a.joinedMethod, a.joinedDate, a.tags);
 			accountsByIceName.put(iceName, account);
 			accountsById.put(a.id, account);
 			if (a.riProducts != null && a.riProducts.size() > 0) {
@@ -70,6 +70,7 @@ public class BasicAccountService implements AccountService {
     // Also used by unit test code.
     public BasicAccountService(List<Account> accounts) {
     	for (Account a: accounts) {
+    		a.initDefaultTags();
     		accountsById.put(a.getId(), a);
     		accountsByIceName.put(a.getIceName(), a);
     	}
@@ -94,6 +95,7 @@ public class BasicAccountService implements AccountService {
     		Account existing = accountsById.get(a.getId());
     		if (existing == null) {
     			// Add the new account
+    			a.initDefaultTags();
     			accountsById.put(a.getId(), a);
     			accountsByIceName.put(a.getIceName(), a);
     		}
@@ -185,15 +187,17 @@ public class BasicAccountService implements AccountService {
 		Set<String> sortedTagKeys = Sets.newTreeSet(tagKeys);
 		
 		// Build the header
-		List<String> names = Lists.newArrayList(new String[] {"ICE Name", "AWS Name", "ID", "Email", "Organization Path", "Status"});
+		List<String> names = Lists.newArrayList(Account.headerWithoutTags());
 		for (String key: sortedTagKeys)
 			names.add(key);
 
 		StringWriter writer = new StringWriter(1024);
 		CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader((String[]) names.toArray(new String[names.size()])));
 		
-		for (Account a: accountsById.values()) {			
-			printer.printRecord(a.values(sortedTagKeys));
+		// generate report in account ID order
+		Set<String> ids = Sets.newTreeSet(accountsById.keySet());		
+		for (String id: ids) {			
+			printer.printRecord(accountsById.get(id).values(sortedTagKeys, true));
 		}
 		printer.close(true);
 		return writer.toString();

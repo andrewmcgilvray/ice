@@ -61,8 +61,8 @@
         </div>
       </td>
       <td nowrap="">
-        <input type="radio" ng-model="usage_cost" value="cost" id="radio_cost"> <label for="radio_cost" style="cursor: pointer">Cost</label>&nbsp;&nbsp;
-        <input type="radio" ng-model="usage_cost" value="usage" id="radio_usage"> <label for="radio_usage" style="cursor: pointer">Usage</label>
+        <input type="radio" ng-model="usage_cost" value="cost" id="radio_cost" ng-change="usageCostChanged()"> <label for="radio_cost" style="cursor: pointer">Cost</label>&nbsp;&nbsp;
+        <input type="radio" ng-model="usage_cost" value="usage" id="radio_usage" ng-change="usageCostChanged()"> <label for="radio_usage" style="cursor: pointer">Usage</label>
         <select ng-show="usage_cost=='usage'" ng-model="usageUnit">
           <option>Instances</option>
           <option>ECUs</option>
@@ -86,7 +86,7 @@
           </select>
         </div>
         <div style="padding-top: 5px">Plot type
-          <select ng-model="plotType">
+          <select ng-model="plotType" ng-change="plotTypeChanged()">
             <option>area</option>
             <option>column</option>
           </select>
@@ -148,21 +148,26 @@
       </td>
     </tr>
   </table>
+  <table ng-show="!showUserTags" class="userTags">
+    <tr>
+      <td><input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input></td>
+    </tr>
+  </table>
   <table ng-show="showUserTags" class="userTags">
-    <g:set var="numRows" value="${(ReaderConfig.getInstance().userTagKeys.size() + 5) / 6}"/>
+    <g:set var="numRows" value="${ReaderConfig.getInstance().userTagKeys.size() / 6}"/>
     <g:set var="rowIndex" value="${0}"/>
     <g:while test="${rowIndex < numRows}">
       <g:set var="rowStartIndex" value="${rowIndex * 6}"/>
-      <tr ng-show="userTagValues.length > 0">
+      <tr>
         <td>
           <g:if test="${rowIndex == 0}">
-   	        Tags:
+   	        <input type="checkbox" ng-model="showUserTags" ng-change="userTagsEnabled()"> Tags:</input>
             <div ng-show="isGroupByTag()" style="padding-top: 10px">Group by
               <select ng-model="groupByTag" ng-options="a.name for a in groupByTags"></select>
             </div>      
           </g:if>
         </td>
-        <td ng-repeat="tagValue in getUserTagValues(${rowStartIndex}, 6)">
+        <td ng-repeat="tagKey in getUserTagKeys(${rowStartIndex}, 6)">
           <input type="checkbox" ng-model="enabledUserTags[${rowStartIndex}+$index]" ng-change="userTagsChanged(${rowStartIndex}+$index)"> {{getUserTagDisplayName(${rowStartIndex}+$index)}}</input>
       	  <div ng-show="enabledUserTags[${rowStartIndex}+$index]">
             <select ng-model="selected_userTagValues[${rowStartIndex}+$index]" ng-options="a.name for a in userTagValues[${rowStartIndex}+$index] | filter:filter_userTagValues[${rowStartIndex}+$index]" multiple="multiple" class="metaUserTags metaSelect"></select>

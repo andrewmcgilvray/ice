@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
-import com.amazonaws.services.ec2.model.Tag;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.LineItem;
@@ -66,9 +65,8 @@ public class BasicResourceService extends ResourceService {
     private final Map<String, Integer> tagResourceGroupIndeces;
     
     private static final String USER_TAG_PREFIX = "user:";
+    private static final String AWS_TAG_PREFIX = "aws:";
     private static final String reservationIdsKeyName = "RI/SP ID";
-    private static final String defaultTagSeparator = "/";
-    private static final String defaultTagEffectiveDateSeparator = "=";
     private static final String suspend = "<suspend>";
     
     /**
@@ -152,52 +150,7 @@ public class BasicResourceService extends ResourceService {
     	}
     }
 
-    // Map of default user tag values for each account. These are returned if the requested resource doesn't
-    // have a tag value nor a mapped value. Outer key is the account ID, inner map key is the tag name.
-    private Map<String, Map<String, DefaultTag>> defaultTags;
     
-    private class DefaultTag {
-    	private class DateValue {
-    		public long startMillis;
-    		public String value;
-    		
-    		DateValue(long startMillis, String value) {
-    			this.startMillis = startMillis;
-    			this.value = value;
-    		}
-    	}
-    	private List<DateValue> timeOrderedValues;
-    	
-    	DefaultTag(String config) {
-    		Map<Long, String> sortedMap = Maps.newTreeMap();
-    		String[] dateValues = config.split(defaultTagSeparator);
-    		for (String dv: dateValues) {
-    			String[] parts = dv.split(defaultTagEffectiveDateSeparator);
-    			if (dv.contains(defaultTagEffectiveDateSeparator)) {
-    				// If only one part, it's the start time and value should be empty
-        			sortedMap.put(new DateTime(parts[0], DateTimeZone.UTC).getMillis(), parts.length < 2 ? "" : parts[1]);    				
-    			}
-    			else {
-    				// If only one part, it's the value that starts at time 0
-    				sortedMap.put(parts.length < 2 ? 0 : new DateTime(parts[0], DateTimeZone.UTC).getMillis(), parts[parts.length < 2 ? 0 : 1]);
-    			}
-    		}
-    		timeOrderedValues = Lists.newArrayList();
-    		for (Long start: sortedMap.keySet())
-    			timeOrderedValues.add(new DateValue(start, sortedMap.get(start)));
-    	}
-    	
-    	String getValue(long startMillis) {
-    		String value = null;
-    		for (DateValue dv: timeOrderedValues) {
-    			if (dv.startMillis > startMillis)
-    				break;
-    			value = dv.value;
-    		}
-    		return value;
-    	}
-    }
-
     public BasicResourceService(ProductService productService, String[] customTags, boolean includeReservationIds) {
 		super();
 		this.includeReservationIds = includeReservationIds;
@@ -215,7 +168,6 @@ public class BasicResourceService extends ResourceService {
 				userTagKeys.add(UserTagKey.get(tag));
 		}
 		
-		this.defaultTags = Maps.newHashMap();
 		this.tagConfigs = Maps.newHashMap();
 		this.tagValuesInverted = Maps.newHashMap();
 		this.mappedTags = Maps.newHashMap();
@@ -327,7 +279,7 @@ public class BasicResourceService extends ResourceService {
         	if (v == null || v.isEmpty())
         		v = getMappedUserTagValue(account, lineItem.getPayerAccountId(), customTags.get(i), tags, millisStart);
         	if (v == null || v.isEmpty())
-        		v = getDefaultUserTagValue(account, customTags.get(i), millisStart);
+        		v = account.getDefaultUserTagValue(customTags.get(i), millisStart);
         	if (v == null)
         		v = ""; // never return null entries
         	tags[i] = v;
@@ -342,7 +294,7 @@ public class BasicResourceService extends ResourceService {
     }
     
     @Override
-    public ResourceGroup getResourceGroup(Account account, Product product, List<Tag> reservedInstanceTags, long millisStart) {
+    public ResourceGroup getResourceGroup(Account account, Product product, List<com.amazonaws.services.ec2.model.Tag> reservedInstanceTags, long millisStart) {
     	if (customTags.size() == 0)
     		return null;
     	
@@ -351,7 +303,7 @@ public class BasicResourceService extends ResourceService {
        	for (int i = 0; i < customTags.size(); i++) {
            	String v = null;
    			// find first matching key with a legitimate value
-       		for (Tag riTag: reservedInstanceTags) {
+       		for (com.amazonaws.services.ec2.model.Tag riTag: reservedInstanceTags) {
        			if (riTag.getKey().toLowerCase().equals(customTags.get(i).toLowerCase())) {
        				v = riTag.getValue();
        				if (v != null && !v.isEmpty())
@@ -359,7 +311,7 @@ public class BasicResourceService extends ResourceService {
        			}
        		}
         	if (v == null || v.isEmpty())
-        		v = getDefaultUserTagValue(account, customTags.get(i), millisStart);
+        		v = account.getDefaultUserTagValue(customTags.get(i), millisStart);
         	if (v == null)
         		v = ""; // never return null entries
         	tags[i] = v;
@@ -371,21 +323,6 @@ public class BasicResourceService extends ResourceService {
 			logger.error("Error creating resource group from user tags in line item" + e);
 		}
 		return null;
-    }
-    
-    @Override
-    public void putDefaultTags(String accountId, Map<String, String> tags) {
-    	Map<String, DefaultTag> defaults = Maps.newHashMap();
-    	for (String key: tags.keySet())
-    		defaults.put(key, new DefaultTag(tags.get(key)));
-    	defaultTags.put(accountId, defaults);
-    }
-    
-    private String getDefaultUserTagValue(Account account, String tagKey, long startMillis) {
-    	// return the default user tag value for the specified account if there is one.
-    	Map<String, DefaultTag> defaults = defaultTags.get(account.getId());
-    	DefaultTag dt = defaults == null ? null : defaults.get(tagKey);
-    	return dt == null ? null : dt.getValue(startMillis);
     }
     
     private String getMappedUserTagValue(Account account, String payerAccount, String tag, String[] tags, long startMillis) {
@@ -419,6 +356,7 @@ public class BasicResourceService extends ResourceService {
 	        	if (!mt.exclude.isEmpty() && mt.exclude.contains(account.getId()))
 	        		continue;
 	        	
+	        	// Grab the first matching source tag
 	        	for (Integer sourceTagIndex: sourceTags.keySet()) {
 	        		String have = tags[sourceTagIndex];
 	        		if (have == null)
@@ -539,7 +477,7 @@ public class BasicResourceService extends ResourceService {
             	TagConfig config = configs.get(tagKey.name);
             	if (config != null && config.aliases != null) {
 	            	for (String alias: config.aliases) {
-	            		String fullAlias = USER_TAG_PREFIX + alias;
+	            		String fullAlias = alias.startsWith(AWS_TAG_PREFIX) ? alias : USER_TAG_PREFIX + alias;
 	                    for (int i = 0; i < header.length; i++) {
 	                    	if (fullAlias.equalsIgnoreCase(header[i])) {
 	                    		indeces.add(i);

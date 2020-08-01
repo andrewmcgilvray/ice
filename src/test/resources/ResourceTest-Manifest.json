@@ -3,25 +3,36 @@
   "account":"123456789012",
   "columns":[{
     "category":"bill",
-    "name":"PayerAccountId"
+    "name":"PayerAccountId",
+    "type":"String"
   },{
     "category":"lineItem",
-    "name":"LineItemType"
+    "name":"LineItemType",
+    "type":"String"
   },{
     "category":"lineItem",
-    "name":"UsageStartDate"
+    "name":"UsageStartDate",
+    "type":"String"
   },{
     "category":"resourceTags",
-    "name":"user:TagKey1"
+    "name":"aws:createdBy",
+    "type":"String"
   },{
     "category":"resourceTags",
-    "name":"user:TagKey2"
+    "name":"user:TagKey1",
+    "type":"String"
   },{
     "category":"resourceTags",
-    "name":"user:TagKey3"
+    "name":"user:TagKey2",
+    "type":"String"
   },{
     "category":"resourceTags",
-    "name":"user:TagKey4"
+    "name":"user:TagKey3",
+    "type":"String"
+  },{
+    "category":"resourceTags",
+    "name":"user:TagKey4",
+    "type":"String"
   }],
   "charset":"UTF-8",
   "compression":"GZIP",
