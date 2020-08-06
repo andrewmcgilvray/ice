@@ -36,7 +36,6 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
 import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
-import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 
 public class PostProcessor {
@@ -469,7 +468,6 @@ public class PostProcessor {
 			int maxNum) throws Exception {
 
 		int maxHours = inValues == null ? maxNum : inValues.length;
-		TagGroup creditTagGroup = outTagGroup.operation.isCredit() ? outTagGroup : null; 
 		
 		// Process each hour of data - we'll only have one if 'in' is a monthly operand
 		for (int hour = 0; hour < maxHours; hour++) {
@@ -485,17 +483,9 @@ public class PostProcessor {
 			}
 			try {
 				Double value = new Evaluator().eval(expr);
-				TagGroup tg = outTagGroup;
-				if (value < 0.0) {
-					// Negative values should be output as credits
-					if (creditTagGroup == null)
-						creditTagGroup = outTagGroup.withOperation(Operation.getCreditOperation(outTagGroup.operation.name));
-
-					tg = creditTagGroup;
-				}
 				if (debug && hour == 0)
-					logger.info("eval(" + index + "): " + outExpr + " = " + expr + " = " + value + ", " + tg);
-				resultData.put(hour, tg, value);
+					logger.info("eval(" + index + "): " + outExpr + " = " + expr + " = " + value + ", " + outTagGroup);
+				resultData.put(hour, outTagGroup, value);
 			}
 			catch (Exception e) {
 				logger.error("Error processing expression \"" + expr + "\", " + e.getMessage());
@@ -503,7 +493,7 @@ public class PostProcessor {
 			}
 			
 			//if (hour == 0)
-			//	logger.info("eval: " + outExpr + " = "  + expr + " = " + value + ", tg: " + outTagGroup);
+			//	logger.info("eval: " + outExpr + " = "  + expr + " = " + value + ", outTagGroup: " + outTagGroup);
 		}
 	}
 	
