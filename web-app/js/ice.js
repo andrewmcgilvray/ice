@@ -2826,11 +2826,12 @@ function accountsCtrl($scope, $location, $http, $window) {
     }
     $scope.accounts = [];
 
-    var hideCols = $window.localStorage.getItem('hideAccountColumns').split(",");    
+    var hideCols = $window.localStorage.getItem('hideAccountColumns');    
     if (hideCols) {
+      var hideColsArray = hideCols.split(",");
       for (var i = 0; i < $scope.header.length; i++) {
-        for (var j = 0; j < hideCols.length; j++) {
-          if ($scope.header[i] == hideCols[j]) {
+        for (var j = 0; j < hideColsArray.length; j++) {
+          if ($scope.header[i] == hideColsArray[j]) {
             $scope.showColumn[i] = false;
             break;
           }
