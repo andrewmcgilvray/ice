@@ -43,8 +43,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -56,7 +54,7 @@ import org.springframework.util.StringUtils;
 public class BasicProductService implements ProductService {
     Logger logger = LoggerFactory.getLogger(getClass());
     
-    final private String productsFileName = "products.csv.gz";
+    final private String productsFileName = "products.csv";
 	final private String[] header = new String[]{ "Name", "ServiceName", "ServiceCode", "Source" };
 
 	private static Map<String, String> missingServiceNames = Maps.newHashMap();
@@ -144,12 +142,13 @@ public class BasicProductService implements ProductService {
     }
 
 	public Product getProduct(String serviceName, String serviceCode) {
-		if (serviceCode == null || serviceCode.isEmpty())
+		if (StringUtils.isEmpty(serviceCode))
 			return getProductByServiceName(serviceName);
 		
         Product product = productsByServiceCode.get(serviceCode);
         if (product == null) {
-            Product newProduct = new Product(serviceName, StringUtils.isEmpty(serviceCode) ? serviceName.replace(" ", "_") : serviceCode, serviceCode == null ? Source.dbr : Source.cur);
+        	// Use the service code for the name if the service name is empty
+            Product newProduct = new Product(StringUtils.isEmpty(serviceName) ? serviceCode : serviceName, serviceCode, Source.cur);
             product = addProduct(newProduct);
             if (newProduct == product)
             	logger.info("created product: " + product.getIceName() + " for: " + serviceName + " with code: " + product.getServiceCode());
@@ -157,10 +156,14 @@ public class BasicProductService implements ProductService {
             	logger.error("new service code " + serviceCode + " for product: " + product.getIceName() + " for: " + serviceName + " with code: " + product.getServiceCode());
             }
         }
-        if (!serviceName.isEmpty() && !product.getServiceName().equals(serviceName) && product.getSource() == Source.pricing) {
+        else if (!serviceName.isEmpty() && !product.getServiceName().equals(serviceName) && 
+        		(product.getSource() == Source.pricing ||
+        			(product.getSource() == Source.cur && product.getServiceName().equals(product.getServiceCode()))
+        		)) {
         	// Service name doesn't match, update the product with the proper service name
         	// assuming that billing reports always have more accurate names than the pricing service
-        	product = addProduct(new Product(serviceName, product.getServiceCode(), serviceCode == null ? Source.dbr : Source.cur));
+        	// or the previous value from the billing report was empty and set to match the serviceCode
+        	product = addProduct(new Product(serviceName, product.getServiceCode(), Source.cur));
         }
         return product;
     }
@@ -258,7 +261,6 @@ public class BasicProductService implements ProductService {
         File file = new File(localDir, productsFileName);
         
     	OutputStream os = new FileOutputStream(file);
-		os = new GZIPOutputStream(os);        
 		Writer out = new OutputStreamWriter(os);
         
         try {
@@ -318,7 +320,6 @@ public class BasicProductService implements ProductService {
         BufferedReader reader = null;
         try {
         	InputStream is = new FileInputStream(file);
-        	is = new GZIPInputStream(is);
             reader = new BufferedReader(new InputStreamReader(is));
             readCsv(reader);
         }
