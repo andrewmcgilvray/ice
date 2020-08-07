@@ -819,8 +819,8 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       });
     },
 
-    getProducts: function ($scope, fn, params) {
-      if (!$scope.dimensions[$scope.PRODUCT_INDEX]) {
+    getProducts: function ($scope, fn, params, override) {
+      if (!override && !$scope.dimensions[$scope.PRODUCT_INDEX]) {
         if (fn)
           fn({});
         return;
@@ -1770,7 +1770,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.download = function () {
     var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
-    var query = { operation: ops.join(","), forSavingsPlans: true };
+    var query = { operation: ops.join(","), product: $scope.savingsPlanProducts.join(","), forSavingsPlans: true };
     if ($scope.showZones)
       query.showZones = true;
     usage_db.getData($scope, null, query, true);
@@ -1780,7 +1780,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.loading = true;
     $scope.errorMessage = null;
     var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
-    var query = { operation: ops.join(","), forSavingsPlans: true };
+    var query = { operation: ops.join(","), product: $scope.savingsPlanProducts.join(","), forSavingsPlans: true };
     if ($scope.showZones)
       query.showZones = true;
     usage_db.getData($scope, function (result) {
@@ -1928,7 +1928,19 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     var ops = $scope.savingsPlanOps.concat($scope.reservationOps);
     $scope.predefinedQuery = { operation: ops.join(","), forSavingsPlans: true };
 
-    getUserTags();
+    getSavingsPlanProducts();
+  }
+
+  var getSavingsPlanProducts = function () {
+    var query = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
+
+    usage_db.getProducts($scope, function (data) {
+      $scope.savingsPlanProducts = [];
+      for (var i = 0; i < $scope.products.length; i++)
+      $scope.savingsPlanProducts.push($scope.products[i].name);
+      $scope.predefinedQuery.product = $scope.savingsPlanProducts.join(",");
+      getUserTags();
+    }, query, true);
   }
 
   var initializing = true;
