@@ -43,9 +43,9 @@
     </tr>
     <tr>
       <td>
-        <input class="required" type="text" name="start" id="start" size="14"/>
+        <input class="required" type="text" name="start" id="start" size="15" style="width: 102px"/>
         <div style="padding-top: 10px">End</div>
-        <br><input class="required" type="text" name="end" id="end" size="14"/>
+        <br><input class="required" type="text" name="end" id="end" size="15" style="width: 102px"/>
         <div  ng-show="usage_cost=='cost'" style="padding-top: 10px">CostType</div>
         <div ng-show="usage_cost=='cost'" stype="padding-top: 10px">
           <table class="costTypeTable">

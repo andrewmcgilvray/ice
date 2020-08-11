@@ -25,9 +25,9 @@
     </tr>
     <tr>
       <td>
-        <input class="required" type="text" name="start" id="start" size="14"/>
+        <input class="required" type="text" name="start" id="start" size="15" style="width: 102px"/>
         <div style="padding-top: 10px">End</div>
-        <br><input class="required" type="text" name="end" id="end" size="14"/>
+        <br><input class="required" type="text" name="end" id="end" size="15" style="width: 102px"/>
       </td>
       <td nowrap="">
         <div style="padding-top: 10px">Group by
