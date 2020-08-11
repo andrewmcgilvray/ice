@@ -1101,36 +1101,36 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     if ($scope.dimensions[$scope.ACCOUNT_INDEX]) {
       if ($scope.organizationalUnit)
         params.orgUnit = $scope.organizationalUnit;
-      var accounts = this.filterSelected($scope.selected_accounts, $scope.filter_accounts, $scope.organizationalUnit);
+      var accounts = usage_db.filterSelected($scope.selected_accounts, $scope.filter_accounts, $scope.organizationalUnit);
       if (accounts.length > 0)
         params.account = { selected: accounts, filter: $scope.filter_accounts };
     }
     if ($scope.showZones) {
       if ($scope.dimensions[$scope.ZONE_INDEX]) {
-        var zones = this.filterSelected($scope.selected_zones, $scope.filter_zones);
+        var zones = usage_db.filterSelected($scope.selected_zones, $scope.filter_zones);
         if (zones.length > 0)
           params.zone = { selected: zones, filter: $scope.filter_zones };
       }
     }
     else {
       if ($scope.dimensions[$scope.REGION_INDEX]) {
-        var regions = this.filterSelected($scope.selected_regions, $scope.filter_regions);
+        var regions = usage_db.filterSelected($scope.selected_regions, $scope.filter_regions);
         if (regions.length > 0)
           params.region = { selected: regions, filter: $scope.filter_regions };
       }
     }
     if ($scope.dimensions[$scope.PRODUCT_INDEX]) {
-      var products = this.filterSelected($scope.selected_products, $scope.filter_products);
+      var products = usage_db.filterSelected($scope.selected_products, $scope.filter_products);
       if (products.length > 0)
         params.product = { selected: products, filter: $scope.filter_products };
     }
     if ($scope.dimensions[$scope.OPERATION_INDEX]) {
-      var operations = this.filterSelected($scope.selected_operations, $scope.filter_operations);
+      var operations = usage_db.filterSelected($scope.selected_operations, $scope.filter_operations);
       if (operations.length > 0)
         params.operation = { selected: operations, filter: $scope.filter_operations };
     }
     if ($scope.dimensions[$scope.USAGETYPE_INDEX]) {
-      var usageTypes = this.filterSelected($scope.selected_usageTypes, $scope.filter_usageTypes);
+      var usageTypes = usage_db.filterSelected($scope.selected_usageTypes, $scope.filter_usageTypes);
       if (usageTypes.length > 0)
         params.usageType = { selected: usageTypes, filter: $scope.filter_usageTypes };
     }
