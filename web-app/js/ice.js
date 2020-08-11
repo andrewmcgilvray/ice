@@ -314,8 +314,6 @@ ice.factory('highchart', function () {
 
 ice.factory('usage_db', function ($window, $http, $filter) {
 
-  var graphonly = false;
-
   var retrieveNamesIfNotAll = function (array, selected, preselected, filter, organizationalUnit) {
     if (!selected && !preselected)
       return;
@@ -390,12 +388,7 @@ ice.factory('usage_db', function ($window, $http, $filter) {
     return result;
   }
 
-  var timeParams = "";
-
   return {
-    graphOnly: function () {
-      return graphonly;
-    },
     addParams: function (params, name, array, selected, preselected, filter, organizationalUnit) {
       var selected = retrieveNamesIfNotAll(array, selected, preselected, filter, organizationalUnit);
       if (selected)
@@ -417,78 +410,6 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       }
     },
   
-    addDimensionParams: function($scope, params) {
-      var hasDimension = false;
-      for (var i = 0; i < $scope.dimensions.length; i++) {
-        if ($scope.dimensions[i]) {
-          hasDimension = true;
-          break;
-        }
-      }
-      if (!hasDimension)
-        return;
-
-      if ($scope.dimensions[$scope.ACCOUNT_INDEX]) {
-        if ($scope.organizationalUnit)
-          params.orgUnit = $scope.organizationalUnit;
-        var accounts = this.filterSelected($scope.selected_accounts, $scope.filter_accounts, $scope.organizationalUnit);
-        if (accounts.length > 0)
-          params.account = { selected: accounts, filter: $scope.filter_accounts };
-      }
-      if ($scope.showZones) {
-        if ($scope.dimensions[$scope.ZONE_INDEX]) {
-          var zones = this.filterSelected($scope.selected_zones, $scope.filter_zones);
-          if (zones.length > 0)
-            params.zone = { selected: zones, filter: $scope.filter_zones };
-        }
-      }
-      else {
-        if ($scope.dimensions[$scope.REGION_INDEX]) {
-          var regions = this.filterSelected($scope.selected_regions, $scope.filter_regions);
-          if (regions.length > 0)
-            params.region = { selected: regions, filter: $scope.filter_regions };
-        }
-      }
-      if ($scope.dimensions[$scope.PRODUCT_INDEX]) {
-        var products = this.filterSelected($scope.selected_products, $scope.filter_products);
-        if (products.length > 0)
-          params.product = { selected: products, filter: $scope.filter_products };
-      }
-      if ($scope.dimensions[$scope.OPERATION_INDEX]) {
-        var operations = this.filterSelected($scope.selected_operations, $scope.filter_operations);
-        if (operations.length > 0)
-          params.operation = { selected: operations, filter: $scope.filter_operations };
-      }
-      if ($scope.dimensions[$scope.USAGETYPE_INDEX]) {
-        var usageTypes = this.filterSelected($scope.selected_usageTypes, $scope.filter_usageTypes);
-        if (usageTypes.length > 0)
-          params.usageType = { selected: usageTypes, filter: $scope.filter_usageTypes };
-      }
-
-      params.dimensions = $scope.dimensions.join(",");
-    },
-
-    addUserTagParams: function ($scope, params) {
-      var hasEnabledTags = false;
-      for (var i = 0; i < $scope.enabledUserTags.length; i++) {
-        if ($scope.enabledUserTags[i]) {
-          hasEnabledTags = true;
-          break;
-        }
-      }
-      if (!hasEnabledTags)
-        return;
-      
-      params.enabledUserTags = $scope.enabledUserTags.join(",");
-      for (var i = 0; i < $scope.userTags.length; i++) {
-        if ($scope.enabledUserTags[i]) {
-          params["tag-" + $scope.userTags[i].name] = { selected: $scope.selected_userTagValues[i] };
-        }
-        if ($scope.filter_userTagValues[i])
-          params["filter-tag-" + $scope.userTags[i].name] = $scope.filter_userTagValues[i];
-      }      
-    },
-
     updateUrl: function ($location, data) {
       var result = "";
       var time = "";
@@ -499,12 +420,6 @@ ice.factory('usage_db', function ($window, $http, $filter) {
 
         if (typeof data[key] == "string") {
           result += data[key];
-
-          if (key === "start" || key === "end") {
-            if (time)
-              time += "&";
-            time += key + "=" + data[key];
-          }
         }
         else if (data[key] != undefined) {
           var selected = data[key].selected;
@@ -520,162 +435,6 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       }
 
       $location.hash(result);
-
-      if (time) {
-        timeParams = time;
-      }
-    },
-
-    getTimeParams: function () {
-      return timeParams;
-    },
-
-    getParams: function (hash, $scope) {
-      $scope.tagParams = {};
-      $scope.tagFilterParams = {};
-      if (hash) {
-        var params = hash.split("&");
-        var i, j, time = "";
-        for (i = 0; i < params.length; i++) {
-
-          if (params[i].indexOf("spans=") === 0) {
-            $scope.spans = parseInt(params[i].substr(6));
-          }
-          else if (params[i].indexOf("graphOnly=true") === 0) {
-            graphonly = true;
-          }
-          else if (params[i].indexOf("showUserTags=") === 0) {
-            $scope.showUserTags = "true" === params[i].substr(13);
-          }
-          else if (params[i].indexOf("resources=") === 0) {
-            $scope.resources = params[i].substr(10);
-          }
-          else if (params[i].indexOf("showZones=") === 0) {
-            $scope.showZones = "true" === params[i].substr(10);
-          }
-          else if (params[i].indexOf("showsps=") === 0) {
-            $scope.showsps = "true" === params[i].substr(8);
-          }
-          else if (params[i].indexOf("factorsps=") === 0) {
-            $scope.factorsps = "true" === params[i].substr(10);
-          }
-          else if (params[i].indexOf("plotType=") === 0) {
-            $scope.plotType = params[i].substr(9);
-          }
-          else if (params[i].indexOf("reservationSharing=") === 0) {
-            $scope.reservationSharing = params[i].substr(19);
-          }
-          else if (params[i].indexOf("consolidate=") === 0) {
-            $scope.consolidate = params[i].substr(12);
-          }
-          else if (params[i].indexOf("usage_cost=") === 0) {
-            $scope.usage_cost = params[i].substr(11);
-          }
-          else if (params[i].indexOf("usageUnit=") === 0) {
-            $scope.usageUnit = params[i].substr(10);
-          }
-          else if (params[i].indexOf("start=") === 0) {
-            $scope.start = params[i].substr(6);
-            if (time)
-              time += "&";
-            time += "start=" + $scope.start;
-          }
-          else if (params[i].indexOf("end=") === 0) {
-            $scope.end = params[i].substr(4);
-            if (time)
-              time += "&";
-            time += "end=" + $scope.end;
-          }
-          else if (params[i].indexOf("groupBy=") === 0) {
-            var groupBy = params[i].substr(8);
-            for (var j in $scope.groupBys) {
-              if ($scope.groupBys[j].name === groupBy) {
-                $scope.groupBy = $scope.groupBys[j];
-                break;
-              }
-            }
-          }
-          else if (params[i].indexOf("groupByTag=") === 0) {
-            $scope.initialGroupByTag = params[i].substr(11);
-          }
-          else if (params[i].indexOf("orgUnit=") === 0) {
-            $scope.organizationalUnit = params[i].substr(8);
-          }
-          else if (params[i].indexOf("account=") === 0) {
-            $scope.selected__accounts = params[i].substr(8).split(",");
-          }
-          else if (params[i].indexOf("region=") === 0) {
-            $scope.selected__regions = params[i].substr(7).split(",");
-          }
-          else if (params[i].indexOf("zone=") === 0) {
-            $scope.selected__zones = params[i].substr(5).split(",");
-          }
-          else if (params[i].indexOf("product=") === 0) {
-            $scope.selected__products = params[i].substr(8).split(",");
-          }
-          else if (params[i].indexOf("operation=") === 0) {
-            $scope.selected__operations = params[i].substr(10).split(",");
-          }
-          else if (params[i].indexOf("usageType=") === 0) {
-            $scope.selected__usageTypes = params[i].substr(10).split(",");
-          }
-          else if (params[i].indexOf("consolidateGroups=") === 0) {
-            $scope.consolidateGroups = "true" === params[i].substr(18);
-          }
-          else if (params[i].indexOf("tagKey=") === 0) {
-            $scope.selected__tagKeys = params[i].substr(7).split(",");
-            $scope.selected__tagKey = $scope.selected__tagKeys.length > 0 ? $scope.selected__tagKeys[0] : null;
-          }
-          else if (params[i].indexOf("userTags=") === 0) {
-            var tags = params[i].substr(9).split(",");
-            $scope.userTags = [];
-            for (var k = 0; k < tags.length; k++) {
-              $scope.userTags[k] = { name: tags[k] };
-            }
-          }
-          else if (params[i].indexOf("dimensions=") === 0) {
-            var dims = params[i].substr(11).split(",");
-            $scope.dimensions = Array($scope.NUM_DIMENSIONS);
-            for (j = 0; j < $scope.NUM_DIMENSIONS; j++)
-              $scope.dimensions[j] = "true" === dims[j];
-          }
-          else if (params[i].indexOf("enabledUserTags=") === 0) {
-            var enabled = params[i].substr(16).split(",");
-            $scope.enabledUserTags = Array(enabled.length);
-            for (j = 0; j < enabled.length; j++)
-              $scope.enabledUserTags[j] = "true" === enabled[j];
-          }
-          else if (params[i].indexOf("filter-accounts=") === 0) {
-            $scope.filter_accounts = params[i].substr(16);
-          }
-          else if (params[i].indexOf("filter-regions=") === 0) {
-            $scope.filter_regions = params[i].substr(15);
-          }
-          else if (params[i].indexOf("filter-zones=") === 0) {
-            $scope.filter_zones = params[i].substr(13);
-          }
-          else if (params[i].indexOf("filter-products=") === 0) {
-            $scope.filter_products = params[i].substr(16);
-          }
-          else if (params[i].indexOf("filter-operations=") === 0) {
-            $scope.filter_operations = params[i].substr(18);
-          }
-          else if (params[i].indexOf("filter-usageTypes=") === 0) {
-            $scope.filter_usageTypes = params[i].substr(18);
-          }
-          else if (params[i].indexOf("tag-") === 0) {
-            var parts = params[i].substr(4).split("=");
-            $scope.tagParams[parts[0]] = parts[1];
-          }
-          else if (params[i].indexOf("filter-tag-") === 0) {
-            var parts = params[i].substr(11).split("=");
-            $scope.tagFilterParams[parts[0]] = parts[1];
-          }
-        }
-      }
-      if (time) {
-        timeParams = time;
-      }
     },
 
     processParams: function ($scope) {
@@ -1232,6 +991,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
   $scope.USAGETYPE_INDEX = 5;
   $scope.NUM_DIMENSIONS = 6;
 
+  var timeParams = "";
 
   $scope.init = function ($scope) {
     $scope.dimensions = [false, false, false, false, false, false];
@@ -1243,8 +1003,6 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     $scope.consolidate = "daily";
     $scope.legends = [];
     $scope.showZones = false;
-    $scope.end = new Date();
-    $scope.start = new Date();
     $scope.usage_cost = "cost";
     $scope.groupByTag = {}
     $scope.initialGroupByTag = '';
@@ -1255,6 +1013,23 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     $scope.credit = true;
     $scope.tax = true;
     $scope.savings = true;
+    $scope.graphonly = false;
+
+    var end = new Date();
+    var start = new Date();
+    var startMonth = end.getUTCMonth() - 1;
+    var startYear = end.getUTCFullYear();
+    if (startMonth < 0) {
+      startMonth += 12;
+      startYear -= 1;
+    }
+    start.setUTCFullYear(startYear);
+    start.setUTCMonth(startMonth);
+    start.setUTCDate(1);
+    start.setUTCHours(0);
+  
+    $scope.end = highchart.dateFormat(end); //$filter('date')($scope.end, "y-MM-dd hha");
+    $scope.start = highchart.dateFormat(start); //$filter('date')($scope.start, "y-MM-dd hha");
   }
 
   $scope.initUserTagVars = function ($scope) {
@@ -1269,6 +1044,8 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
   $scope.addCommonParams = function ($scope, params) {
     params.start = $scope.start;
     params.end = $scope.end;
+    timeParams = "start=" + $scope.start + "&end=" + $scope.end;
+
     if ($scope.usage_cost)
       params.usage_cost = $scope.usage_cost;
     if ($scope.usageUnit)
@@ -1293,6 +1070,240 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
       params.consolidate = $scope.consolidate;
     if ($scope.showZones)
       params.showZones = "" + $scope.showZones;
+    if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
+      categories = [];
+      if (!$scope.recurring)
+        categories.push("recurring");
+      if (!$scope.amortized)
+        categories.push("amortized");
+      if (!$scope.credit)
+        categories.push("credit");
+      if (!$scope.tax)
+        categories.push("tax");
+      if (!$scope.savings)
+        categories.push("savings");
+
+      params.exclude = categories.join(',');
+    }
+  }
+
+  $scope.addDimensionParams = function($scope, params) {
+    var hasDimension = false;
+    for (var i = 0; i < $scope.dimensions.length; i++) {
+      if ($scope.dimensions[i]) {
+        hasDimension = true;
+        break;
+      }
+    }
+    if (!hasDimension)
+      return;
+
+    if ($scope.dimensions[$scope.ACCOUNT_INDEX]) {
+      if ($scope.organizationalUnit)
+        params.orgUnit = $scope.organizationalUnit;
+      var accounts = this.filterSelected($scope.selected_accounts, $scope.filter_accounts, $scope.organizationalUnit);
+      if (accounts.length > 0)
+        params.account = { selected: accounts, filter: $scope.filter_accounts };
+    }
+    if ($scope.showZones) {
+      if ($scope.dimensions[$scope.ZONE_INDEX]) {
+        var zones = this.filterSelected($scope.selected_zones, $scope.filter_zones);
+        if (zones.length > 0)
+          params.zone = { selected: zones, filter: $scope.filter_zones };
+      }
+    }
+    else {
+      if ($scope.dimensions[$scope.REGION_INDEX]) {
+        var regions = this.filterSelected($scope.selected_regions, $scope.filter_regions);
+        if (regions.length > 0)
+          params.region = { selected: regions, filter: $scope.filter_regions };
+      }
+    }
+    if ($scope.dimensions[$scope.PRODUCT_INDEX]) {
+      var products = this.filterSelected($scope.selected_products, $scope.filter_products);
+      if (products.length > 0)
+        params.product = { selected: products, filter: $scope.filter_products };
+    }
+    if ($scope.dimensions[$scope.OPERATION_INDEX]) {
+      var operations = this.filterSelected($scope.selected_operations, $scope.filter_operations);
+      if (operations.length > 0)
+        params.operation = { selected: operations, filter: $scope.filter_operations };
+    }
+    if ($scope.dimensions[$scope.USAGETYPE_INDEX]) {
+      var usageTypes = this.filterSelected($scope.selected_usageTypes, $scope.filter_usageTypes);
+      if (usageTypes.length > 0)
+        params.usageType = { selected: usageTypes, filter: $scope.filter_usageTypes };
+    }
+
+    params.dimensions = $scope.dimensions.join(",");
+  }
+
+$scope.addUserTagParams = function ($scope, params) {
+    if (!$scope.showUserTags)
+      return;
+
+    var hasEnabledTags = false;
+    for (var i = 0; i < $scope.enabledUserTags.length; i++) {
+      if ($scope.enabledUserTags[i]) {
+        hasEnabledTags = true;
+        break;
+      }
+    }
+    if (!hasEnabledTags)
+      return;
+    
+    params.enabledUserTags = $scope.enabledUserTags.join(",");
+    for (var i = 0; i < $scope.userTags.length; i++) {
+      if ($scope.enabledUserTags[i]) {
+        usage_db.addParams(params, "tag-" + $scope.userTags[i].name, $scope.userTagValues[i], $scope.selected_userTagValues[i], $scope.selected__userTagValues[i], $scope.filter_userTagValues[i]);
+      }
+      if ($scope.filter_userTagValues[i])
+        params["filter-tag-" + $scope.userTags[i].name] = $scope.filter_userTagValues[i];
+    }      
+  }
+
+  var isTrue = function ($scope, key, value) {
+    $scope[key] = value === 'true';
+  }
+
+  var value = function ($scope, key, value) {
+    $scope[key] = value;
+  }
+
+  var getGroupBy = function ($scope, key, value) {
+    for (var j in $scope.groupBys) {
+      if ($scope.groupBys[j].name === value) {
+        $scope[key] = $scope.groupBys[j];
+        return;
+      }
+    }
+    $scope[key] = $scope.groupBy;
+  }
+
+  var split = function ($scope, key, value) {
+    $scope[key] = value.split(",");
+  }
+
+  var setTagKey = function ($scope, key, value) {
+    var keys = value.split(",");
+    $scope.selected__tagKey = keys.length > 0 ? keys[0] : null;
+    $scope[key] = keys;
+  }
+
+  var setNames = function ($scope, key, value) {
+    var values = value.split(",");
+    var names = [];
+    for (var k = 0; k < values.length; k++) {
+      names.push({ name: tags[k] });
+    }
+    $scope[key] = names;
+  }
+
+  var getDimensions = function ($scope, key, value) {
+    var dims = value.split(",");
+    var dimensions = Array($scope.NUM_DIMENSIONS);
+    for (var j = 0; j < $scope.NUM_DIMENSIONS; j++)
+      dimensions[j] = "true" === dims[j];
+    $scope[key] = dimensions;
+  }
+
+  var getEnabledUserTags = function ($scope, key, value) {
+    var enabled = value.split(",");
+    var enabledUserTags = Array(enabled.length);
+    for (j = 0; j < enabled.length; j++)
+      enabledUserTags[j] = "true" === enabled[j];
+    $scope[key] = enabledUserTags;
+  }
+
+  var setExcludes = function ($scope, key, value) {
+    var excludes = value.split(",");
+    for (var i = 0; i < excludes.length; i++) {
+      var v = excludes[i];
+      if (v === "recurring")
+        $scope.recurring = false;
+      else if (v === "amortized")
+        $scope.amortized = false;
+      else if (v === "credit")
+        $scope.credit = false;
+      else if (v === "tax")
+        $scope.tax = false;
+      else if (v === "savings")
+        $scope.savings = false;
+    }
+  }
+
+  var time = function ($scope, key, value) {
+    if (timeParams)
+      timeParams += "&";
+    timeParams += key + "=" + value;
+    $scope[key] = value;
+  }
+
+  var paramDefs = {
+    spans: {name: "spans", fn: parseInt},
+    graphOnly: {name: "graphonly", fn: isTrue},
+    showUserTags: {name: "showUserTags", fn: isTrue},
+    start: {name: "start", fn: time},
+    end: {name: "end", fn: time},
+    resources: {name: "resources", fn: value},
+    showZones: {name: "showZones", fn: isTrue},
+    showsps: {name: "showsps", fn: isTrue},
+    factorsps: {name: "factorsps", fn: isTrue},
+    plotType: {name: "plotType", fn: value},
+    reservationSharing: {name: "reservationSharing", fn: value},
+    consolidate: {name: "consolidate", fn: value},
+    usage_cost: {name: "usage_cost", fn: value},
+    usageUnit: {name: "usageUnit", fn: value},
+    groupBy: {name: "groupBy", fn: getGroupBy},
+    groupByTag: {name: "initialGroupByTag", fn: value},
+    orgUnit: {name: "organizationalUnit", fn: value},
+    account: {name: "selected__accounts", fn: split},
+    region: {name: "selected__regions", fn: split},
+    zone: {name: "selected__regions", fn: split},
+    product: {name: "selected__products", fn: split},
+    operation: {name: "selected__operations", fn: split},
+    usageType: {name: "selected__usageTypes", fn: split},
+    consolidateGroups: {name: "consolidateGroups", fn: isTrue},
+    tagKey: {name: "selected__tagKeys", fn: setTagKey},
+    userTags: {name: "userTags", fn: setNames},
+    dimensions: {name: "dimensions", fn: getDimensions},
+    enabledUserTags: {name: "enabledUserTags", fn: getEnabledUserTags},
+    filter_accounts: {name: "filter_accounts", fn: value},
+    filter_regions: {name: "filter_regions", fn: value},
+    filter_zones: {name: "filter_zones", fn: value},
+    filter_products: {name: "filter_products", fn: value},
+    filter_operations: {name: "filter_operations", fn: value},
+    filter_usageTypes: {name: "filter_usageTypes", fn: value},
+    exclude: {name: "", fn: setExcludes},
+  };
+
+  $scope.getParams = function (hash, $scope) {
+    $scope.tagParams = {};
+    $scope.tagFilterParams = {};
+    timeParams = "";
+    if (hash) {
+      var params = hash.split("&");
+      for (var i = 0; i < params.length; i++) {
+
+        var parts = params[i].split('=');
+        if (parts[0].includes('-'))
+          parts[0] = parts[0].replace('-', '_');
+        if (parts.length == 2 && parts[0] in paramDefs) {
+          var def = paramDefs[parts[0]];
+          var result = def.fn($scope, parts[0], parts[1]);
+          continue;
+        }
+             
+        if (params[i].indexOf("tag-") === 0) {
+          var parts = params[i].substr(4).split("=");
+          $scope.tagParams[parts[0]] = parts[1];
+        }
+        else if (params[i].indexOf("filter-tag-") === 0) {
+          var parts = params[i].substr(11).split("=");
+          $scope.tagFilterParams[parts[0]] = parts[1];
+        }
+      }
+    }
   }
 
   window.onhashchange = function () {
@@ -1310,7 +1321,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
   $scope.throughput_metricname = throughput_metricname;
 
   $scope.getTimeParams = function () {
-    return usage_db.getTimeParams();
+    return timeParams;
   }
 
   $scope.reload = function () {
@@ -1390,11 +1401,11 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
   }
 
   $scope.graphOnly = function () {
-    return usage_db.graphOnly();
+    return $scope.graphonly;
   }
 
   $scope.getBodyWidth = function (defaultWidth) {
-    return usage_db.graphOnly() ? "" : defaultWidth;
+    return $scope.graphonly ? "" : defaultWidth;
   }
 
   $scope.updateAccounts = function ($scope) {
@@ -1493,19 +1504,6 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.groupBysFullLen = $scope.groupBys.length;
   $scope.defaultGroupBy = $scope.groupBys[6];
   $scope.groupBy = $scope.defaultGroupBy;
-  var startMonth = $scope.end.getUTCMonth() - 1;
-  var startYear = $scope.end.getUTCFullYear();
-  if (startMonth < 0) {
-    startMonth += 12;
-    startYear -= 1;
-  }
-  $scope.start.setUTCFullYear(startYear);
-  $scope.start.setUTCMonth(startMonth);
-  $scope.start.setUTCDate(1);
-  $scope.start.setUTCHours(0);
-
-  $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
-  $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
   $scope.isGroupByTag = function () {
     return $scope.groupBy.name === 'Tag';
@@ -1523,10 +1521,8 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.start = jQuery('#start').datetimepicker().val();
     var params = {};
     $scope.addCommonParams($scope, params);
-    usage_db.addDimensionParams($scope, params);
-    if ($scope.showUserTags) {
-      usage_db.addUserTagParams($scope, params);
-    }
+    $scope.addDimensionParams($scope, params);
+    $scope.addUserTagParams($scope, params);
     usage_db.updateUrl($location, params);
   }
 
@@ -1707,7 +1703,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     initializing = false;
   }
 
-  usage_db.getParams($location.hash(), $scope);
+  $scope.getParams($location.hash(), $scope);
   getOps();
 }
 
@@ -1731,19 +1727,6 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.groupBysFullLen = $scope.groupBys.length;
   $scope.defaultGroupBy = $scope.groupBys[6];
   $scope.groupBy = $scope.defaultGroupBy;
-  var startMonth = $scope.end.getUTCMonth() - 1;
-  var startYear = $scope.end.getUTCFullYear();
-  if (startMonth < 0) {
-    startMonth += 12;
-    startYear -= 1;
-  }
-  $scope.start.setUTCFullYear(startYear);
-  $scope.start.setUTCMonth(startMonth);
-  $scope.start.setUTCDate(1);
-  $scope.start.setUTCHours(0);
-
-  $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
-  $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
   $scope.isGroupByTag = function () {
     return $scope.groupBy.name === 'Tag';
@@ -1761,10 +1744,8 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.start = jQuery('#start').datetimepicker().val();
     var params = {};
     $scope.addCommonParams($scope, params);
-    usage_db.addDimensionParams($scope, params);
-    if ($scope.showUserTags) {
-      usage_db.addUserTagParams($scope, params);
-    }
+    $scope.addDimensionParams($scope, params);
+    $scope.addUserTagParams($scope, params);
     usage_db.updateUrl($location, params);
   }
 
@@ -1977,7 +1958,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     }, query);
   }
 
-  usage_db.getParams($location.hash(), $scope);
+  $scope.getParams($location.hash(), $scope);
   getOps();
 }
 
@@ -2003,19 +1984,6 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
   ],
   $scope.groupBy = $scope.groupBys[1];
   $scope.consolidate = "daily";
-  var startMonth = $scope.end.getUTCMonth() - 1;
-  var startYear = $scope.end.getUTCFullYear();
-  if (startMonth < 0) {
-    startMonth += 12;
-    startYear -= 1;
-  }
-  $scope.start.setUTCFullYear(startYear);
-  $scope.start.setUTCMonth(startMonth);
-  $scope.start.setUTCDate(1);
-  $scope.start.setUTCHours(0);
-
-  $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
-  $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
   $scope.isGroupByTagKey = function () {
     return $scope.groupBy.name === 'TagKey';
@@ -2032,10 +2000,8 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
       tagCoverage: "" + $scope.tagCoverage,
     };
     $scope.addCommonParams($scope, params);
-    usage_db.addDimensionParams($scope, params);
-    if ($scope.showUserTags) {
-      usage_db.addUserTagParams($scope, params);
-    }
+    $scope.addDimensionParams($scope, params);
+    $scope.addUserTagParams($scope, params);
 
     if ($scope.isGroupByTagKey())
       params.tagKey = { selected: $scope.selected_tagKeys };
@@ -2131,7 +2097,7 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
 
-  usage_db.getParams($location.hash(), $scope);
+  $scope.getParams($location.hash(), $scope);
   usage_db.processParams($scope);
 
   $scope.getUserTags = function () {
@@ -2176,28 +2142,13 @@ function utilizationCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.groupBy = $scope.groupBys[0];
   $scope.consolidate = "daily";
   $scope.plotType = 'line';
-  var startMonth = $scope.end.getUTCMonth() - 1;
-  var startYear = $scope.end.getUTCFullYear();
-  if (startMonth < 0) {
-    startMonth += 12;
-    startYear -= 1;
-  }
-  $scope.start.setUTCFullYear(startYear);
-  $scope.start.setUTCMonth(startMonth);
-  $scope.start.setUTCDate(1);
-  $scope.start.setUTCHours(0);
-
-  $scope.end.setUTCHours(0);
-  $scope.start.setUTCHours(0);
-  $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
-  $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
   $scope.updateUrl = function () {
     $scope.end = jQuery('#end').datetimepicker().val();
     $scope.start = jQuery('#start').datetimepicker().val();
     var params = {};
     $scope.addCommonParams($scope, params);
-    usage_db.addDimensionParams($scope, params);
+    $scope.addDimensionParams($scope, params);
     usage_db.updateUrl($location, params);
   }
 
@@ -2278,7 +2229,7 @@ function utilizationCtrl($scope, $location, $http, usage_db, highchart) {
 
   var fn = function (data) {
     $scope.predefinedQuery = { operation: $scope.utilizationOps.join(","), forReservation: true };
-    usage_db.getParams($location.hash(), $scope);
+    $scope.getParams($location.hash(), $scope);
     usage_db.processParams($scope);
 
     $scope.updateAccounts($scope);
@@ -2318,19 +2269,6 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.groupBysFullLen = $scope.groupBys.length;
   $scope.defaultGroupBy = $scope.groupBys[4];
   $scope.groupBy = $scope.defaultGroupBy;
-  var startMonth = $scope.end.getUTCMonth() - 1;
-  var startYear = $scope.end.getUTCFullYear();
-  if (startMonth < 0) {
-    startMonth += 12;
-    startYear -= 1;
-  }
-  $scope.start.setUTCFullYear(startYear);
-  $scope.start.setUTCMonth(startMonth);
-  $scope.start.setUTCDate(1);
-  $scope.start.setUTCHours(0);
-
-  $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
-  $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
 
   $scope.isGroupByTag = function () {
     return $scope.groupBy.name === 'Tag';
@@ -2348,10 +2286,8 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.start = jQuery('#start').datetimepicker().val();
     var params = {};
     $scope.addCommonParams($scope, params);
-    usage_db.addDimensionParams($scope, params);
-    if ($scope.showUserTags) {
-      usage_db.addUserTagParams($scope, params);
-    }
+    $scope.addDimensionParams($scope, params);
+    $scope.addUserTagParams($scope, params);
     usage_db.updateUrl($location, params);
   }
 
@@ -2505,7 +2441,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     initializing = false;
   }
 
-  usage_db.getParams($location.hash(), $scope);
+  $scope.getParams($location.hash(), $scope);
 
   if ($scope.spans) {
     $http({
@@ -2536,24 +2472,26 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
     { name: "UsageType" }
   ],
   $scope.groupBy = $scope.groupBys[4];
-  var startMonth = $scope.end.getUTCMonth() - 6;
-  var startYear = $scope.end.getUTCFullYear();
+  var end = new Date();
+  var start = new Date();
+  var startMonth = end.getUTCMonth() - 6;
+  var startYear = end.getUTCFullYear();
   if (startMonth < 0) {
     startMonth += 12;
     startYear -= 1;
   }
-  $scope.start.setUTCFullYear(startYear);
-  $scope.start.setUTCMonth(startMonth);
+  start.setUTCFullYear(startYear);
+  start.setUTCMonth(startMonth);
 
-  $scope.end = highchart.dateFormat($scope.end); //$filter('date')($scope.end, "y-MM-dd hha");
-  $scope.start = highchart.dateFormat($scope.start); //$filter('date')($scope.start, "y-MM-dd hha");
+  $scope.end = highchart.dateFormat(end); //$filter('date')($scope.end, "y-MM-dd hha");
+  $scope.start = highchart.dateFormat(start); //$filter('date')($scope.start, "y-MM-dd hha");
 
   $scope.updateUrl = function () {
     var params = {
       groupBy: $scope.groupBy.name,
     }
 
-    usage_db.addDimensionParams($scope, params);
+    $scope.addDimensionParams($scope, params);
     usage_db.updateUrl($location, params);
   }
 
@@ -2690,7 +2628,7 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
     $scope.updateUsageTypes($scope);
   }
 
-  usage_db.getParams($location.hash(), $scope);
+  $scope.getParams($location.hash(), $scope);
 
   usage_db.getAccounts($scope, function (data) {
     $scope.updateRegions($scope);
