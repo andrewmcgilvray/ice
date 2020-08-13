@@ -29,6 +29,9 @@ import java.util.concurrent.ConcurrentMap;
 public class Region extends Tag {
 	private static final long serialVersionUID = 1L;
 	
+    private static ConcurrentMap<String, Region> regionsByName = Maps.newConcurrentMap();
+    private static ConcurrentMap<String, Region> regionsByShortName = Maps.newConcurrentMap();
+
     public static List<String> cloudFrontRegions = Lists.newArrayList(new String[]{"AP","AU","CA","EU","IN","JP","ME","SA","US","ZA"});
 	
 	public static final Region GLOBAL = new Region("global", "", "Global") {
@@ -43,10 +46,12 @@ public class Region extends Tag {
 	};	
 	
 	public static final Region US_EAST_1 = new Region("us-east-1", "USE1", "US East (N. Virginia)");
+	public static final Region US_EAST_1_WL1_BOS = new Region("us-east-1-wl1-bos-wlz-1", "USE1WL1", "US East (Verizon) - Boston");
     public static final Region US_EAST_2 = new Region("us-east-2", "USE2", "US East (Ohio)");
     public static final Region US_WEST_1 = new Region("us-west-1", "USW1", "US West (N. California)");
     public static final Region US_WEST_2 = new Region("us-west-2", "USW2", "US West (Oregon)");
     public static final Region US_WEST_2_LAX_1 = new Region("us-west-2-lax-1", "LAX1", "US West (Los Angeles)");
+    public static final Region US_WEST_2_WL1_SFO = new Region("us-west-2-wl1-sfo-wlz-1", "USW2WL1", "US West (Verizon) - San Francisco Bay Area");
     public static final Region CA_CENTRAL_1 = new Region("ca-central-1", "CAN1", "Canada (Central)");
     public static final Region EU_WEST_1 = new Region("eu-west-1", "EU", "EU (Ireland)");
     public static final Region EU_CENTRAL_1 = new Region("eu-central-1", "EUC1", "EU (Frankfurt)");
@@ -65,33 +70,7 @@ public class Region extends Tag {
     public static final Region ME_SOUTH_1 = new Region("me-south-1", "MES1", "Middle East (Bahrain)");
     public static final Region AF_SOUTH_1 = new Region("af-south-1", "AFS1", "Africa (Cape Town)");
 
-    private static ConcurrentMap<String, Region> regionsByName = Maps.newConcurrentMap();
-    private static ConcurrentMap<String, Region> regionsByShortName = Maps.newConcurrentMap();
-
     static {
-        regionsByShortName.put(US_EAST_1.shortName, US_EAST_1);
-        regionsByShortName.put(US_EAST_2.shortName, US_EAST_2);
-        regionsByShortName.put(US_WEST_1.shortName, US_WEST_1);
-        regionsByShortName.put(US_WEST_2.shortName, US_WEST_2);
-        regionsByShortName.put(US_WEST_2_LAX_1.shortName, US_WEST_2_LAX_1);
-        regionsByShortName.put(CA_CENTRAL_1.shortName, CA_CENTRAL_1);
-        regionsByShortName.put(EU_WEST_1.shortName, EU_WEST_1);
-        regionsByShortName.put(EU_CENTRAL_1.shortName, EU_CENTRAL_1);
-        regionsByShortName.put(EU_WEST_2.shortName, EU_WEST_2);
-        regionsByShortName.put(EU_WEST_3.shortName, EU_WEST_3);
-        regionsByShortName.put(EU_NORTH_1.shortName, EU_NORTH_1);
-        regionsByShortName.put(EU_SOUTH_1.shortName, EU_SOUTH_1);
-        regionsByShortName.put(AP_EAST_1.shortName, AP_EAST_1);
-        regionsByShortName.put(AP_NORTHEAST_1.shortName, AP_NORTHEAST_1);
-        regionsByShortName.put(AP_NORTHEAST_2.shortName, AP_NORTHEAST_2);
-        regionsByShortName.put(AP_NORTHEAST_3.shortName, AP_NORTHEAST_3);
-        regionsByShortName.put(AP_SOUTHEAST_1.shortName, AP_SOUTHEAST_1);
-        regionsByShortName.put(AP_SOUTHEAST_2.shortName, AP_SOUTHEAST_2);
-        regionsByShortName.put(AP_SOUTH_1.shortName, AP_SOUTH_1);
-        regionsByShortName.put(SA_EAST_1.shortName, SA_EAST_1);
-        regionsByShortName.put(ME_SOUTH_1.shortName, ME_SOUTH_1);
-        regionsByShortName.put(AF_SOUTH_1.shortName, AF_SOUTH_1);
-
         // Populate regions used to serve edge locations for CloudFront
         regionsByShortName.put("US", US_EAST_1);		/* US United States*/
         regionsByShortName.put("CA", CA_CENTRAL_1);		/* CA Canada */
@@ -103,30 +82,6 @@ public class Region extends Tag {
         regionsByShortName.put("SA", SA_EAST_1);		/* SA South America */
         regionsByShortName.put("ME", EU_CENTRAL_1);		/* ME Middle East */
         regionsByShortName.put("ZA", EU_WEST_2);		/* ZA South Africa */
-
-        regionsByName.put(GLOBAL.name, GLOBAL);
-        regionsByName.put(US_EAST_1.name, US_EAST_1);
-        regionsByName.put(US_EAST_2.name, US_EAST_2);
-        regionsByName.put(US_WEST_1.name, US_WEST_1);
-        regionsByName.put(US_WEST_2.name, US_WEST_2);
-        regionsByName.put(US_WEST_2_LAX_1.name, US_WEST_2_LAX_1);
-        regionsByName.put(CA_CENTRAL_1.name, CA_CENTRAL_1);
-        regionsByName.put(EU_WEST_1.name, EU_WEST_1);
-        regionsByName.put(EU_CENTRAL_1.name, EU_CENTRAL_1);
-        regionsByName.put(EU_WEST_2.name, EU_WEST_2);
-        regionsByName.put(EU_WEST_3.name, EU_WEST_3);
-        regionsByName.put(EU_NORTH_1.name, EU_NORTH_1);
-        regionsByName.put(EU_SOUTH_1.name, EU_SOUTH_1);
-        regionsByName.put(AP_EAST_1.name, AP_EAST_1);
-        regionsByName.put(AP_NORTHEAST_1.name, AP_NORTHEAST_1);
-        regionsByName.put(AP_NORTHEAST_2.name, AP_NORTHEAST_2);
-        regionsByName.put(AP_NORTHEAST_3.name, AP_NORTHEAST_3);
-        regionsByName.put(AP_SOUTHEAST_1.name, AP_SOUTHEAST_1);
-        regionsByName.put(AP_SOUTHEAST_2.name, AP_SOUTHEAST_2);
-        regionsByName.put(AP_SOUTH_1.name, AP_SOUTH_1);
-        regionsByName.put(SA_EAST_1.name, SA_EAST_1);
-        regionsByName.put(ME_SOUTH_1.name, ME_SOUTH_1);
-        regionsByName.put(AF_SOUTH_1.name, AF_SOUTH_1);
     }
 
     public final String shortName;
@@ -137,6 +92,10 @@ public class Region extends Tag {
         super(name);
         this.shortName = shortName;
         this.priceListName = priceListName;
+        
+        if (!this.shortName.isEmpty())
+        	regionsByShortName.put(this.shortName, this);
+        regionsByName.put(this.name, this);
     }
 
     @Override
