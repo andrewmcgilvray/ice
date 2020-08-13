@@ -271,7 +271,7 @@ public class PostProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: ((1000 + 2000) - (4000 * 4 * 8 / 2)) * 0.01 / 1000 == (3000 - 64000) * 0.00001 == 2999.36
-		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "Credit - OP1", "US-Requests", null).getTagGroup();
+		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", null).getTagGroup();
 		Double value = costData.get(0, usReqs);
 		assertNotNull("No cost value for US-Requests", value);
 		assertEquals("Wrong cost value for US-Requests", -0.61, value, .0001);
@@ -281,7 +281,7 @@ public class PostProcessorTest {
 		assertEquals("Wrong usage value for US-Requests", -61000.0, value, .0001);
 		
 		// EU:  ((10000 + 20000) - (40000 * 4 * 8 / 2)) * 0.01 / 1000 == (30000 - 640000) * 0.00001 == 29993.6
-		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "Credit - OP1", "EU-Requests", null).getTagGroup();
+		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", null).getTagGroup();
 		Double euValue = costData.get(0, euReqs);
 		assertNotNull("No cost value for EU-Requests", euValue);
 		assertEquals("Wrong cost value for EU-Requests", -6.1, euValue, .0001);
@@ -335,13 +335,13 @@ public class PostProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: (1000 + 2000) - (4000 * 4 * 8 / 2) * 0.01 / 1000 == 3000 - 64000 * 0.00001 == 2999.36
-		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "Credit - OP1", "US-Requests", new String[]{"tagA", ""}, 0.0).getTagGroup();
+		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", new String[]{"tagA", ""}, 0.0).getTagGroup();
 		Double value = outCostData.get(0, usReqs);
 		assertNotNull("No value for US-Requests", value);
 		assertEquals("Wrong value for US-Requests", -0.61, value, .0001);
 		
 		// EU:  (10000 + 20000) - (40000 * 4 * 8 / 2) * 0.01 / 1000 == 30000 - 640000 * 0.00001 == 29993.6
-		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "Credit - OP1", "EU-Requests", new String[]{"tagC", ""}, 0.0).getTagGroup();
+		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", new String[]{"tagC", ""}, 0.0).getTagGroup();
 		Double euValue = outCostData.get(0, euReqs);
 		assertNotNull("No value for EU-Requests", euValue);
 		assertEquals("Wrong value for EU-Requests", -6.1, euValue, .0001);
@@ -720,7 +720,7 @@ public class PostProcessorTest {
 		//
 		// US: (1000 + 2000) - (4000 * 4 * 8 / 2) * 0.01 / 1000 == 3000 - 64000 * 0.00001 == 2999.36
 		for (String[] rg: new String[][]{new String[]{"Tag1", ""}, new String[]{"Tag2", ""}}) {
-			TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "Credit - OP1", "US-Requests", rg, null).getTagGroup();
+			TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", rg, null).getTagGroup();
 			for (int hour = 0; hour < 2; hour++) {
 				Double value = outCostData.get(hour, usReqs);
 				assertNotNull("No value for US-Requests hour " + hour + ", tag " + rg, value);
