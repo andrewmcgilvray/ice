@@ -288,7 +288,10 @@ public class ProcessorConfig extends Config {
 	            }
             }
             catch(AmazonEC2Exception e) {
-            	logger.error("failed to get zones for region " + region + ", " + e.getErrorMessage());
+            	if (e.getErrorCode().equals("UnauthorizedOperation"))
+            		logger.warn("Not authorized to get zones for region " + region);
+            	else
+            		logger.error("failed to get zones for region " + region + ", code: " + e.getErrorCode() + ", " + e.getErrorMessage());
             }
     	}
     }
