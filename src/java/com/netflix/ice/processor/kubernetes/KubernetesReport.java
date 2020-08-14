@@ -307,5 +307,9 @@ public class KubernetesReport extends Report {
 	public int getNamespaceIndex() {
 		return namespaceIndex;
 	}
+	
+	public KubernetesConfig getConfig() {
+		return config;
+	}
 }
 

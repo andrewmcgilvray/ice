@@ -19,8 +19,13 @@ package com.netflix.ice.processor.config;
 
 import java.util.List;
 
+import com.netflix.ice.processor.postproc.OperandConfig;
+
 public class KubernetesConfig {
 	// Kubernetes report S3 bucket access information
+	private String name;
+	private String start;
+	private String end;
 	private String bucket;
 	private String region;
 	private String prefix;
@@ -29,6 +34,7 @@ public class KubernetesConfig {
 	private String externalId;
 	
 	// Processing rules parameters
+	private OperandConfig in;
 	private List<String> clusterNameFormulae;
 	private String computeTag;
 	private String computeValue;
@@ -36,6 +42,24 @@ public class KubernetesConfig {
 	private List<KubernetesNamespaceMapping> namespaceMappings;
 	private List<String> tags;
 	
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public String getStart() {
+		return start;
+	}
+	public void setStart(String start) {
+		this.start = start;
+	}
+	public String getEnd() {
+		return end;
+	}
+	public void setEnd(String end) {
+		this.end = end;
+	}
 	public String getBucket() {
 		return bucket;
 	}
@@ -72,11 +96,11 @@ public class KubernetesConfig {
 	public void setExternalId(String externalId) {
 		this.externalId = externalId;
 	}
-	public List<String> getTags() {
-		return tags;
+	public OperandConfig getIn() {
+		return in;
 	}
-	public void setTags(List<String> tags) {
-		this.tags = tags;
+	public void setIn(OperandConfig in) {
+		this.in = in;
 	}
 	public List<String> getClusterNameFormulae() {
 		return clusterNameFormulae;
@@ -108,6 +132,12 @@ public class KubernetesConfig {
 	public void setNamespaceMappings(
 			List<KubernetesNamespaceMapping> namespaceMappings) {
 		this.namespaceMappings = namespaceMappings;
+	}
+	public List<String> getTags() {
+		return tags;
+	}
+	public void setTags(List<String> tags) {
+		this.tags = tags;
 	}
 }
 

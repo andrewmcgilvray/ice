@@ -146,7 +146,7 @@ public class PostProcessor {
 		int maxNum = data.getMaxNum();
 		
 		// Get the aggregated value for the input operand
-		Map<AggregationTagGroup, Double[]> inData = getInData(rule, data, isNonResource, maxNum);
+		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, isNonResource, maxNum);
 		logger.info("  -- in data size = " + inData.size());
 		
 		Map<String, Double[]> opSingleValues = getOperandSingleValues(rule, dataByOperand, isNonResource, maxNum, operandSingleValueCache);
@@ -161,12 +161,11 @@ public class PostProcessor {
 	 * Aggregate the data using the regex groups contained in the input filters
 	 * @throws Exception 
 	 */
-	protected Map<AggregationTagGroup, Double[]> getInData(Rule rule, CostAndUsageData data,
+	public Map<AggregationTagGroup, Double[]> getInData(InputOperand in, CostAndUsageData data,
 			boolean isNonResource, int maxNum) throws Exception {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
-		InputOperand in = rule.getIn();
 		int maxHours = in.isMonthly() ? 1 : maxNum;
 		Map<AggregationTagGroup, Double[]> inValues = Maps.newHashMap();
 		List<Product> inProducts = isNonResource ? Lists.newArrayList(new Product[]{null}) : in.getProducts(productService);			

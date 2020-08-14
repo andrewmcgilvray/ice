@@ -19,15 +19,17 @@ package com.netflix.ice.processor.kubernetes;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
@@ -35,6 +37,10 @@ import com.netflix.ice.processor.ProcessorConfig;
 import com.netflix.ice.processor.ReadWriteData;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
+import com.netflix.ice.processor.postproc.InputOperand;
+import com.netflix.ice.processor.postproc.Operand;
+import com.netflix.ice.processor.postproc.OperandConfig;
+import com.netflix.ice.processor.postproc.PostProcessor;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
@@ -46,8 +52,20 @@ public class KubernetesProcessor {
     public static final String reportPrefix = "kubernetes-";
     public static final double vCpuToMemoryCostRatio = 10.9;
     
+	public static final Product.Code[] productCodes = new Product.Code[]{
+			Product.Code.Ec2Instance,
+			Product.Code.CloudWatch,
+			Product.Code.Ebs,
+			Product.Code.DataTransfer,
+		};
+	public static final List<String> productServiceCodes = Lists.newArrayList();
+	{
+		for (Product.Code c: productCodes)
+			productServiceCodes.add(c.serviceCode);
+	}
+    
     protected final ProcessorConfig config;
-    private final List<KubernetesReport> reports;
+    protected final List<KubernetesReport> reports;
 
 	public KubernetesProcessor(ProcessorConfig config, DateTime start) throws IOException {
 		this.config = config;
@@ -58,12 +76,18 @@ public class KubernetesProcessor {
 		
 	}	
 	
+	private boolean isActive(KubernetesConfig kc, DateTime start) {
+		DateTime ruleStart = new DateTime(kc.getStart(), DateTimeZone.UTC);
+		DateTime ruleEnd = new DateTime(kc.getEnd(), DateTimeZone.UTC);
+		return !ruleStart.isAfter(start) && start.isBefore(ruleEnd);
+	}
+	
 	protected List<KubernetesReport> getReportsToProcess(DateTime start) throws IOException {
         List<KubernetesReport> filesToProcess = Lists.newArrayList();
 
         // Compile list of reports from all the configured buckets
-        for (KubernetesConfig kc: config.kubernetesConfigs) {
-            if (kc.getBucket().isEmpty())
+        for (KubernetesConfig kc: config.kubernetesConfigs) {        	
+            if (!isActive(kc, start) || kc.getBucket().isEmpty())
             	continue;
                         
             String prefix = kc.getPrefix();
@@ -93,51 +117,53 @@ public class KubernetesProcessor {
 			logger.info("No kubernetes reports to process");
 			return;
 		}
-		
+				
 		for (KubernetesReport report: reports) {
 			report.loadReport(config.workBucketConfig.localDir);
-		}
-		
-		Product.Code[] productCodes = new Product.Code[]{
-			Product.Code.Ec2Instance,
-			Product.Code.CloudWatch,
-			Product.Code.Ebs,
-			Product.Code.DataTransfer,
-		};
-		
-		for (Product.Code productCode: productCodes) {
-			Product p = config.productService.getProduct(productCode);
-			logger.info("Process kubernetes data for " + productCode.serviceCode);
-			process(data.getCost(p));
+			process(report, data);
 		}
 	}
 	
-	protected void process(ReadWriteData costData) {
-		// Process each hour of data
-		for (int i = 0; i < costData.getNum(); i++) {
-			// Get a copy of the key set since we'll be updating the map
-			Set<TagGroup> tagGroups = Sets.newHashSet(costData.getTagGroups(i));
-			for (TagGroup tg: tagGroups) {
-				if (tg.resourceGroup == null)
-					continue;
-				
-				UserTag[] ut = tg.resourceGroup.getUserTags();
-								
-				for (KubernetesReport report: reports) {
-					if (report.isCompute(ut)) {
-						// Get the list of possible cluster names for this tag group.
-						// Only one report entry should match.
-						List<String> clusterNames = report.getClusterNameBuilder().getClusterNames(ut);
-						if (clusterNames.size() > 0) {
-							for (String clusterName: clusterNames) {
-								List<String[]> hourClusterData = report.getData(clusterName, i);
-								if (hourClusterData != null) {
-									processHourClusterData(costData, i, tg, clusterName, report, hourClusterData);
-								}
-							}
+	protected void process(KubernetesReport report, CostAndUsageData data) throws Exception {
+		OperandConfig inConfig = report.getConfig().getIn();
+		// Make sure product list is limited to the four we support
+		if (inConfig.getProduct() == null) {
+			// load the supported products into the input filter
+			inConfig.setProduct("^(" + StringUtils.join(productServiceCodes, "|") + ")$");
+		}
+		
+		InputOperand inOperand = new InputOperand(inConfig, config.accountService, config.resourceService);
+		OperandConfig resultConfig = new OperandConfig();
+		Operand result = new Operand(resultConfig, config.accountService, config.resourceService);
+		
+		int maxNum = data.getMaxNum();
+		PostProcessor pp = new PostProcessor(null, config.accountService, config.productService, config.resourceService);
+		Map<AggregationTagGroup, Double[]> inData = pp.getInData(inOperand, data, false, maxNum);
+		
+		for (AggregationTagGroup atg: inData.keySet()) {
+			Double[] inValues = inData.get(atg);
+
+			int maxHours = inValues == null ? maxNum : inValues.length;
+			TagGroup tg = result.tagGroup(atg, config.accountService, config.productService, false);
+			
+			
+			if (tg.resourceGroup == null)
+				return;
+			
+			UserTag[] ut = tg.resourceGroup.getUserTags();
+			
+			for (int hour = 0; hour < maxHours; hour++) {						
+				// Get the list of possible cluster names for this tag group.
+				// Only one report entry should match.
+				List<String> clusterNames = report.getClusterNameBuilder().getClusterNames(ut);
+				if (clusterNames.size() > 0) {
+					for (String clusterName: clusterNames) {
+						List<String[]> hourClusterData = report.getData(clusterName, hour);
+						if (hourClusterData != null) {
+							processHourClusterData(data.getCost(tg.product), hour, tg, clusterName, report, hourClusterData);
 						}
 					}
-				}					
+				}
 			}
 		}
 	}

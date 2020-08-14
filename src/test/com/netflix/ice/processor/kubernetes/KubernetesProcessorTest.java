@@ -41,6 +41,7 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.WorkBucketDataConfig;
+import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ProcessorConfig;
 import com.netflix.ice.processor.ReadWriteData;
 import com.netflix.ice.processor.ReservationService;
@@ -89,11 +90,18 @@ public class KubernetesProcessorTest {
 	        }
 			String yaml = 
 					"kubernetes:\n" + 
-					"  - bucket: k8s-report-bucket\n" + 
+					"  - name: k8s-test\n" + 
+					"    start: 2019-01\n" + 
+					"    end: 2099-01\n" + 
+					"    bucket: k8s-report-bucket\n" + 
+					"    region: us-east-1\n" + 
 					"    prefix: hourly/kubernetes\n" + 
+					"    in:\n" + 
+					"      type: cost\n" + 
+					"      accounts: [123456789012]\n" + 
+					"      userTags:\n" + 
+					"        Role: compute\n" + 
 					"    clusterNameFormulae: [ " + formulaeYaml.toString() + " ]\n" + 
-					"    computeTag: Role\n" + 
-					"    computeValue: compute\n" + 
 					"    namespaceTag: Namespace\n" + 
 					"    tags: [ UserTag1, UserTag2 ]\n" + 
 					"";
@@ -248,13 +256,15 @@ public class KubernetesProcessorTest {
 		TagGroup[] tgs = new TagGroup[clusterTags.length];
 		ReadWriteData costData = new ReadWriteData();
 		Map<TagGroup, Double> hourCostData = costData.getData(testDataHour);
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, null, productService);
+		data.putCost(productService.getProduct(Product.Code.Ec2Instance), costData);
 		
 		for (int i = 0; i < clusterTags.length; i++) {
 			tgs[i] = getTagGroup(clusterTags[i]);
 			costData.put(testDataHour, tgs[i], 40.0);
 		}
 						
-		kp.process(costData);
+		kp.process(kp.reports.get(0), data);
 		
 		double[] expectedAllocatedCosts = new double[]{ 0.4133, 0.4324, 0.4133 };
 		double[] expectedUnusedCosts = new double[]{ 21.1983, 12.0014, 21.1983 };
