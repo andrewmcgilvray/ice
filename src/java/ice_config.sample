@@ -30,7 +30,11 @@ tags:
 #
 kubernetes:
   - bucket: k8s-report-bucket
+    region: us-east-1
     prefix: hourly/kubernetes
+    accountId: 123456789012
+    accessRole: ice
+    #externalId: 
     
 	# Kubernetes reports contain line items identified first by cluster name.
 	# Cost entries in the billing data can be associated to a cluster by applying a

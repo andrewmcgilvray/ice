@@ -30,7 +30,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.processor.BillingBucket;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ProcessorConfig;
 import com.netflix.ice.processor.ReadWriteData;
@@ -62,37 +61,26 @@ public class KubernetesProcessor {
 	protected List<KubernetesReport> getReportsToProcess(DateTime start) throws IOException {
         List<KubernetesReport> filesToProcess = Lists.newArrayList();
 
-        // list the kubernetes report files in the kubernetes buckets
-        for (BillingBucket kb: config.kubernetesBuckets) {
-            if (kb.s3BucketName.isEmpty())
+        // Compile list of reports from all the configured buckets
+        for (KubernetesConfig kc: config.kubernetesConfigs) {
+            if (kc.getBucket().isEmpty())
             	continue;
                         
-            String prefix = kb.s3BucketPrefix;
+            String prefix = kc.getPrefix();
             if (!prefix.isEmpty() && !prefix.endsWith("/"))
             	prefix += "/";
 
             String fileKey = prefix + reportPrefix + AwsUtils.monthDateFormat.print(start);
 
-            logger.info("trying to list objects in kubernetes bucket " + kb.s3BucketName +
-            		" using assume role \"" + kb.accountId + ":" + kb.accessRoleName + "\", and external id \"" + kb.accessExternalId + "\" with key " + fileKey);
+            logger.info("trying to list objects in kubernetes bucket " + kc.getBucket() +
+            		" using assume role \"" + kc.getAccountId() + ":" + kc.getAccessRole() + "\", and external id \"" + kc.getExternalId() + "\" with key " + fileKey);
             
-            List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(kb.s3BucketName, kb.s3BucketRegion, fileKey,
-                    kb.accountId, kb.accessRoleName, kb.accessExternalId);
-            logger.info("found " + objectSummaries.size() + " in billing bucket " + kb.s3BucketName);
+            List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(kc.getBucket(), kc.getRegion(), fileKey,
+            		kc.getAccountId(), kc.getAccessRole(), kc.getExternalId());
+            logger.info("found " + objectSummaries.size() + " report(s) in kubernetes bucket " + kc.getBucket());
             
             if (objectSummaries.size() > 0) {
-            	// Find the matching configuration data for this Kubernetes report
-            	KubernetesConfig kubernetesConfig = null;
-            	for (KubernetesConfig kc: config.kubernetesConfigs) {
-            		logger.info("Bucket " + kb.s3BucketName + ", " + kc.getBucket() + ", Prefix " + kb.s3BucketPrefix + ", " + kc.getPrefix());
-            		if (kb.s3BucketName.equals(kc.getBucket()) && kb.s3BucketPrefix.equals(kc.getPrefix())) {
-            			kubernetesConfig = kc;
-            			break;
-            		}
-            	}
-            	if (kubernetesConfig != null) {
-	            	filesToProcess.add(new KubernetesReport(objectSummaries.get(0), kb, start, kubernetesConfig, config.resourceService));
-            	}
+	            filesToProcess.add(new KubernetesReport(objectSummaries.get(0), kc, start, config.resourceService));
             }
         }
 
@@ -137,6 +125,8 @@ public class KubernetesProcessor {
 								
 				for (KubernetesReport report: reports) {
 					if (report.isCompute(ut)) {
+						// Get the list of possible cluster names for this tag group.
+						// Only one report entry should match.
 						List<String> clusterNames = report.getClusterNameBuilder().getClusterNames(ut);
 						if (clusterNames.size() > 0) {
 							for (String clusterName: clusterNames) {

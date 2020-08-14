@@ -268,7 +268,7 @@ public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
 		 * Constructor used for testing only
 		 */
 		BillingFile(S3ObjectSummary s3ObjectSummary, MonthlyReportProcessor processor) {
-			super(s3ObjectSummary, new BillingBucket(null, null, null, null, null, null, "", ""), processor);
+			super(s3ObjectSummary, new BillingBucket(), processor);
 		}
 		
 		@Override

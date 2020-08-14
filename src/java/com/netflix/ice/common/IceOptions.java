@@ -93,42 +93,6 @@ public class IceOptions {
     public static final String ROOT_NAME = "ice.rootName";
 
     /**
-     * s3 bucket name where kubernetes files are located. For multiple payer accounts, multiple bucket names can be specified delimited by comma ",".
-     * Only read permission is needed. It must be specified in Config.
-     */
-    public static final String KUBERNETES_S3_BUCKET_NAME = "ice.kubernetes_s3bucketname";
-
-    /**
-     * Region for kubernetes s3 bucket. It should be specified for buckets using v4 validation ",".
-     * It must be specified in Config.
-     */
-    public static final String KUBERNETES_S3_BUCKET_REGION = "ice.kubernetes_s3bucketregion";
-
-    /**
-     * Prefix of kubernetes files in billing s3 bucket. For multiple payer accounts, multiple bucket prefixes can be specified delimited by comma ",".
-     * It must be specified in Config.
-     */
-    public static final String KUBERNETES_S3_BUCKET_PREFIX = "ice.kubernetes_s3bucketprefix";
-
-    /**
-     * Account id. Must be specified if across-accounts role is used to access kubernetes files. For multiple accounts, acocunt ids can
-     * be specified delimited by comma ",".
-     */
-    public static final String KUBERNETES_ACCOUNT_ID = "ice.kubernetes_accountId";
-
-    /**
-     * Kubernetes file access role name to assume. Must be specified if across-accounts role is used to access kubernetes files. For multiple payer accounts,
-     * role names can be specified delimited by comma ",".
-     */
-    public static final String KUBERNETES_ACCESS_ROLENAME = "ice.kubernetes_accessRoleName";
-
-    /**
-     * Kubernetes file access external ID. It is optional. Specify it if cross-accounts role is used to access kubernetes files and external id is needed.
-     * For multiple payer accounts, external ids can be specified delimited by comma ",".
-     */
-    public static final String KUBERNETES_ACCESS_EXTERNALID = "ice.kubernetes_accessExternalId";
-    
-    /**
      * Start date for transition to Cost and Usage Reports in YYYY-MM format.
      */
     public static final String COST_AND_USAGE_START_DATE = "ice.costAndUsageStartDate";

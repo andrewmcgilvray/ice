@@ -43,7 +43,7 @@ public class TaggerTest {
 	class TestKubernetesReport extends KubernetesReport {
 
 		public TestKubernetesReport(DateTime month, KubernetesConfig config) {
-			super(null, null, month, config, rs);
+			super(null, config, month, rs);
 		}
 		
 		@Override

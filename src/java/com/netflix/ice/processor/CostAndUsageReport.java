@@ -70,7 +70,7 @@ public class CostAndUsageReport extends MonthlyReport {
 	 * Constructor used for testing only
 	 */
 	public CostAndUsageReport(S3ObjectSummary s3ObjectSummary, File manifest, MonthlyReportProcessor processor) {
-		super(s3ObjectSummary, new BillingBucket(null, null, null, null, null, null, "", ""), processor);
+		super(s3ObjectSummary, new BillingBucket(), processor);
 		if (manifest == null)
 			return;
 		

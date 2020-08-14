@@ -82,9 +82,16 @@ public class KubernetesReport extends Report {
     private Map<String, List<List<String[]>>> data = null;
     private final Tagger tagger;
 
-	public KubernetesReport(S3ObjectSummary s3ObjectSummary, BillingBucket billingBucket,
-			DateTime month, KubernetesConfig config, ResourceService resourceService) {
-    	super(s3ObjectSummary, billingBucket);
+	public KubernetesReport(S3ObjectSummary s3ObjectSummary, KubernetesConfig config,
+			DateTime month, ResourceService resourceService) {
+    	super(s3ObjectSummary, new BillingBucket()
+    								.withS3BucketName(config.getBucket())
+    								.withS3BucketRegion(config.getRegion())
+    								.withS3BucketPrefix(config.getPrefix())
+    								.withAccountId(config.getAccountId())
+    								.withAccessRoleName(config.getAccessRole())
+    								.withAccessExternalId(config.getExternalId())
+    								);
     	this.month = month;
     	this.startMillis = month.getMillis();
 		this.config = config;
@@ -114,7 +121,9 @@ public class KubernetesReport extends Report {
         File file = new File(localDir, filename);
 
         if (getS3ObjectSummary().getLastModified().getTime() > file.lastModified()) {
-	        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + billingBucket.s3BucketPrefix + file.getName() + "...");
+	        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName() + 
+	        		" from account " + billingBucket.accountId + " using role " + billingBucket.accessRoleName + 
+	        		(StringUtils.isEmpty(billingBucket.accessExternalId) ? "" : " with exID: " + billingBucket.accessExternalId) + "...");
 	        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), billingBucket.s3BucketRegion, prefix, file, file.lastModified(),
 	                billingBucket.accountId, billingBucket.accessRoleName, billingBucket.accessExternalId);
 	        if (downloaded)

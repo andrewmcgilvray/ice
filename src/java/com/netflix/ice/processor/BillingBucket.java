@@ -36,17 +36,48 @@ public class BillingBucket {
     public String configBasename;
     
     public BillingBucket() {
+    	this.rootName = "";
+    	this.configBasename = "";
     }
     
-    public BillingBucket(String s3BucketName, String s3BucketRegion, String s3BucketPrefix, String accountId, String accessRoleName, String accessExternalId, String rootName, String configBasename) {
-    	this.s3BucketName = s3BucketName;
-    	this.s3BucketRegion = s3BucketRegion;
-    	this.s3BucketPrefix = s3BucketPrefix;
+    public BillingBucket withAccountId(String accountId) {
     	this.accountId = accountId;
+    	return this;
+    }
+    
+    public BillingBucket withS3BucketName(String s3BucketName) {
+    	this.s3BucketName = s3BucketName;
+    	return this;
+    }
+    
+    public BillingBucket withS3BucketRegion(String s3BucketRegion) {
+    	this.s3BucketRegion = s3BucketRegion;
+    	return this;
+    }
+    
+    public BillingBucket withS3BucketPrefix(String s3BucketPrefix) {
+    	this.s3BucketPrefix = s3BucketPrefix;
+    	return this;
+    }
+    
+    public BillingBucket withAccessRoleName(String accessRoleName) {
     	this.accessRoleName = accessRoleName;
+    	return this;
+    }
+    
+    public BillingBucket withAccessExternalId(String accessExternalId) {
     	this.accessExternalId = accessExternalId;
+    	return this;
+    }
+    
+    public BillingBucket withRootName(String rootName) {
     	this.rootName = rootName;
+    	return this;
+    }
+    
+    public BillingBucket withConfigBasename(String configBasename) {
     	this.configBasename = configBasename;
+    	return this;
     }
     
     /**

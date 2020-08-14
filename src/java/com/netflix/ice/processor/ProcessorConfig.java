@@ -71,7 +71,6 @@ public class ProcessorConfig extends Config {
     public final AccountService accountService;
     public final ResourceService resourceService;
     public final List<BillingBucket> billingBuckets;
-    public final List<BillingBucket> kubernetesBuckets;
     public final DateTime costAndUsageStartDate;
     public final DateTime costAndUsageNetUnblendedStartDate;
     public final SortedMap<DateTime,Double> edpDiscounts;
@@ -122,8 +121,6 @@ public class ProcessorConfig extends Config {
         
         this.billingBuckets = Lists.newArrayList();
         initBillingBuckets(properties);
-        this.kubernetesBuckets = Lists.newArrayList();
-        initKubernetesBuckets(properties);
         
         if (reservationService == null)
         	throw new IllegalArgumentException("reservationService must be specified");
@@ -204,42 +201,19 @@ public class ProcessorConfig extends Config {
         String[] configBasenames = properties.getProperty(IceOptions.BILLING_ICE_CONFIG_BASENAME, "").split(",");
         
         for (int i = 0; i < billingS3BucketNames.length; i++) {
-        	BillingBucket bb = new BillingBucket(
-        			billingS3BucketNames.length > i ? billingS3BucketNames[i] : "",
-        			billingS3BucketRegions.length > i ? billingS3BucketRegions[i] : "",
-        			billingS3BucketPrefixes.length > i ? billingS3BucketPrefixes[i] : "",
-        			billingAccountIds.length > i ? billingAccountIds[i] : "",
-        			billingAccessRoleNames.length > i ? billingAccessRoleNames[i] : "",
-        			billingAccessExternalIds.length > i ? billingAccessExternalIds[i] : "",
-        			rootNames.length > i ? rootNames[i] : "",
-        			configBasenames.length > i ? configBasenames[i] : ""        					
-        		);
+        	BillingBucket bb = new BillingBucket()
+        			.withS3BucketName(billingS3BucketNames.length > i ? billingS3BucketNames[i] : "")
+        			.withS3BucketRegion(billingS3BucketRegions.length > i ? billingS3BucketRegions[i] : "")
+        			.withS3BucketPrefix(billingS3BucketPrefixes.length > i ? billingS3BucketPrefixes[i] : "")
+        			.withAccountId(billingAccountIds.length > i ? billingAccountIds[i] : "")
+        			.withAccessRoleName(billingAccessRoleNames.length > i ? billingAccessRoleNames[i] : "")
+        			.withAccessExternalId(billingAccessExternalIds.length > i ? billingAccessExternalIds[i] : "")
+        			.withRootName(rootNames.length > i ? rootNames[i] : "")
+        			.withConfigBasename(configBasenames.length > i ? configBasenames[i] : "");
         	billingBuckets.add(bb);
         }
     }
     
-    private void initKubernetesBuckets(Properties properties) {
-    	String[] kubernetesS3BucketNames = properties.getProperty(IceOptions.KUBERNETES_S3_BUCKET_NAME, "").split(",");
-    	String[] kubernetesS3BucketRegions = properties.getProperty(IceOptions.KUBERNETES_S3_BUCKET_REGION, "").split(",");
-    	String[] kubernetesS3BucketPrefixes = properties.getProperty(IceOptions.KUBERNETES_S3_BUCKET_PREFIX, "").split(",");
-    	String[] kubernetesAccountIds = properties.getProperty(IceOptions.KUBERNETES_ACCOUNT_ID, "").split(",");
-    	String[] kubernetesAccessRoleNames = properties.getProperty(IceOptions.KUBERNETES_ACCESS_ROLENAME, "").split(",");
-    	String[] kubernetesAccessExternalIds = properties.getProperty(IceOptions.KUBERNETES_ACCESS_EXTERNALID, "").split(",");
-
-        for (int i = 0; i < kubernetesS3BucketNames.length; i++) {
-        	BillingBucket bb = new BillingBucket(
-        			kubernetesS3BucketNames.length > i ? kubernetesS3BucketNames[i] : "",
-        			kubernetesS3BucketRegions.length > i ? kubernetesS3BucketRegions[i] : "",
-        			kubernetesS3BucketPrefixes.length > i ? kubernetesS3BucketPrefixes[i] : "",
-        			kubernetesAccountIds.length > i ? kubernetesAccountIds[i] : "",
-        			kubernetesAccessRoleNames.length > i ? kubernetesAccessRoleNames[i] : "",
-        			kubernetesAccessExternalIds.length > i ? kubernetesAccessExternalIds[i] : "",
-        			"", ""
-        		);
-        	kubernetesBuckets.add(bb);
-        }
-    }
-
     public void start () throws Exception {
         logger.info("starting up...");
 

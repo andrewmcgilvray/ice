@@ -20,9 +20,15 @@ package com.netflix.ice.processor.config;
 import java.util.List;
 
 public class KubernetesConfig {
+	// Kubernetes report S3 bucket access information
 	private String bucket;
+	private String region;
 	private String prefix;
+	private String accountId;
+	private String accessRole;
+	private String externalId;
 	
+	// Processing rules parameters
 	private List<String> clusterNameFormulae;
 	private String computeTag;
 	private String computeValue;
@@ -36,11 +42,35 @@ public class KubernetesConfig {
 	public void setBucket(String bucket) {
 		this.bucket = bucket;
 	}
+	public String getRegion() {
+		return region;
+	}
+	public void setRegion(String region) {
+		this.region = region;
+	}
 	public String getPrefix() {
 		return prefix;
 	}
 	public void setPrefix(String prefix) {
 		this.prefix = prefix;
+	}
+	public String getAccountId() {
+		return accountId;
+	}
+	public void setAccountId(String accountId) {
+		this.accountId = accountId;
+	}
+	public String getAccessRole() {
+		return accessRole;
+	}
+	public void setAccessRole(String accessRole) {
+		this.accessRole = accessRole;
+	}
+	public String getExternalId() {
+		return externalId;
+	}
+	public void setExternalId(String externalId) {
+		this.externalId = externalId;
 	}
 	public List<String> getTags() {
 		return tags;
