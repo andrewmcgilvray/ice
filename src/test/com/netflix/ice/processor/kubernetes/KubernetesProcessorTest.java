@@ -48,6 +48,7 @@ import com.netflix.ice.processor.ReservationService;
 import com.netflix.ice.processor.config.AccountConfig;
 import com.netflix.ice.processor.config.BillingDataConfig;
 import com.netflix.ice.processor.config.KubernetesConfig;
+import com.netflix.ice.processor.postproc.AllocationReport;
 import com.netflix.ice.processor.pricelist.PriceListService;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Operation;
@@ -145,7 +146,7 @@ public class KubernetesProcessorTest {
 		}
 
 		@Override
-		protected List<KubernetesReport> getReportsToProcess(DateTime start) throws IOException {
+		protected List<KubernetesReport> getReportsToProcess() throws IOException {
 	        List<KubernetesReport> filesToProcess = Lists.newArrayList();
         	filesToProcess.add(new TestKubernetesReport(config.kubernetesConfigs.get(0), config.resourceService));
 			return filesToProcess;
@@ -174,7 +175,7 @@ public class KubernetesProcessorTest {
         props.setProperty(IceOptions.WORK_S3_BUCKET_REGION, "us-east-1");
         props.setProperty(IceOptions.BILLING_S3_BUCKET_NAME, "bar");
         props.setProperty(IceOptions.BILLING_S3_BUCKET_REGION, "us-east-1");
-        props.setProperty(IceOptions.CUSTOM_TAGS, "Cluster,Role,Namespace,Environment");
+        props.setProperty(IceOptions.CUSTOM_TAGS, "Cluster,Role,K8sNamespace,Environment,K8sType,K8sResource,UserTag1,UserTag2");
         
 		ProcessorConfig config = new TestConfig(
 				props,
@@ -183,7 +184,7 @@ public class KubernetesProcessorTest {
 	            reservationService,
 	            null, formulae);
 		
-		return new TestKubernetesProcessor(config, null);
+		return new TestKubernetesProcessor(config, new DateTime("2019-01", DateTimeZone.UTC));
 	}
 	
 	private TagGroup getTagGroup(String clusterName) throws BadZone, ResourceException {
@@ -193,50 +194,35 @@ public class KubernetesProcessorTest {
 		Product ec2Instance = productService.getProduct(Product.Code.Ec2Instance);
 		UsageType usageType = UsageType.getUsageType("r5.4xlarge", "hours");
 		
-		String[] tags = new String[]{ clusterName, "compute", "", "Dev", };
+		// Add tags to match configuration: "Cluster,Role,Namespace,Environment,Type,Resource,UserTag1,UserTag2"
+		String[] tags = new String[]{ clusterName, "compute", "", "Dev", "", "", "", ""};
 		ResourceGroup resourceGroup = ResourceGroup.getResourceGroup(tags);
 		TagGroup tg = TagGroup.getTagGroup(accounts.get(0), Region.US_WEST_2, us_west_2a, ec2Instance, Operation.ondemandInstances, usageType, resourceGroup);
 		return tg;
 	}
 	
 	@Test
-	public void testProcessHourClusterData() throws Exception {
+	public void testGeneratePostProcessorReport() throws Exception {
 		KubernetesProcessor kp = newKubernetesProcessor(new String[]{"Cluster"});
 		KubernetesConfig kc = new KubernetesConfig();
 		kc.setTags(new ArrayList<String>());
-		kc.setNamespaceTag("Namespace");
-		TestKubernetesReport tkr = new TestKubernetesReport(kc, kp.config.resourceService);
+		kc.setNamespaceTag("K8sNamespace");
 		
 		// Test the data for cluster "dev-usw2a"
 		String clusterName = "dev-usw2a";
-		
 		TagGroup tg = getTagGroup(clusterName);
 		ReadWriteData costData = new ReadWriteData();
-		costData.put(0, tg, 40.0);
+		costData.put(testDataHour, tg, 40.0);
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, null, productService);
+		data.putCost(productService.getProduct(Product.Code.Ec2Instance), costData);
 		
-		List<String[]> hourClusterData = tkr.getData(clusterName, testDataHour);
-		kp.processHourClusterData(costData, 0, tg, clusterName, tkr, hourClusterData);
+		AllocationReport ar = kp.generateAllocationReport(kp.reports.get(0), data);
 		
-		String[] atags = new String[]{ clusterName, "compute", "kube-system", "Dev", };
-		ResourceGroup arg = ResourceGroup.getResourceGroup(atags);
-		TagGroup atg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, arg);
-		
-		Double allocatedCost = costData.get(0, atg);
-		assertNotNull("No allocated cost for kube-system namespace", allocatedCost);
-		assertEquals("Incorrect allocated cost", 0.4133, allocatedCost, 0.0001);
-		String[] unusedTags = new String[]{ clusterName, "compute", "unused", "Dev", };
-		TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
-		double unusedCost = costData.get(0, unusedTg);
-		assertEquals("Incorrect unused cost", 21.1983, unusedCost, 0.0001);
-		
-		// Add up all the cost values to see if we get back to 40.0
-		double total = 0.0;
-		Map<TagGroup, Double> hourZeroCostData = costData.getData(0);
-		for (double v: hourZeroCostData.values())
-			total += v;
-		assertEquals("Incorrect total cost when adding unused and allocated values", 40.0, total, 0.001);		
+		assertEquals("wrong number of hours", testDataHour+1, ar.getNumHours());
+		assertEquals("wrong number of keys", 1, ar.getKeySet(testDataHour).size());
+		assertEquals("wrong number of allocation items", 11, ar.getData(testDataHour, ar.getKeySet(testDataHour).iterator().next()).size());
 	}
-	
+		
 	@Test
 	public void testProcess() throws Exception {
 		
@@ -245,7 +231,7 @@ public class KubernetesProcessorTest {
 		//  "dev-usw2a" --> formula 1
 		//  "k8s-dev-usw2a" --> formula 2
 		//  "k8s-usw2a --> formula 3
-		String[] clusterTags = new String[]{ "dev-usw2a", "k8s-prod-usw2a", "k8s-usw2a" };
+		String[] clusterTags = new String[]{ "dev-usw2b", "k8s-prod-usw2a", "k8s-usw2a" };
 		String[] formulae = new String[]{
 			"Cluster",											// 1. use the cluster name directly
 			"Cluster.regex(\"k8s-(.*)\")",						// 2. Strip off the leading "k8s-"
@@ -263,27 +249,35 @@ public class KubernetesProcessorTest {
 			tgs[i] = getTagGroup(clusterTags[i]);
 			costData.put(testDataHour, tgs[i], 40.0);
 		}
-						
+								
 		kp.process(kp.reports.get(0), data);
 		
-		double[] expectedAllocatedCosts = new double[]{ 0.4133, 0.4324, 0.4133 };
-		double[] expectedUnusedCosts = new double[]{ 21.1983, 12.0014, 21.1983 };
+		double[] expectedAllocatedCosts = new double[]{ 0.3934, 0.4324, 0.4133 };
+		double[] expectedUnusedCosts = new double[]{ 11.7097, 12.0014, 21.1983 };
+		int [] expectedAllocationCounts = new int[]{ 10, 8, 11};
 		
 		for (int i = 0; i < clusterTags.length; i++) {
 			String clusterTag = clusterTags[i];
 			TagGroup tg = tgs[i];
 			
-			String[] atags = new String[]{ clusterTags[i], "compute", "kube-system", "Dev", };
+			String[] atags = new String[]{ clusterTags[i], "compute", "kube-system", "Dev", "", "", "", "" };
 			ResourceGroup arg = ResourceGroup.getResourceGroup(atags);
 			TagGroup atg = TagGroup.getTagGroup(tgs[i].account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, arg);
 			
 			Double allocatedCost = hourCostData.get(atg);
 			assertNotNull("No allocated cost for kube-system namespace with cluster tag " + clusterTag, allocatedCost);
 			assertEquals("Incorrect allocated cost with cluster tag " + clusterTag, expectedAllocatedCosts[i], allocatedCost, 0.0001);
-			String[] unusedTags = new String[]{ clusterTag, "compute", "unused", "Dev", };
+			String[] unusedTags = new String[]{ clusterTag, "compute", "unused", "Dev", "unused", "unused", "", "" };
 			TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
-			double unusedCost = hourCostData.get(unusedTg);
+			Double unusedCost = hourCostData.get(unusedTg);
 			assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCosts[i], unusedCost, 0.0001);
+			
+			int count = 0;
+			for (TagGroup tg1: hourCostData.keySet()) {
+				if (tg1.resourceGroup.getUserTags()[0].name.equals(clusterTags[i]))
+					count++;
+			}
+			assertEquals("Incorrect number of cost entries for " + clusterTag, expectedAllocationCounts[i], count);
 		}
 				
 		// Add up all the cost values to see if we get back to 120.0 (Three tagGroups with 40.0 each)

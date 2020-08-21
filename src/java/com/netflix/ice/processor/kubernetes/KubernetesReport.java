@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +58,8 @@ public class KubernetesReport extends Report {
 
     public enum KubernetesColumn {
     	Cluster,
+    	Type,
+    	Resource,
     	Namespace,
     	StartDate,
     	EndDate,
@@ -100,7 +103,7 @@ public class KubernetesReport extends Report {
 		
 		List<String> clusterNameFormulae = config.getClusterNameFormulae();
 		this.clusterNameBuilder = clusterNameFormulae == null || clusterNameFormulae.isEmpty() ? null : new ClusterNameBuilder(config.getClusterNameFormulae(), resourceService.getCustomTags());		
-    	this.tagger = new Tagger(config.getTags(), config.getNamespaceMappings(), resourceService);
+    	this.tagger = new Tagger(config.getTags(), config.getNamespaceMappings());
 	}
 
 	public long loadReport(String localDir)
@@ -230,8 +233,12 @@ public class KubernetesReport extends Report {
 		
 		// Check that we have all the columns we expect
 		for (KubernetesColumn col: KubernetesColumn.values()) {
-			if (!reportIndecies.containsKey(col))
-				logger.error("Kubernetes report does not have column for " + col);
+			if (!reportIndecies.containsKey(col)) {
+				if (col == KubernetesColumn.Type || col == KubernetesColumn.Resource)
+					logger.info("Kubernetes report does not have column for " + col);
+				else
+					logger.error("Kubernetes report does not have column for " + col);
+			}
 		}		
 	}
 	
@@ -274,13 +281,32 @@ public class KubernetesReport extends Report {
 		return data.keySet();
 	}
 
+	public boolean hasData(Collection<String> possibleClusterNames) {
+		for (String cluster: possibleClusterNames) {
+			if (data.containsKey(cluster))
+				return true;
+		}
+		return false;
+	}
+	
+	public String getClusterName(UserTag[] userTags) {
+		// return the first matching cluster name
+		for (String name: clusterNameBuilder.getClusterNames(userTags)) {
+			if (data.containsKey(name))
+				return name;
+		}
+		
+		return null;
+	}
+	
 	public List<String[]> getData(String cluster, int i) {
 		List<List<String[]>> clusterData = data.get(cluster);
 		return clusterData == null || clusterData.size() <= i ? null : clusterData.get(i);
 	}
 	
 	public String getString(String[] item, KubernetesColumn col) {
-		return item[reportIndecies.get(col)];
+		Integer i = reportIndecies.get(col);
+		return i == null ? "" : item[i];
 	}
 	
 	public double getDouble(String[] item, KubernetesColumn col) {

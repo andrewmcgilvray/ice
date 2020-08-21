@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * OperandConfig specifies the set of tags used to filter and aggregate usage or cost data in a
@@ -82,6 +83,29 @@ public class OperandConfig {
 		accounts = Lists.newArrayList();
 		regions = Lists.newArrayList();
 		zones = Lists.newArrayList();
+	}
+	
+	@Override
+	public OperandConfig clone() {
+		OperandConfig copy = new OperandConfig();
+		copy.type = type;
+		copy.accounts = accounts == null ? null : Lists.newArrayList(accounts);
+		copy.regions = regions == null ? null : Lists.newArrayList(regions);
+		copy.zones = zones == null ? null : Lists.newArrayList(zones);
+		copy.account = account;
+		copy.region = region;
+		copy.zone = zone;
+		copy.product = product;
+		copy.operation = operation;
+		copy.usageType = usageType;
+		copy.userTags = userTags == null ? null : Maps.newHashMap(userTags);
+		copy.groupBy = groupBy == null ? null : Lists.newArrayList(groupBy);
+		copy.groupByTags = groupByTags == null ? null : Lists.newArrayList(groupByTags);
+		copy.exclude = exclude == null ? null : Lists.newArrayList(exclude);
+		copy.monthly = monthly;
+		copy.single = single;
+		
+		return copy;
 	}
 	
 	public OperandType getType() {

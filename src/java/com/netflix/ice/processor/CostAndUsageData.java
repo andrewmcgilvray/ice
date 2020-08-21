@@ -104,6 +104,10 @@ public class CostAndUsageData {
         this.savingsPlanProducts = Sets.newHashSet();
 	}
 	
+	public DateTime getStart() {
+		return new DateTime(startMilli, DateTimeZone.UTC);
+	}
+	
 	public long getStartMilli() {
 		return startMilli;
 	}

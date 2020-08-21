@@ -25,67 +25,67 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.processor.config.KubernetesNamespaceMapping;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
-import com.netflix.ice.tag.UserTag;
 
 public class Tagger {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 	
-	private final ResourceService resourceService;
-	private final int numCustomTags;
 	private final List<Rule> rules;
 	private final List<String> tagsToCopy;
+	private final List<String> tagKeys;
 		
-	public Tagger(List<String> tagsToCopy, List<KubernetesNamespaceMapping> namespaceMappings, ResourceService resourceService) {
-		this.resourceService = resourceService;
-		this.numCustomTags = resourceService.getCustomTags() == null ? 0 : resourceService.getCustomTags().size();
+	public Tagger(List<String> tagsToCopy, List<KubernetesNamespaceMapping> namespaceMappings) {
 		this.rules = Lists.newArrayList();
+		List<String> keys = Lists.newArrayList();
+		if (tagsToCopy != null)
+			keys.addAll(tagsToCopy);
+		
 		if (namespaceMappings != null) {
 			for (KubernetesNamespaceMapping m: namespaceMappings) {
 				this.rules.add(new Rule(m));
+				if (!keys.contains(m.getTag()))
+					keys.add(m.getTag());
 			}
 		}
 		this.tagsToCopy = tagsToCopy;
-	}
-		
-	public void tag(KubernetesReport report, String[] item, UserTag[] userTags) {
-		String namespace = report.getString(item, KubernetesColumn.Namespace);
-		
-		UserTag[] overlay = new UserTag[numCustomTags];
-		if (tagsToCopy != null) {
-			// Copy the requested tags if not empty
-			for (String t: tagsToCopy) {
-				String value = report.getUserTag(item, t);
-				if (value.isEmpty())
-					continue;
-				overlay[resourceService.getUserTagIndex(t)] = UserTag.get(value);
-			}
-		}
-		for (Rule r: rules) {
-			if (r.matches(namespace) && (overlay[r.getTagIndex()] == null || overlay[r.getTagIndex()].name.isEmpty())) {
-				userTags[r.getTagIndex()] = r.getValue();
-			}
-		}
-		// Overwrite tags that have values
-		for (int i = 0; i < numCustomTags; i++) {
-			if (overlay[i] != null)
-				userTags[i] = overlay[i];
-		}
+		this.tagKeys = keys;
 	}
 	
+	public List<String> getTagKeys() {
+		return tagKeys;
+	}
+	
+	public List<String> getTagValues(KubernetesReport report, String[] item) {
+		List<String> values = Lists.newArrayList();
+		String namespace = report.getString(item, KubernetesColumn.Namespace);
+		for (String key: tagKeys) {
+			String v = "";
+			if (tagsToCopy != null && tagsToCopy.contains(key)) {
+				v = report.getUserTag(item, key);
+			}
+			for (Rule r: rules) {
+				if (key.equals(r.getKey()) && r.matches(namespace) && v.isEmpty()) {
+					v = r.getValue();
+					break;
+				}
+			}
+			values.add(v);
+		}
+		return values;
+	}
+			
 	class Rule {
 		private final KubernetesNamespaceMapping mapping;		
-		private final UserTag value;
-		private final int tagIndex;
+		private final String value;
+		private final String key;
 		private final List<Pattern> compiledPatterns;
 
 		
 		Rule(KubernetesNamespaceMapping mapping) {
 			this.mapping = mapping;
-			this.tagIndex = resourceService.getUserTagIndex(mapping.getTag());
-			this.value = UserTag.get(mapping.getValue());
+			this.key = mapping.getTag();
+			this.value = mapping.getValue();
 			this.compiledPatterns = Lists.newArrayList();
 			for (String p: mapping.getPatterns()) {
 				if (p.isEmpty())
@@ -107,11 +107,11 @@ public class Tagger {
 			return mapping.getTag();
 		}
 		
-		public int getTagIndex() {
-			return tagIndex;
+		public String getKey() {
+			return key;
 		}
 		
-		public UserTag getValue() {
+		public String getValue() {
 			return value;
 		}
 	}

@@ -33,7 +33,6 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.config.KubernetesNamespaceMapping;
-import com.netflix.ice.tag.UserTag;
 
 public class TaggerTest {
 	private ResourceService rs;
@@ -41,7 +40,7 @@ public class TaggerTest {
 	private String[] customTags = new String[]{"Tag1", "Tag2", "Tag3"};
 	
 	class TestKubernetesReport extends KubernetesReport {
-
+		// Force report columns to be "Cluster", "Namespace", "Tag3"
 		public TestKubernetesReport(DateTime month, KubernetesConfig config) {
 			super(null, config, month, rs);
 		}
@@ -74,32 +73,43 @@ public class TaggerTest {
 		config.setTags(Lists.newArrayList(customTags));
 		config.setComputeTag("Tag1");
 		TestKubernetesReport tkr = new TestKubernetesReport(new DateTime("2019-01", DateTimeZone.UTC), config);
-		String[] item = new String[]{ "dev-usw2a", "bar", "foobar" };
 		
 		List<String> tagsToCopy = Lists.newArrayList("Tag3");
 		List<KubernetesNamespaceMapping> rules = Lists.newArrayList();
 		rules.add(new KubernetesNamespaceMapping("Tag2", "Foo", Lists.newArrayList("bar")));
 		rules.add(new KubernetesNamespaceMapping("Tag1", "Bar", Lists.newArrayList(".*bar.*")));
-		Tagger t = new Tagger(tagsToCopy, rules, rs);
-		UserTag[] userTags = new UserTag[customTags.length];
-		t.tag(tkr, item, userTags);
-		assertEquals("Incorrect tagged value", "Bar", userTags[0].name);
-		assertEquals("Incorrect tagged value", "Foo", userTags[1].name);
-		assertEquals("Tag3 not copied", "foobar", userTags[2].name);
+		Tagger t = new Tagger(tagsToCopy, rules);
+		List<String> tagKeys = t.getTagKeys();
+		
+		// 0 - Cluster  Tag1
+		// 1 - Namespace  Tag2
+		// 2 - Tag3
+		String[] item = new String[]{ "dev-usw2a", "bar", "foobar" };
+		List<String> userTags = t.getTagValues(tkr, item);
+		assertEquals("Incorrect tagged value", "Bar", userTags.get(tagKeys.indexOf("Tag1")));
+		assertEquals("Incorrect tagged value", "Foo", userTags.get(tagKeys.indexOf("Tag2")));
+		assertEquals("Tag3 not copied", "foobar", userTags.get(tagKeys.indexOf("Tag3")));
 		
 		item = new String[]{ "dev-usw2a", "inAbar", "" };
-		userTags = new UserTag[customTags.length];
-		userTags[2] = UserTag.get("FooBar");
-		t.tag(tkr, item, userTags);
-		assertEquals("Incorrect tagged value", "Bar", userTags[0].name);
-		assertEquals("Wrong tag changed", null, userTags[1]);
-		assertEquals("Tag3 was overwritten", "FooBar", userTags[2].name);
+		userTags = t.getTagValues(tkr, item);
+		assertEquals("Incorrect tagged value", "Bar", userTags.get(tagKeys.indexOf("Tag1")));
+		assertEquals("Wrong tag changed", "", userTags.get(tagKeys.indexOf("Tag2")));
+		assertEquals("Tag3 was not copied correctly", "", userTags.get(tagKeys.indexOf("Tag3")));
 		
 		item = new String[]{ "dev-usw2a", "inAbar", "useMe" };
-		userTags = new UserTag[customTags.length];
-		userTags[2] = UserTag.get("overwriteMe");
-		t.tag(tkr, item, userTags);
-		assertEquals("Tag3 was not overwritten", "useMe", userTags[2].name);
+		userTags = t.getTagValues(tkr, item);
+		assertEquals("Tag3 was incorrectly copied", "useMe", userTags.get(tagKeys.indexOf("Tag3")));
 	}
 	
+	@Test
+	public void test() {
+		String foo = "foo";
+		StringBuilder sb = new StringBuilder();
+		sb.append("foo");
+		assertEquals("strings don't match", foo, sb.toString());
+		assertFalse("string objects match", foo == sb.toString());
+		List<String> list = Lists.newArrayList();
+		list.add(foo);
+		assertTrue("not in list", list.contains(sb.toString()));
+	}
 }
