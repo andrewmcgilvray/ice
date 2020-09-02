@@ -81,18 +81,6 @@ tags:
     values:
       Prod: [production, prd]
       
-kubernetes:
-  - bucket: k8s-report-bucket
-    prefix: hourly/kubernetes
-    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex("k8s-(.*)")' ]
-    computeTag: Role
-    computeValue: compute
-    namespaceTag: K8sNamespace
-    namespaceMappings:
-      - tag: Environment
-        value: Prod
-        patterns: [ ".*prod.*", ".*production.*", ".*prd.*" ]
-    tags: [ userTag1, userTag2 ]
 postprocrules:
   - name: ComputedCost
     product: Product
@@ -106,32 +94,47 @@ postprocrules:
       type: usage
       product: Product
       usageType: (..)-Requests-[12].*
-    results:
+    results: # Directly compute results using operands (only one of allocation or results may be present)
       - result:
-        type: cost
-        product: ComputedCost
-        usageType: ${group}-Requests
-        value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'
+          type: cost
+          product: ComputedCost
+          usageType: ${group}-Requests
+          value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'
       - result:
-        type: usage
-        product: ComputedCost
-        usageType: ${group}-Requests
-        value: '${in} - (${data} * 4 * 8 / 2)'
+          type: usage
+          product: ComputedCost
+          usageType: ${group}-Requests
+          value: '${in} - (${data} * 4 * 8 / 2)'
+     allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)
+       s3Bucket:
+         name: <S3 bucket name>
+         region: <S3 bucket region>
+         prefix: <S3 bucket prefix>
+         accountId: <account that owns the bucket>
+         accessRole: <role to use when accessing bucket if cross-account>
+         externalId: <external ID>
+       kubernetes: # Preprocess a Kubernetes report into an Allocation report.
+         clusterNameFormulae: [Cluster]
+         out:
+           Namespace: <tag key to assign namespace>
+       type: cost
+       in:
+		 <Map of input tags to column names>
+	   out:
+	     <Map of output tags to column names>
  *  
  */
 public class BillingDataConfig {
 	public List<AccountConfig> accounts;
     public List<TagConfig> tags;
-    public List<KubernetesConfig> kubernetes;
     public List<RuleConfig> postprocrules;
 
     public BillingDataConfig() {    	
     }
     
-	public BillingDataConfig(List<AccountConfig> accounts, List<TagConfig> tags, List<KubernetesConfig> kubernetes, List<RuleConfig> ruleConfigs) {
+	public BillingDataConfig(List<AccountConfig> accounts, List<TagConfig> tags, List<RuleConfig> ruleConfigs) {
 		this.accounts = accounts;
 		this.tags = tags;
-		this.kubernetes = kubernetes;
 		this.postprocrules = ruleConfigs;
 	}
 
@@ -149,7 +152,6 @@ public class BillingDataConfig {
 		}
 		this.accounts = config.accounts;
 		this.tags = config.tags;
-		this.kubernetes = config.kubernetes;
 		this.postprocrules = config.postprocrules;
 	}
 	
@@ -172,14 +174,6 @@ public class BillingDataConfig {
 
 	public void setTags(List<TagConfig> tags) {
 		this.tags = tags;
-	}
-
-	public List<KubernetesConfig> getKubernetes() {
-		return kubernetes;
-	}
-
-	public void setKubernetes(List<KubernetesConfig> kubernetes) {
-		this.kubernetes = kubernetes;
 	}
 
 	public List<RuleConfig> getPostprocrules() {

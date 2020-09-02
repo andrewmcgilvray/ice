@@ -18,15 +18,29 @@
 package com.netflix.ice.processor;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.netflix.ice.processor.config.S3BucketConfig;
 
 public class Report {
 
-	protected final S3ObjectSummary s3ObjectSummary;
-	protected final BillingBucket billingBucket;
+	protected S3ObjectSummary s3ObjectSummary;
+	protected S3BucketConfig s3BucketConfig;
 
-	public Report(S3ObjectSummary s3ObjectSummary, BillingBucket billingBucket) {
+	public Report() {
+	}
+	
+	public Report withS3ObjectSummary(S3ObjectSummary s3ObjectSummary) {
+		this.s3ObjectSummary = s3ObjectSummary;
+		return this;
+	}
+	
+	public Report withS3BucketConfig(S3BucketConfig s3BucketConfig) {
+		this.s3BucketConfig = s3BucketConfig;
+		return this;
+	}
+	
+	public Report(S3ObjectSummary s3ObjectSummary, S3BucketConfig s3BucketConfig) {
         this.s3ObjectSummary = s3ObjectSummary;
-        this.billingBucket = billingBucket;
+        this.s3BucketConfig = s3BucketConfig;
 	}
 
 	public long getLastModifiedMillis() {
@@ -41,8 +55,8 @@ public class Report {
 		return s3ObjectSummary;
 	}
 
-	public BillingBucket getBillingBucket() {
-		return billingBucket;
+	public S3BucketConfig getS3BucketConfig() {
+		return s3BucketConfig;
 	}
 
 }

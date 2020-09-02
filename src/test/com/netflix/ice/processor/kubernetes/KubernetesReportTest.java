@@ -26,30 +26,44 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.processor.config.KubernetesConfig;
+import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
+import com.netflix.ice.processor.postproc.AllocationConfig;
 
 public class KubernetesReportTest {
 	private static final String resourceDir = "src/test/resources/";
 
 	class TestKubernetesReport extends KubernetesReport {
 
-		public TestKubernetesReport(DateTime month, KubernetesConfig config, ResourceService rs) {
-			super(null, config, month, rs);
+		public TestKubernetesReport(AllocationConfig config, DateTime month, ResourceService rs) throws Exception {
+			super(config, month, rs);
 		}
+	}
+	
+	@Test(expected = Exception.class)
+	public void testBadBucketConfig() throws Exception {
+        String[] customTags = new String[]{"Tag1", "Tag2", "Tag3"};
+        AllocationConfig ac = new AllocationConfig();
+        ac.setS3Bucket(new S3BucketConfig());
+        ac.setKubernetes(new KubernetesConfig());
+        ResourceService rs = new BasicResourceService(new BasicProductService(), customTags, false);
+  		new TestKubernetesReport(ac, new DateTime("2019-01", DateTimeZone.UTC), rs);		
 	}
 
 	@Test
-	public void testReadFile() {
+	public void testReadFile() throws Exception {
         String[] customTags = new String[]{"Tag1", "Tag2", "Tag3"};
-        KubernetesConfig kc = new KubernetesConfig();
-        kc.setTags(Lists.newArrayList(customTags));
+        AllocationConfig ac = new AllocationConfig();
+        S3BucketConfig bc = new S3BucketConfig().withName("test-bucket").withRegion("us-east-1").withAccountId("123456789012");
+        ac.setS3Bucket(bc);
+        ac.setKubernetes(new KubernetesConfig());
         ResourceService rs = new BasicResourceService(new BasicProductService(), customTags, false);
-		TestKubernetesReport tkr = new TestKubernetesReport(new DateTime("2019-01", DateTimeZone.UTC), kc, rs);
+        
+		TestKubernetesReport tkr = new TestKubernetesReport(ac, new DateTime("2019-01", DateTimeZone.UTC), rs);
 		
 		File file = new File(resourceDir, "kubernetes-2019-01.csv");
 		tkr.readFile(file);

@@ -120,7 +120,7 @@ public class BillingFileProcessorTest {
 			File manifest = new File(cauReportDir, "hourly-cost-and-usage-Manifest.json");
 			S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 			s3ObjectSummary.setLastModified(new Date());
-			CostAndUsageReport report = new CostAndUsageReport(s3ObjectSummary, manifest, cauProcessor);
+			CostAndUsageReport report = new CostAndUsageReport(s3ObjectSummary, manifest, cauProcessor, "");
 			
 	    	List<File> files = Lists.newArrayList();
 	    	for (String key: report.getReportKeys()) {
@@ -154,7 +154,7 @@ public class BillingFileProcessorTest {
 			S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 			s3ObjectSummary.setKey("/aws-billing-detailed-line-items-with-resources-and-tags-2017-08.csv.zip");
 			s3ObjectSummary.setLastModified(new Date());
-			DetailedBillingReportProcessor.BillingFile report = dbrProcessor.new BillingFile(s3ObjectSummary, dbrProcessor);
+			DetailedBillingReportProcessor.BillingFile report = dbrProcessor.new BillingFile(s3ObjectSummary, dbrProcessor, "");
 			
 	        return dbrProcessor.processReport(start, report, dbr,
 	        		costAndUsageData, instances);

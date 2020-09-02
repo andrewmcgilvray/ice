@@ -19,7 +19,9 @@ package com.netflix.ice.processor.postproc;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -28,15 +30,22 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AggregationTagGroup;
+import com.netflix.ice.common.AwsUtils;
+import com.netflix.ice.common.Config.WorkBucketConfig;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.config.KubernetesConfig;
+import com.netflix.ice.processor.kubernetes.KubernetesReport;
+import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
 import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
 import com.netflix.ice.tag.Product;
+import com.netflix.ice.tag.UserTag;
 
 public class PostProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -46,15 +55,17 @@ public class PostProcessor {
 	private AccountService accountService;
 	private ProductService productService;
 	private ResourceService resourceService;
+	private WorkBucketConfig workBucketConfig;
 	
 	private int cacheMisses;
 	private int cacheHits;
 	
-	public PostProcessor(List<RuleConfig> rules, AccountService accountService, ProductService productService, ResourceService resourceService) {
+	public PostProcessor(List<RuleConfig> rules, AccountService accountService, ProductService productService, ResourceService resourceService, WorkBucketConfig workBucketConfig) {
 		this.rules = rules;
 		this.accountService = accountService;
 		this.productService = productService;
 		this.resourceService = resourceService;
+		this.workBucketConfig = workBucketConfig;
 		this.cacheMisses = 0;
 		this.cacheHits = 0;
 	}
@@ -84,27 +95,63 @@ public class PostProcessor {
 			return;
 		}
 		
-		if (rc.getIn().getProduct() == null) {
-			logger.error("Post processing rule " + rc.getName() + " has no product specified for the 'in' operand");
-			return;
+		Rule rule = new Rule(rc, accountService, productService, resourceService);
+
+		if (rule.isAllocation()) {
+			processAllocation(rule, data);
+		}
+		else {
+			if (rc.getIn().getProduct() == null) {
+				logger.error("Post processing rule " + rc.getName() + " has no product specified for the 'in' operand");
+				return;
+			}
+
+			// Cache the single values across the resource and non-resource based passes
+			// in case we can reuse them. This saves a lot of time on operands that
+			// aggregate a large amount of data into a single value and are not grouping
+			// by any user tags.
+			Map<String, Double[]> operandSingleValueCache = Maps.newHashMap();
+					
+			logger.info("Post-process with rule " + rc.getName() + " on non-resource data");
+			processReadWriteData(rule, data, true, operandSingleValueCache);
+			
+			logger.info("Post-process with rule " + rc.getName() + " on resource data");
+			processReadWriteData(rule, data, false, operandSingleValueCache);
+		}
+	}
+	
+	protected void processAllocation(Rule rule, CostAndUsageData data) throws Exception {
+		// Prepare the allocation report
+		AllocationReport ar = null;
+		
+		KubernetesConfig kc = rule.config.getAllocation().getKubernetes();
+		if (kc != null) {
+			// Make sure product list is limited to the four products we support
+			if (rule.config.getIn().getProduct() == null) {
+				// load the supported products into the input filter
+				rule.config.getIn().setProduct("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$");
+			}
+			
+
+			// Pre-process the K8s report to produce an allocation report
+			KubernetesReport kr = new KubernetesReport(rule.config.getAllocation(), data.getStart(), resourceService);
+			if (kr.loadReport(workBucketConfig.localDir)) {
+				ar = generateAllocationReport(rule, kr, data);
+				
+				String reportName = rule.config.getName() + "-" + AwsUtils.monthDateFormat.print(data.getStart()) + ".csv.gz";
+				ar.archiveReport(data.getStart(), reportName, workBucketConfig);
+			}
+		}
+		else {
+			ar = new AllocationReport(rule.config.getAllocation(), resourceService);
+			// Download the allocation report and load it.
+			ar.loadReport(data.getStart(), workBucketConfig.localDir);
 		}
 		
-		// Cache the single values across the resource and non-resource based passes
-		// in case we can reuse them. This save a lot of time on operands that
-		// aggregate a large amount of data into a single value and are not grouping
-		// by any user tags.
-		Map<String, Double[]> operandSingleValueCache = Maps.newHashMap();
-
-		logger.info("Post-process with rule " + rc.getName() + " on non-resource data");
-		
-		Rule rule = new Rule(rc, accountService, productService, resourceService);
-		processReadWriteData(rule, data, true, operandSingleValueCache);
-		
-		logger.info("Post-process with rule " + rc.getName() + " on resource data");
-		processReadWriteData(rule, data, false, operandSingleValueCache);
+		processAllocationReport(rule, ar, data);
 	}
 		
-	protected void processReadWriteData(Rule rule, CostAndUsageData data, boolean isNonResource, Map<String, Double[]> operandSingleValueCache) throws Exception {
+	protected void processReadWriteData(Rule rule, CostAndUsageData data, boolean isNonResource, Map<String, Double[]> operandSingleValueCache) throws Exception {		
 		// Get data maps for operands
 		int opDataSize = 0;
 		Map<String, Map<Product, ReadWriteData>> dataByOperand = Maps.newHashMap();
@@ -147,7 +194,6 @@ public class PostProcessor {
 		
 		// Get the aggregated value for the input operand
 		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, isNonResource, maxNum);
-		logger.info("  -- in data size = " + inData.size());
 		
 		Map<String, Double[]> opSingleValues = getOperandSingleValues(rule, dataByOperand, isNonResource, maxNum, operandSingleValueCache);
 		
@@ -194,7 +240,7 @@ public class PostProcessor {
 				}
 			}
 		}
-		logger.info("  -- getInData elapsed time: " + sw);
+		logger.info("  -- getInData elapsed time: " + sw + ", size: " + inValues.size());
 		return inValues;
 	}
 	
@@ -502,4 +548,150 @@ public class PostProcessor {
 	public int getCacheHits() {
 		return cacheHits;
 	}
+	
+	protected void processAllocationReport(Rule rule, AllocationReport allocationReport, CostAndUsageData data) throws Exception {
+		OperandConfig resultConfig = new OperandConfig();
+		Operand result = new Operand(resultConfig, accountService, resourceService);
+		
+		int maxNum = data.getMaxNum();
+		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, false, maxNum);
+		
+		// Keep some statistics
+		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
+		
+		for (AggregationTagGroup atg: inData.keySet()) {
+			Double[] inValues = inData.get(atg);
+
+			int maxHours = inValues == null ? maxNum : inValues.length;
+			TagGroup tg = result.tagGroup(atg, accountService, productService, false);
+			
+			
+			if (tg.resourceGroup == null)
+				return;
+			
+			for (int hour = 0; hour < maxHours; hour++) {						
+				processHourData(allocationReport, data.getCost(tg.product), hour, tg, allocatedTagGroups);
+			}
+		}
+		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- allocated size = " + allocatedTagGroups.size());
+	}
+		
+	protected void processHourData(AllocationReport report, ReadWriteData costData, int hour, TagGroup tg, Set<TagGroup> allocatedTagGroups) {
+		Double totalCost = costData.get(hour, tg);
+		if (totalCost == null)
+			return;
+				
+		AllocationReport.Key key = report.getKey(tg);
+		List<AllocationReport.Value> hourClusterData = report.getData(hour, key);
+		if (hourClusterData == null || hourClusterData.isEmpty())
+			return;
+
+		double unAllocatedCost = totalCost;
+		for (AllocationReport.Value value: hourClusterData) {
+			double allocatedCost = totalCost * value.getAllocation();
+			if (allocatedCost == 0.0)
+				continue;
+			
+			
+			TagGroup allocated = value.getOutputTagGroup(tg);
+			
+			allocatedTagGroups.add(allocated);
+						
+			costData.put(hour, allocated,  allocatedCost);
+			
+			unAllocatedCost -= allocatedCost;
+		}
+		
+		// Unused cost can go negative if, for example, a K8s cluster is over-subscribed, so test the absolute value.
+		if (Math.abs(unAllocatedCost) < 0.0001) {
+			costData.remove(hour, tg);
+		}
+		else {
+			// Put the remaining cost on the original tagGroup
+			costData.put(hour, tg, unAllocatedCost);
+		}
+	}
+
+	protected AllocationReport generateAllocationReport(Rule rule, KubernetesReport report, CostAndUsageData data) throws Exception {
+		OperandConfig inConfig = rule.config.getIn();
+		// Make sure product list is limited to the four we support
+		if (inConfig.getProduct() == null) {
+			// load the supported products into the input filter
+			inConfig.setProduct("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$");
+		}
+		
+		// Clone the inConfig so remaining changes aren't carried to the Allocation Report processing
+		inConfig = inConfig.clone();
+		
+		// Set aggregations based on the input tags. Group only by tags used to compute the cluster names.
+		// We only want one atg for each report item.
+		List<String> groupByTags = report.getClusterNameBuilder().getReferencedTags();
+		inConfig.setGroupBy(Lists.<String>newArrayList("Product"));
+		inConfig.setGroupByTags(groupByTags);
+		
+		InputOperand inOperand = new InputOperand(inConfig, accountService, resourceService);
+		
+		int maxNum = data.getMaxNum();
+		Map<AggregationTagGroup, Double[]> inData = getInData(inOperand, data, false, maxNum);
+		
+		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), resourceService);
+		int numUserTags = resourceService.getCustomTags().size();
+		
+		for (AggregationTagGroup atg: inData.keySet()) {
+			Double[] inValues = inData.get(atg);
+
+			int maxHours = inValues == null ? maxNum : inValues.length;			
+			
+			UserTag[] ut = atg.getResourceGroup(numUserTags).getUserTags();
+			if (ut == null)
+				continue;	
+			
+			// Get the list of possible cluster names for this tag group.
+			String clusterName = report.getClusterName(ut);
+			if (clusterName == null)
+				continue;
+						
+			for (int hour = 0; hour < maxHours; hour++) {						
+				List<String[]> hourClusterData = report.getData(clusterName, hour);
+				if (hourClusterData != null && !hourClusterData.isEmpty()) {
+					addHourClusterRecords(allocationReport, hour, atg.getProduct(), ut, clusterName, report, hourClusterData);
+				}
+			}
+		}
+		
+		return allocationReport;
+	}
+	
+	protected void addHourClusterRecords(AllocationReport allocationReport, int hour, Product product, UserTag[] userTags, String clusterName, KubernetesReport report, List<String[]> hourClusterData) {
+		List<String> inTags = report.getClusterNameBuilder().getReferencedTagValues(userTags);
+		// Add entry for Product tag
+		inTags.add(product.getServiceCode());
+		
+		double remainingAllocation = 1.0;
+		for (String[] item: hourClusterData) {
+			double allocation = report.getAllocationFactor(product, item);
+			if (allocation == 0.0)
+				continue;
+			
+			remainingAllocation -= allocation;
+			
+			String type = report.getString(item, KubernetesColumn.Type);
+			
+			// If we have Type and Resource columns and the type is Namespace, ignore it because we
+			// process the items at a more granular level of Deployment, DaemonSet, and StatefulSet.
+			if (type.equals("Namespace"))
+				continue;
+			
+			List<String> outTags = report.getTagValues(item, allocationReport.getOutTagKeys());
+			allocationReport.add(hour, allocation, inTags, outTags);			
+		}
+		// Assign any unused to the unused type, resource, and namespace
+		if (remainingAllocation > 0.0001) {
+			List<String> outTags = report.getUnusedTagValues(allocationReport.getOutTagKeys());
+			allocationReport.add(hour, remainingAllocation, inTags, outTags);			
+		}
+	}	
+	
+	
+
 }

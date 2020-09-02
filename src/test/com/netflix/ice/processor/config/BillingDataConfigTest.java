@@ -49,18 +49,6 @@ public class BillingDataConfigTest {
 		"    values:\n" + 
 		"      Prod: [production, prd]\n" + 
 		"      \n" + 
-		"kubernetes:\n" + 
-		"  - bucket: k8s-report-bucket\n" + 
-		"    prefix: hourly/kubernetes\n" + 
-		"    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex(\"k8s-(.*)\")' ]\n" + 
-		"    computeTag: Role\n" + 
-		"    computeValue: compute\n" + 
-		"    namespaceTag: K8sNamespace\n" + 
-		"    namespaceMappings:\n" + 
-		"      - tag: Environment\n" + 
-		"        value: Prod\n" + 
-		"        patterns: [ \".*prod.*\", \".*production.*\", \".*prd.*\" ]\n" + 
-		"    tags: [ userTag1, userTag2 ]\n" + 
 		"postprocrules:\n" + 
 		"  - name: ComputedCost\n" + 
 		"    start: 2019-11\n" + 
@@ -83,7 +71,46 @@ public class BillingDataConfigTest {
 		"          type: usage\n" + 
 		"          product: ComputedCost\n" + 
 		"          usageType: ${group}-Requests\n" + 
-		"        value: '${in} - (${data} * 4 * 8 / 2)'\n";
+		"        value: '${in} - (${data} * 4 * 8 / 2)'\n" +
+		"  - name: kubernetes-breakout\n" + 
+		"    start: 2019-11\n" + 
+		"    end: 2022-11\n" + 
+		"    in:\n" + 
+		"      type: cost\n" + 
+		"      product: Product\n" + 
+		"      userTags:\n" + 
+		"        Role: compute\n" + 
+	    "    allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)\n" +
+	    "      s3Bucket:\n" +
+	    "        name: k8s-report-bucket\n" +
+	    "        region: us-east-1\n" +
+	    "        prefix: hourly/kubernetes\n" +
+	    "        accountId: 123456789012\n" +
+	    "        accessRole: ice-role\n" +
+	    "        externalId: 234567890123\n" +
+	    "      kubernetes: # preprocess a Kubernetes report into an Allocation report.\n" +
+	    "        clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex(\"k8s-(.*)\")' ]\n" +
+		"        out:\n" +
+		"          Namespace: K8sNamespace\n" +
+		"          Resource: K8sResource\n" +
+		"          Type: K8sType\n" +
+	    "      type: cost\n" +
+	    "      in:\n" +
+		"        Cluster: Cluster\n" +
+		"        _Product: _Product\n" +
+		"      out:\n" +
+		"        Environment: Environment\n" +
+		"        K8sNamespace: K8sNamespace\n" +
+		"        K8sResource: K8sResource\n" +
+		"        K8sType: K8sType\n" +
+		"        userTag1: userTag1\n" +
+		"        userTag2: userTag2\n" +
+	    "      tagMaps:\n" +
+	    "        Environment:\n" +
+	    "          maps:\n" +
+		"            Prod:\n" + 
+		"              Namespace: [ \".*prod.*\", \".*production.*\", \".*prd.*\" ]\n" + 
+		"";
 		
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 		BillingDataConfig bdc = new BillingDataConfig();
@@ -91,8 +118,7 @@ public class BillingDataConfigTest {
 		
 		assertEquals("Wrong number of accounts", 1, bdc.getAccounts().size());
 		assertEquals("Wrong number of tags", 1, bdc.getTags().size());
-		assertEquals("Wrong number of kubernetes", 1, bdc.getKubernetes().size());
-		assertEquals("Wrong number of postprocrules", 1, bdc.getPostprocrules().size());
+		assertEquals("Wrong number of postprocrules", 2, bdc.getPostprocrules().size());
 	}
 
 }

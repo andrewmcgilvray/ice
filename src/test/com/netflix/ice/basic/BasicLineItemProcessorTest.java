@@ -113,7 +113,7 @@ public class BasicLineItemProcessorTest {
 		File manifest = new File(resourcesDir, manifestFilename);
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-        CostAndUsageReport cauReport = new CostAndUsageReport(s3ObjectSummary, manifest, cauProc);
+        CostAndUsageReport cauReport = new CostAndUsageReport(s3ObjectSummary, manifest, cauProc, "");
         return new CostAndUsageReportLineItem(false, costAndUsageNetUnblendedStartDate, cauReport);
     }
     

@@ -18,19 +18,25 @@
 package com.netflix.ice.processor;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.netflix.ice.processor.config.S3BucketConfig;
 
 public abstract class MonthlyReport extends Report {
     final MonthlyReportProcessor processor;
+    private final String rootName;
 
-    MonthlyReport(S3ObjectSummary s3ObjectSummary, BillingBucket billingBucket, MonthlyReportProcessor processor) {
-    	super(s3ObjectSummary, billingBucket);
+    MonthlyReport(S3ObjectSummary s3ObjectSummary, S3BucketConfig s3BucketConfig, MonthlyReportProcessor processor, String rootName) {
+    	super(s3ObjectSummary, s3BucketConfig);
         this.processor = processor;
+        this.rootName = rootName;
     }
     
 	public MonthlyReportProcessor getProcessor() {
 		return processor;
 	}
 	
+	public String getRootName() {
+		return rootName;
+	}
 	
 	abstract public boolean hasTags();
 	

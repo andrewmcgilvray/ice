@@ -67,7 +67,7 @@ public class BasicResourceServiceTest {
 	public void testGetResourceGroup() throws ResourceException {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null);
+		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null, "");
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		String[] item = {
 				"123456789012", // PayerAccountId
@@ -187,7 +187,7 @@ public class BasicResourceServiceTest {
 		};
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null);
+		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null, "");
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		li.setItems(item);
 		
@@ -216,7 +216,7 @@ public class BasicResourceServiceTest {
 	public void testDefaultAccountTags() throws ResourceException {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null);
+		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null, "");
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		String[] item = {
 				"123456789012", // PayerAccountId
@@ -377,7 +377,7 @@ public class BasicResourceServiceTest {
 		
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null);
+		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null, "");
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		
 		rs.initHeader(li.getResourceTagsHeader(), payerAccount.getId());

@@ -48,6 +48,8 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
+import com.netflix.ice.processor.config.BillingBucket;
+import com.netflix.ice.processor.config.S3BucketConfig;
 
 public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -115,26 +117,26 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 
         // list the cost and usage report manifest files in the billing report folder
         for (BillingBucket bb: config.billingBuckets) {
-            String reportName = reportName(bb.s3BucketPrefix);
+            String reportName = reportName(bb.getPrefix());
             if (reportName == null) {
             	// Must be a DBR bucket
             	continue; 
             }
 
-            logger.info("trying to list relevant manifest files in cost and usage report bucket " + bb.s3BucketName +
-            		" using assume role \"" + bb.accessRoleName + "\", and external id \"" + bb.accessExternalId + "\"");
+            logger.info("trying to list relevant manifest files in cost and usage report bucket " + bb.getName() +
+            		" using assume role \"" + bb.getAccessRole() + "\", and external id \"" + bb.getExternalId() + "\"");
 
             // S3 billing buckets can have lots of files, so we'll look specifically for the
             // manifest files we're interested in.
             for (DateTime month = config.startDate; month.isBefore(DateTime.now(DateTimeZone.UTC)); month = month.plusMonths(1)) {
-            	String manifestKey = getManifestKey(bb.s3BucketPrefix, reportName, month);
+            	String manifestKey = getManifestKey(bb.getPrefix(), reportName, month);
             	
             	if (month.isBefore(config.costAndUsageStartDate)) {
                     logger.info("ignoring file " + manifestKey);
             		continue;
             	}
-                List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bb.s3BucketName, bb.s3BucketRegion, manifestKey,
-                        bb.accountId, bb.accessRoleName, bb.accessExternalId);
+                List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), manifestKey,
+                        bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
                 
                 for (S3ObjectSummary manifest : objectSummaries) {
                     logger.info("using file " + manifest.getKey());
@@ -155,14 +157,14 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
     	                	fileKey = fileKey.substring(0, fileKey.lastIndexOf("/")) + "/" + debugManifest + fileKey.substring(fileKey.lastIndexOf("/"));
     	                	manifest.setKey(fileKey);
     	                	
-    	                    List<S3ObjectSummary> debugManifestSummary = AwsUtils.listAllObjects(bb.s3BucketName, bb.s3BucketRegion, fileKey,
-    	                            bb.accountId, bb.accessRoleName, bb.accessExternalId);
+    	                    List<S3ObjectSummary> debugManifestSummary = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), fileKey,
+    	                            bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
 
     	                	manifest.setLastModified(debugManifestSummary.get(0).getLastModified());
     	                }
                     }
                    
-                    list.add(new CostAndUsageReport(manifest, bb, this));
+                    list.add(new CostAndUsageReport(manifest, bb, this, bb.getRootName()));
                 }                	
             }
         }
@@ -200,7 +202,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 				String prefix = fileKey.substring(0, fileKey.lastIndexOf("/") + 1);
 				String filename = fileKey.substring(prefix.length());
 		        File file = new File(localDir, filename);
-		        BillingBucket bb = report.getBillingBucket();
+		        S3BucketConfig bc = report.getS3BucketConfig();
 		        String fileKey = report.getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName();
 		        
 		        try {
@@ -220,8 +222,8 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 			        	retryCount++;
 				        
 				        try {
-				        	downloaded = AwsUtils.downloadFileIfChangedSince(report.getS3ObjectSummary().getBucketName(), bb.s3BucketRegion, prefix, file, lastProcessed,
-				                bb.accountId, bb.accessRoleName, bb.accessExternalId);
+				        	downloaded = AwsUtils.downloadFileIfChangedSince(report.getS3ObjectSummary().getBucketName(), bc.getRegion(), prefix, file, lastProcessed,
+				                bc.getAccountId(), bc.getAccessRole(), bc.getExternalId());
 				        }
 				        catch (com.amazonaws.SdkClientException e) {
 				        	logger.error("Error trying to download " + fileKey + ": " + e);
@@ -242,9 +244,9 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 					CostAndUsageReportLineItem lineItem = new CostAndUsageReportLineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, report);
 			        
 					if (file.getName().endsWith(".zip"))
-						data.endMilli = processReportZip(file, report.billingBucket.rootName, lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
+						data.endMilli = processReportZip(file, report.getRootName(), lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
 					else
-						data.endMilli = processReportGzip(file, report.billingBucket.rootName, lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
+						data.endMilli = processReportGzip(file, report.getRootName(), lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
 					
 		            logger.info("done processing " + file.getName() + ", end is " + new DateTime(data.endMilli, DateTimeZone.UTC).toString() + ", " + data.costAndUsageData.getCost(null).getNum() + " hours");
 			        file.delete();
@@ -287,7 +289,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 
 		CostAndUsageReportLineItem lineItem = new CostAndUsageReportLineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, cau);
         if (config.resourceService != null)
-        	config.resourceService.initHeader(lineItem.getResourceTagsHeader(), report.getBillingBucket().accountId);
+        	config.resourceService.initHeader(lineItem.getResourceTagsHeader(), report.getS3BucketConfig().getAccountId());
         long endMilli = startMilli;
         double edpDiscount = config.getDiscount(startMilli);
         
@@ -336,7 +338,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 			FileData fd = ffd.get();
 	        for (String[] items: fd.delayedItems) {
 	        	lineItem.setItems(items);
-	            endMilli = processOneLine("<delayed items>", null, report.billingBucket.rootName, lineItem, costAndUsageData, endMilli, edpDiscount);
+	            endMilli = processOneLine("<delayed items>", null, report.getRootName(), lineItem, costAndUsageData, endMilli, edpDiscount);
 	        }
 		}
         return endMilli;
@@ -345,7 +347,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 	// Used for unit testing only.
 	protected long processReport(
 			DateTime dataTime,
-			Report report,
+			MonthlyReport report,
 			List<File> files,
 			CostAndUsageData costAndUsageData,
 		    Instances instances,
@@ -367,15 +369,15 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 		for (File file: files) {
             logger.info("processing " + file.getName() + "...");
 			if (file.getName().endsWith(".zip"))
-				endMilli = processReportZip(file, report.billingBucket.rootName, lineItem, delayedItems, costAndUsageData, edpDiscount);
+				endMilli = processReportZip(file, report.getRootName(), lineItem, delayedItems, costAndUsageData, edpDiscount);
 			else
-				endMilli = processReportGzip(file, report.billingBucket.rootName, lineItem, delayedItems, costAndUsageData, edpDiscount);
+				endMilli = processReportGzip(file, report.getRootName(), lineItem, delayedItems, costAndUsageData, edpDiscount);
             logger.info("done processing " + file.getName() + ", end is " + new DateTime(endMilli, DateTimeZone.UTC).toString() + ", " + costAndUsageData.getCost(null).getNum() + " hours");
 		}
 
         for (String[] items: delayedItems) {
         	lineItem.setItems(items);
-            endMilli = processOneLine("<delayed items>", null, report.billingBucket.rootName, lineItem, costAndUsageData, endMilli, edpDiscount);
+            endMilli = processOneLine("<delayed items>", null, report.getRootName(), lineItem, costAndUsageData, endMilli, edpDiscount);
         }
         return endMilli;
 	}

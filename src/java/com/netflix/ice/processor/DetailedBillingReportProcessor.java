@@ -39,6 +39,8 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicLineItemProcessor;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.LineItem;
+import com.netflix.ice.processor.config.BillingBucket;
+import com.netflix.ice.processor.config.S3BucketConfig;
 
 public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -64,11 +66,11 @@ public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
         // list the tar.gz file in billing file folder
         for (BillingBucket bb: config.billingBuckets) {
 
-            logger.info("trying to list objects in billing bucket " + bb.s3BucketName +
-            		" using assume role \"" + bb.accessRoleName + "\", and external id \"" + bb.accessExternalId + "\"");
-            List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bb.s3BucketName, bb.s3BucketRegion, bb.s3BucketPrefix,
-                    bb.accountId, bb.accessRoleName, bb.accessExternalId);
-            logger.info("found " + objectSummaries.size() + " in billing bucket " + bb.s3BucketName);
+            logger.info("trying to list objects in billing bucket " + bb.getName() +
+            		" using assume role \"" + bb.getAccessRole() + "\", and external id \"" + bb.getExternalId() + "\"");
+            List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), bb.getPrefix(),
+                    bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
+            logger.info("found " + objectSummaries.size() + " in billing bucket " + bb.getName());
             TreeMap<DateTime, S3ObjectSummary> filesToProcessInOneBucket = Maps.newTreeMap();
 
             for (S3ObjectSummary objectSummary : objectSummaries) {
@@ -107,7 +109,7 @@ public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
                     list = Lists.newArrayList();
                     filesToProcess.put(key, list);
                 }
-                list.add(new BillingFile(filesToProcessInOneBucket.get(key), bb, this));
+                list.add(new BillingFile(filesToProcessInOneBucket.get(key), bb, this, bb.getRootName()));
             }
         }
 
@@ -125,7 +127,7 @@ public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
 		reportMilli = report.getLastModifiedMillis();
 		reservationProcessor.clearBorrowers();
 		
-        processBillingZipFile(dataTime, file, report.hasTags(), report.billingBucket.rootName, costAndUsageData, instances, report.getBillingBucket().accountId);
+        processBillingZipFile(dataTime, file, report.hasTags(), report.getRootName(), costAndUsageData, instances, report.getS3BucketConfig().getAccountId());
         
         return endMilli;
 	}
@@ -243,11 +245,11 @@ public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
 
 	private File downloadReport(Report report, String localDir, long lastProcessed) {
         String fileKey = report.getS3ObjectSummary().getKey();
-        BillingBucket bb = report.getBillingBucket();
-        File file = new File(localDir, fileKey.substring(bb.s3BucketPrefix.length()));
+        S3BucketConfig bc = report.getS3BucketConfig();
+        File file = new File(localDir, fileKey.substring(bc.getPrefix().length()));
         logger.info("trying to download " + fileKey + "...");
-        boolean downloaded = AwsUtils.downloadFileIfChangedSince(report.getS3ObjectSummary().getBucketName(), bb.s3BucketRegion, bb.s3BucketPrefix, file, lastProcessed,
-                bb.accountId, bb.accessRoleName, bb.accessExternalId);
+        boolean downloaded = AwsUtils.downloadFileIfChangedSince(report.getS3ObjectSummary().getBucketName(), bc.getRegion(), bc.getPrefix(), file, lastProcessed,
+                bc.getAccountId(), bc.getAccessRole(), bc.getExternalId());
         if (downloaded)
             logger.info("downloaded " + fileKey);
         else {
@@ -260,15 +262,15 @@ public class DetailedBillingReportProcessor implements MonthlyReportProcessor {
 
     class BillingFile extends MonthlyReport {
     	
-		BillingFile(S3ObjectSummary s3ObjectSummary, BillingBucket billingBucket, MonthlyReportProcessor processor) {
-			super(s3ObjectSummary, billingBucket, processor);
+		BillingFile(S3ObjectSummary s3ObjectSummary, S3BucketConfig s3BucketConfig, MonthlyReportProcessor processor, String rootName) {
+			super(s3ObjectSummary, s3BucketConfig, processor, rootName);
 		}
 
 		/**
 		 * Constructor used for testing only
 		 */
-		BillingFile(S3ObjectSummary s3ObjectSummary, MonthlyReportProcessor processor) {
-			super(s3ObjectSummary, new BillingBucket(), processor);
+		BillingFile(S3ObjectSummary s3ObjectSummary, MonthlyReportProcessor processor, String rootName) {
+			super(s3ObjectSummary, new S3BucketConfig(), processor, rootName);
 		}
 		
 		@Override

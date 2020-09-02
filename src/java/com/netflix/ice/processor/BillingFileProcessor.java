@@ -28,7 +28,6 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicReservationService;
 import com.netflix.ice.common.*;
 import com.netflix.ice.common.Config.WorkBucketConfig;
-import com.netflix.ice.processor.kubernetes.KubernetesProcessor;
 import com.netflix.ice.processor.postproc.PostProcessor;
 import com.netflix.ice.processor.pricelist.InstancePrices;
 import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
@@ -246,19 +245,10 @@ public class BillingFileProcessor extends Poller {
         logger.info("adding savings data for " + month + "...");
         addSavingsData(month, costAndUsageData, null, config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
         addSavingsData(month, costAndUsageData, config.productService.getProduct(Product.Code.Ec2Instance), config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
-        
-        try {
-            KubernetesProcessor kubernetesProcessor = new KubernetesProcessor(config, month);
-            kubernetesProcessor.downloadAndProcessReports(costAndUsageData);
-        }
-        catch (Exception e) {
-        	logger.error("Error processing Kubernetes report" + e);
-        	e.printStackTrace();
-        }
-        
+                
         // Run the post processor
         try {
-            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.accountService, config.productService, config.resourceService);
+            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.accountService, config.productService, config.resourceService, config.workBucketConfig);
             pp.process(costAndUsageData);
         }
         catch (Exception e) {
@@ -285,7 +275,7 @@ public class BillingFileProcessor extends Poller {
 
         List<ProcessorStatus.Report> statusReports = Lists.newArrayList();
         for (MonthlyReport report: reports) {
-        	String accountId = report.getBillingBucket().accountId;
+        	String accountId = report.getS3BucketConfig().getAccountId();
         	String accountName = config.accountService.getAccountById(accountId).getIceName();
         	statusReports.add(new ProcessorStatus.Report(accountName, accountId, report.getReportKey(), new DateTime(report.getLastModifiedMillis(), DateTimeZone.UTC).toString()));
         }

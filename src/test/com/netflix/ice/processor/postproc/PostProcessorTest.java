@@ -19,9 +19,15 @@ package com.netflix.ice.processor.postproc;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -39,14 +45,20 @@ import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
+import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
+import com.netflix.ice.tag.ResourceGroup;
 
 public class PostProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
+    
+	private static final String resourceDir = "src/test/resources/";
+	private static final int testDataHour = 395;
     
     static private ProductService ps;
 	static private AccountService as;
@@ -55,6 +67,9 @@ public class PostProcessorTest {
 	static private String a2 = "2222222222222";
 	static private String a3 = "3333333333333";
 	static final String productCode = Product.Code.CloudFront.serviceCode;
+	static final String ec2Instance = Product.Code.Ec2Instance.serviceCode;
+	static final String ebs = Product.Code.Ebs.serviceCode;
+	static final String cloudWatch = Product.Code.CloudWatch.serviceCode;
 	
 	@BeforeClass
 	static public void init() {
@@ -73,12 +88,25 @@ public class PostProcessorTest {
     	DataType dataType;
     	String account;
     	String region;
+    	String zone;
     	String productServiceCode;
     	String operation;
     	String usageType;
     	String[] resourceGroup;
     	Double value;
     	
+    	public TagGroupSpec(DataType dataType, String account, String region, String zone, String product, String operation, String usageType, String[] resourceGroup, Double value) {
+    		this.dataType = dataType;
+    		this.account = account;
+    		this.region = region;
+    		this.zone = zone;
+    		this.productServiceCode = product;
+    		this.operation = operation;
+    		this.usageType = usageType;
+    		this.value = value;
+    		this.resourceGroup = resourceGroup;
+    	}
+
     	public TagGroupSpec(DataType dataType, String account, String region, String product, String operation, String usageType, String[] resourceGroup, Double value) {
     		this.dataType = dataType;
     		this.account = account;
@@ -102,11 +130,24 @@ public class PostProcessorTest {
     	}
 
     	public TagGroup getTagGroup() throws Exception {
-    		return TagGroup.getTagGroup(account, region, null, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
+    		return TagGroup.getTagGroup(account, region, zone, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
     	}
     	
     	public TagGroup getTagGroup(String account) throws Exception {
-    		return TagGroup.getTagGroup(account, region, null, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
+    		return TagGroup.getTagGroup(account, region, zone, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
+    	}
+    	
+    	public String toString() {
+    		return "[" + 
+    				dataType.toString() + "," +
+    				account + "," +
+    				region + "," +
+    				zone + "," +
+    				productServiceCode + "," +
+    				operation + "," +
+    				usageType + "," +
+    				"[" + StringUtils.join(resourceGroup) + "]" +
+    				"]";
     	}
     }
     
@@ -116,6 +157,28 @@ public class PostProcessorTest {
         		costData.put(hour, spec.getTagGroup(), spec.value);
         	else
         		usageData.put(hour, spec.getTagGroup(), spec.value);
+        }
+    }
+    
+    private void loadData(TagGroupSpec[] dataSpecs, CostAndUsageData data, int hour) throws Exception {
+        for (TagGroupSpec spec: dataSpecs) {
+        	TagGroup tg = spec.getTagGroup();
+        	if (spec.dataType == DataType.cost) {
+        		ReadWriteData rwd = data.getCost(tg.product);
+        		if (rwd == null) {
+        			rwd = new ReadWriteData();
+        			data.putCost(tg.product, rwd);
+        		}
+        		rwd.put(hour, tg, spec.value);
+        	}
+        	else {
+        		ReadWriteData rwd = data.getUsage(tg.product);
+        		if (rwd == null) {
+        			rwd = new ReadWriteData();
+        			data.putUsage(tg.product, rwd);
+        		}
+        		rwd.put(hour, tg, spec.value);
+        	}
         }
     }
     
@@ -214,7 +277,7 @@ public class PostProcessorTest {
 		data.putUsage(null, usageData);
 		data.putCost(null, costData);
 				
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs);
 		
 		Map<AggregationTagGroup, Double[]> inMap = pp.getInData(rule.getIn(), data, true, data.getMaxNum());
@@ -260,7 +323,7 @@ public class PostProcessorTest {
         data.putCost(null, costData);
 
 		
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs);
 		Map<String, Double[]> operandSingleValueCache = Maps.newHashMap();
 		pp.processReadWriteData(rule, data, true, operandSingleValueCache);
@@ -320,7 +383,7 @@ public class PostProcessorTest {
         data.putCost(product, costData);
 
 		
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs);
 		Map<String, Double[]> operandSingleValueCache = Maps.newHashMap();
@@ -410,7 +473,7 @@ public class PostProcessorTest {
         data.putUsage(null, usageData);
         data.putCost(null, costData);
 				
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		Rule rule = new Rule(getConfig(surchargeConfigYaml), as, ps, rs);
 				
 		Map<AggregationTagGroup, Double[]> inMap = pp.getInData(rule.getIn(), data, true, data.getMaxNum());
@@ -516,7 +579,7 @@ public class PostProcessorTest {
 			logger.info("in usage: " + in.get(tg) + ", " + tg);
 
 		
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(splitCostYaml), as, ps, rs);
 		// Check that the operands are flagged as having aggregations
@@ -597,7 +660,7 @@ public class PostProcessorTest {
 			logger.info("in usage: " + in.get(tg) + ", " + tg);
 
 		
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(splitCostYaml), as, ps, rs);
 		// Check that the operands are flagged as having aggregations
@@ -704,7 +767,7 @@ public class PostProcessorTest {
 		// Test two hours of data with two different resource tags
 		CostAndUsageData data = loadMultiProductComputedCostData();
 		
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(computedMultiProductCostYaml), as, ps, rs);
 		Map<String, Double[]> operandSingleValueCache = Maps.newHashMap();
@@ -787,7 +850,7 @@ public class PostProcessorTest {
         data.putUsage(null, usageData);
         data.putCost(null, costData);
         
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(splitMonthlyCostByHourYaml), as, ps, rs);
 
@@ -874,7 +937,7 @@ public class PostProcessorTest {
         data.putUsage(null, usageData);
         data.putCost(null, costData);
         
-		PostProcessor pp = new PostProcessor(null, as, ps, rs);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(splitMonthlyCostByMonthYaml), as, ps, rs);
 
@@ -900,6 +963,319 @@ public class PostProcessorTest {
 		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup();
 		value = outCostData.get(0, a3split);
 		assertEquals("wrong value for account 3", 300.0 * 0.2, value, .001);
+	}
+
+	@Test
+	public void testAllocationReport() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
+		String allocationYaml = "" +
+				"name: k8s\n" + 
+				"start: 2019-11\n" + 
+				"end: 2022-11\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  userTags:\n" +
+				"    Key2: compute\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  type: cost\n" +
+				"  in:\n" +
+				"    _Product: _Product\n" +
+				"    Key1: Key1\n" +
+				"  out:\n" +
+				"    Key2: Key2\n" +
+				"";
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 1000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0),
+        		
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0),
+        		
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+        loadData(dataSpecs, data, 0);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
+		pp.debug = true;
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs);
+
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rs);
+		
+		// First call with empty report to make sure it handles it
+		pp.processAllocationReport(rule, ar, data);
+		// Check that we have our original three EC2Instance records at hour 0
+		assertEquals("wrong number of output records", 3, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+		// Make sure the original data is unchanged
+        for (TagGroupSpec spec: dataSpecs) {
+        	TagGroup tg = spec.getTagGroup();
+        	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
+        	assertEquals("wrong data for spec " + spec.toString(), spec.value, costData.get(tg));
+        }
+		
+		// Process with a report
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,EC2Instance,clusterA,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		pp.processAllocationReport(rule, ar, data);
+		assertEquals("wrong number of output records", 5, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+		
+        TagGroupSpec[] expected = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 50.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five"}, 250.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy"}, 700.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0),
+        		
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0),
+        		
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0),
+        };
+        
+        for (TagGroupSpec spec: expected) {
+        	TagGroup tg = spec.getTagGroup();
+        	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
+        	assertEquals("wrong data for spec " + spec.toString(), spec.value, costData.get(tg));
+        }
+	}
+
+	@Test
+	public void testAllocationReportTagMap() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2","Key3","Key4"}, false);
+		String allocationYaml = "" +
+				"name: k8s\n" + 
+				"start: 2019-11\n" + 
+				"end: 2022-11\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  userTags:\n" +
+				"    Key2: compute\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  type: cost\n" +
+				"  in:\n" +
+				"    _Product: _Product\n" +
+				"    Key1: Key1\n" +
+				"  out:\n" +
+				"    Key2: Key2\n" +
+				"  tagMaps:\n" +
+				"    Key3:\n" +
+				"      maps:\n" +
+				"        V25:\n" +
+				"          Key2: [25,'re:twenty-.*']\n" +
+				"        V70:\n" +
+				"          Key2: [seventy]\n" +
+				"";
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 1000.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+        loadData(dataSpecs, data, 0);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
+		pp.debug = true;
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs);
+
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rs);
+		
+		// Process with a report
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,EC2Instance,clusterA,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		pp.processAllocationReport(rule, ar, data);
+		assertEquals("wrong number of output records", 3, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+		
+        TagGroupSpec[] expected = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 50.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five", "V25", ""}, 250.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy", "V70", ""}, 700.0),
+         };
+        
+        for (TagGroupSpec spec: expected) {
+        	TagGroup tg = spec.getTagGroup();
+        	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
+        	assertEquals("wrong data for spec " + spec.toString(), spec.value, costData.get(tg));
+        }
+	}
+
+	class TestKubernetesReport extends KubernetesReport {
+
+		public TestKubernetesReport(AllocationConfig config, ResourceService resourceService) throws Exception {
+			super(config, new DateTime("2019-01", DateTimeZone.UTC), resourceService);
+
+			File file = new File(resourceDir, "kubernetes-2019-01.csv");
+			readFile(file);			
+		}
+	}
+	
+	@Test
+	public void testGenerateAllocationReport() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Cluster","Role","K8sNamespace","Environment","K8sType","K8sResource","UserTag1","UserTag2"}, false);
+		String allocationYaml = "" +
+				"name: k8s\n" + 
+				"start: 2019-01\n" + 
+				"end: 2022-11\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  userTags:\n" +
+				"    Role: compute\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"    region: us-east-1\n" +
+				"    accountId: 123456789012\n" +
+				"  type: cost\n" +
+				"  in:\n" +
+				"    _Product: _Product\n" +
+				"    Cluster: Cluster\n" +
+				"    Environment: inEnvironment\n" +
+				"  out:\n" +
+				"    K8sNamespace: K8sNamespace\n" +
+				"    Environment: outEnvironment\n" +
+				"  kubernetes:\n" +
+				"    clusterNameFormulae: [Cluster]\n" +
+				"    out:\n" +
+				"      Namespace: K8sNamespace\n" +
+				"";
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
+		
+		// Test the data for cluster "dev-usw2a"
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"dev-usw2a", "compute", "", "Dev", "", "", "", ""}, 40.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+        loadData(dataSpecs, data, testDataHour);
+
+        RuleConfig rc = getConfig(allocationYaml);
+		Rule rule = new Rule(rc, as, ps, rs);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), rs);
+		AllocationReport ar = pp.generateAllocationReport(rule, kr, data);
+				
+		assertEquals("wrong number of hours", testDataHour+1, ar.getNumHours());
+		assertEquals("wrong number of keys", 1, ar.getKeySet(testDataHour).size());
+		
+		AllocationReport.Key key = ar.getKeySet(testDataHour).iterator().next();
+		List<AllocationReport.Value> values = ar.getData(testDataHour, key);
+		assertEquals("wrong number of allocation items", 11, values.size());
+		
+		for (AllocationReport.Value v: values) {
+			assertFalse("Empty namespace tag", v.getOutput("K8sNamespace").isEmpty());
+		}
+		
+		//ar.writeCsv(kr.getMonth(), new OutputStreamWriter(System.out));
+	}
+		
+	@Test
+	public void testProcessKubernetesReport() throws Exception {		
+		// Test with three formulae and make sure we only process each cluster once.
+		// The cluster names should match the forumlae as follows:
+		//  "dev-usw2a" --> formula 1
+		//  "k8s-dev-usw2a" --> formula 2
+		//  "k8s-usw2a --> formula 3
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Cluster","Role","K8sNamespace","Environment","K8sType","K8sResource","UserTag1","UserTag2"}, false);
+		String[] formulae = new String[]{
+				"Cluster",											// 1. use the cluster name directly
+				"Cluster.regex(\"k8s-(.*)\")",						// 2. Strip off the leading "k8s-"
+				"Environment.toLower()+Cluster.regex(\"k8s(-.*)\")", // 3. Get the environment string and join with suffix of cluster
+				"Cluster", 											// 4. repeat of formula 1 to verify we don't process cluster twice
+			};
+		String allocationYaml = "" +
+				"name: k8s\n" + 
+				"start: 2019-01\n" + 
+				"end: 2022-11\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  accounts:\n" + 
+				"    - " + a1 + "\n" + 
+				"  userTags:\n" +
+				"    Role: compute\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"    region: us-east-1\n" +
+				"    accountId: 123456789012\n" +
+				"  type: cost\n" +
+				"  in:\n" +
+				"    _Product: _Product\n" +
+				"    Cluster: Cluster\n" +
+				"    Environment: Environment\n" +
+				"  out:\n" +
+				"    K8sNamespace: K8sNamespace\n" +
+				"    K8sType: K8sType\n" +
+				"    K8sResource: K8sResource\n" +
+				"  kubernetes:\n" +
+				"    clusterNameFormulae: [" + String.join(",", formulae) + "]\n" +
+				"    out:\n" +
+				"      Namespace: K8sNamespace\n" +
+				"      Type: K8sType\n" +
+				"      Resource: K8sResource\n" +
+				"";
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
+		
+		String[] clusterTags = new String[]{ "dev-usw2b", "k8s-prod-usw2a", "k8s-usw2a" };
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[0], "compute", "", "Dev", "", "", "", ""}, 40.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[1], "compute", "", "Dev", "", "", "", ""}, 40.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+        loadData(dataSpecs, data, testDataHour);
+										
+        RuleConfig rc = getConfig(allocationYaml);
+		Rule rule = new Rule(rc, as, ps, rs);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), rs);
+		AllocationReport ar = pp.generateAllocationReport(rule, kr, data);
+		pp.processAllocationReport(rule, ar, data);
+		
+		double[] expectedAllocatedCosts = new double[]{ 0.3934, 0.4324, 0.4133 };
+		double[] expectedUnusedCosts = new double[]{ 11.7097, 12.0014, 21.1983 };
+		int [] expectedAllocationCounts = new int[]{ 10, 8, 11};
+		Map<TagGroup, Double> hourCostData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
+		
+		for (int i = 0; i < clusterTags.length; i++) {
+			String clusterTag = clusterTags[i];
+			TagGroup tg = dataSpecs[i].getTagGroup();
+						
+			String[] atags = new String[]{ clusterTags[i], "compute", "kube-system", "Dev", "", "", "", "" };
+			ResourceGroup arg = ResourceGroup.getResourceGroup(atags);
+			TagGroup atg = tg.withResourceGroup(arg);
+			
+			Double allocatedCost = hourCostData.get(atg);
+			assertNotNull("No allocated cost for kube-system namespace with cluster tag " + clusterTag, allocatedCost);
+			assertEquals("Incorrect allocated cost with cluster tag " + clusterTag, expectedAllocatedCosts[i], allocatedCost, 0.0001);
+			String[] unusedTags = new String[]{ clusterTag, "compute", "unused", "Dev", "unused", "unused", "", "" };
+			TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
+			Double unusedCost = hourCostData.get(unusedTg);
+			assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCosts[i], unusedCost, 0.0001);
+			
+			int count = 0;
+			for (TagGroup tg1: hourCostData.keySet()) {
+				if (tg1.resourceGroup.getUserTags()[0].name.equals(clusterTags[i]))
+					count++;
+			}
+			assertEquals("Incorrect number of cost entries for " + clusterTag, expectedAllocationCounts[i], count);
+		}
+				
+		// Add up all the cost values to see if we get back to 120.0 (Three tagGroups with 40.0 each)
+		double total = 0.0;
+		for (double v: hourCostData.values())
+			total += v;
+		assertEquals("Incorrect total cost when adding unused and allocated values", 120.0, total, 0.001);		
 	}
 
 }
