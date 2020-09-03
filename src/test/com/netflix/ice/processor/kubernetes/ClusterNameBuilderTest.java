@@ -42,8 +42,9 @@ public class ClusterNameBuilderTest {
 	@Test
 	public void testLiteral() {
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("\"foobar\""), null);
-		String name = cnb.getClusterNames(null).iterator().next();
-		assertEquals("ToUpper failed", "foobar", name);
+		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Two"), UserTag.get("Three")};
+		String name = cnb.getClusterNames(userTags).iterator().next();
+		assertEquals("Literal failed", "foobar", name);
 	}
 	
 	@Test

@@ -646,10 +646,14 @@ public class PostProcessor {
 			if (ut == null)
 				continue;	
 			
-			// Get the list of possible cluster names for this tag group.
+			// Get the cluster name for this tag group.
 			String clusterName = report.getClusterName(ut);
-			if (clusterName == null)
+			if (clusterName == null) {
+				String[] reportClusters = report.getClusters().toArray(new String[]{});
+				String[] clusterNames = report.getClusterNameBuilder().getClusterNames(ut).toArray(new String[]{});
+				logger.warn("No cluster name for aggregation tag group: " + atg + " in cluster names: " + clusterNames + " for report clusters: " + reportClusters);
 				continue;
+			}
 						
 			for (int hour = 0; hour < maxHours; hour++) {						
 				List<String[]> hourClusterData = report.getData(clusterName, hour);

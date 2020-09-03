@@ -21,11 +21,14 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.util.List;
+import java.util.Set;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.ResourceService;
@@ -33,6 +36,8 @@ import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
 import com.netflix.ice.processor.postproc.AllocationConfig;
+import com.netflix.ice.processor.postproc.RuleConfig;
+import com.netflix.ice.tag.UserTag;
 
 public class KubernetesReportTest {
 	private static final String resourceDir = "src/test/resources/";
@@ -120,6 +125,53 @@ public class KubernetesReportTest {
 		for (ItemValue iv: itemValues) {
 			assertEquals("Wrong value for " + iv.col, iv.value, tkr.getString(kubeSystem, iv.col));	
 		}
+	}
+	
+	@Test
+	public void testClusterNameLiteral() throws Exception {
+		String yaml = "" +
+		"name: kubernetes-breakout\n" + 
+		"start: 2019-11\n" + 
+		"end: 2022-11\n" + 
+		"in:\n" + 
+		"  type: cost\n" + 
+		"  product: Product\n" + 
+		"  userTags:\n" + 
+		"    Role: compute\n" + 
+	    "allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)\n" +
+	    "  s3Bucket:\n" +
+	    "    name: k8s-report-bucket\n" +
+	    "    region: us-east-1\n" +
+	    "    prefix: hourly/kubernetes\n" +
+	    "    accountId: 123456789012\n" +
+	    "    accessRole: ice-role\n" +
+	    "    externalId: 234567890123\n" +
+	    "  kubernetes: # use the kubernetes precprocessor i.e. preprocess a Kubernetes report into an Allocation report.\n" +
+	    "    clusterNameFormulae: [ '\"literal-cluster\"' ]\n" +
+	    "  type: cost\n" +
+	    "  in:\n" +
+		"    Cluster: Cluster\n" +
+		"    _Product: _Product\n" +
+		"  out:\n" +
+		"    K8sNamespace: K8sNamespace\n" +
+	    "  tagMaps:\n" +
+	    "    Environment:\n" +
+		"      maps:\n" + 
+		"        Prod:\n" + 
+		"          K8sNamespace: [ 're:.*prod.*', 're:.*production.*', 're:.*prd.*' ]\n" +
+		"";
+		
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+		RuleConfig rc = new RuleConfig();
+		rc = mapper.readValue(yaml, rc.getClass());
+
+        String[] customTags = new String[]{"Cluster", "K8sNamespace"};
+        ResourceService rs = new BasicResourceService(new BasicProductService(), customTags, false);
+		KubernetesReport kr = new KubernetesReport(rc.getAllocation(), new DateTime("2020-08", DateTimeZone.UTC), rs);
+		UserTag[] userTags = new UserTag[]{UserTag.get("k8s-ue1"), UserTag.empty};
+		Set<String> names = kr.getClusterNameBuilder().getClusterNames(userTags);
+		assertEquals("wrong number of cluster names", 1, names.size());
+		assertEquals("wrong literal cluster name", "literal-cluster", names.iterator().next());
 	}
 
 }

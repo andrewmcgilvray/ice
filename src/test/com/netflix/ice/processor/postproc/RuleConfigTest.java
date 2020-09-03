@@ -27,6 +27,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
 
 public class RuleConfigTest {
@@ -86,7 +87,7 @@ public class RuleConfigTest {
 	    "    accessRole: ice-role\n" +
 	    "    externalId: 234567890123\n" +
 	    "  kubernetes: # use the kubernetes precprocessor i.e. preprocess a Kubernetes report into an Allocation report.\n" +
-	    "    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex(\"k8s-(.*)\")' ]\n" +
+	    "    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex(\"k8s-(.*)\")', '\"literal-cluster\"' ]\n" +
 	    "  type: cost\n" +
 	    "  in:\n" +
 		"    Cluster: Cluster\n" +
@@ -116,5 +117,8 @@ public class RuleConfigTest {
 		AllocationConfig ac = rc.getAllocation();
 		assertNotNull("Should have an allocation object", ac);
 		
+		KubernetesConfig kc = ac.getKubernetes();
+		assertNotNull("Should have a kubernetes config object", kc);
+		assertEquals("Wrong cluster name for literal expression", "\"literal-cluster\"", kc.getClusterNameFormulae().get(2));
 	}
 }
