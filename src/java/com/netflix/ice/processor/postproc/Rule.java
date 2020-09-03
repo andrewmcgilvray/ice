@@ -72,10 +72,6 @@ public class Rule {
 		}
 	}
 	
-	public boolean isAllocation() {
-		return config.getAllocation() != null;
-	}
-	
 	public InputOperand getOperand(String name) {
 		return operands.get(name);
 	}

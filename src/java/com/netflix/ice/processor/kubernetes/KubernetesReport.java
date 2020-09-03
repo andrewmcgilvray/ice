@@ -266,6 +266,7 @@ public class KubernetesReport extends Report {
                 logger.error("Cannot close BufferedReader...", e);
             }
         }
+        logger.info("processed " + lineNumber + " lines from file: " + fileName);
         return endMilli;
 	}
 	

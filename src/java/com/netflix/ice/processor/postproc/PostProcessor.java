@@ -95,10 +95,10 @@ public class PostProcessor {
 			return;
 		}
 		
-		Rule rule = new Rule(rc, accountService, productService, resourceService);
 
-		if (rule.isAllocation()) {
-			processAllocation(rule, data);
+		if (rc.getAllocation() != null) {
+			logger.info("Post-process with allocation rule " + rc.getName() + " on resource data");
+			processAllocation(rc, data);
 		}
 		else {
 			if (rc.getIn().getProduct() == null) {
@@ -106,6 +106,7 @@ public class PostProcessor {
 				return;
 			}
 
+			Rule rule = new Rule(rc, accountService, productService, resourceService);
 			// Cache the single values across the resource and non-resource based passes
 			// in case we can reuse them. This saves a lot of time on operands that
 			// aggregate a large amount of data into a single value and are not grouping
@@ -120,30 +121,33 @@ public class PostProcessor {
 		}
 	}
 	
-	protected void processAllocation(Rule rule, CostAndUsageData data) throws Exception {
+	protected void processAllocation(RuleConfig rc, CostAndUsageData data) throws Exception {
 		// Prepare the allocation report
 		AllocationReport ar = null;
+		Rule rule = null;
 		
-		KubernetesConfig kc = rule.config.getAllocation().getKubernetes();
+		KubernetesConfig kc = rc.getAllocation().getKubernetes();
 		if (kc != null) {
 			// Make sure product list is limited to the four products we support
-			if (rule.config.getIn().getProduct() == null) {
+			if (rc.getIn().getProduct() == null) {
 				// load the supported products into the input filter
-				rule.config.getIn().setProduct("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$");
+				rc.getIn().setProduct("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$");
 			}
 			
+			rule = new Rule(rc, accountService, productService, resourceService);
 
 			// Pre-process the K8s report to produce an allocation report
-			KubernetesReport kr = new KubernetesReport(rule.config.getAllocation(), data.getStart(), resourceService);
+			KubernetesReport kr = new KubernetesReport(rc.getAllocation(), data.getStart(), resourceService);
 			if (kr.loadReport(workBucketConfig.localDir)) {
 				ar = generateAllocationReport(rule, kr, data);
 				
-				String reportName = rule.config.getName() + "-" + AwsUtils.monthDateFormat.print(data.getStart()) + ".csv.gz";
+				String reportName = rc.getName() + "-" + AwsUtils.monthDateFormat.print(data.getStart()) + ".csv.gz";
 				ar.archiveReport(data.getStart(), reportName, workBucketConfig);
 			}
 		}
 		else {
-			ar = new AllocationReport(rule.config.getAllocation(), resourceService);
+			rule = new Rule(rc, accountService, productService, resourceService);
+			ar = new AllocationReport(rc.getAllocation(), resourceService);
 			// Download the allocation report and load it.
 			ar.loadReport(data.getStart(), workBucketConfig.localDir);
 		}
@@ -193,7 +197,7 @@ public class PostProcessor {
 		int maxNum = data.getMaxNum();
 		
 		// Get the aggregated value for the input operand
-		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, isNonResource, maxNum);
+		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, isNonResource, maxNum, rule.config.getName());
 		
 		Map<String, Double[]> opSingleValues = getOperandSingleValues(rule, dataByOperand, isNonResource, maxNum, operandSingleValueCache);
 		
@@ -208,7 +212,7 @@ public class PostProcessor {
 	 * @throws Exception 
 	 */
 	public Map<AggregationTagGroup, Double[]> getInData(InputOperand in, CostAndUsageData data,
-			boolean isNonResource, int maxNum) throws Exception {
+			boolean isNonResource, int maxNum, String ruleName) throws Exception {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
@@ -240,7 +244,10 @@ public class PostProcessor {
 				}
 			}
 		}
-		logger.info("  -- getInData elapsed time: " + sw + ", size: " + inValues.size());
+		if (inValues.isEmpty())
+			logger.warn("No input data for rule " + ruleName + ". In operand: " + in.toString());			
+		else
+			logger.info("  -- getInData elapsed time: " + sw + ", size: " + inValues.size());
 		return inValues;
 	}
 	
@@ -554,7 +561,7 @@ public class PostProcessor {
 		Operand result = new Operand(resultConfig, accountService, resourceService);
 		
 		int maxNum = data.getMaxNum();
-		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, false, maxNum);
+		Map<AggregationTagGroup, Double[]> inData = getInData(rule.getIn(), data, false, maxNum, rule.config.getName());
 		
 		// Keep some statistics
 		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
@@ -613,16 +620,9 @@ public class PostProcessor {
 	}
 
 	protected AllocationReport generateAllocationReport(Rule rule, KubernetesReport report, CostAndUsageData data) throws Exception {
-		OperandConfig inConfig = rule.config.getIn();
-		// Make sure product list is limited to the four we support
-		if (inConfig.getProduct() == null) {
-			// load the supported products into the input filter
-			inConfig.setProduct("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$");
-		}
-		
 		// Clone the inConfig so remaining changes aren't carried to the Allocation Report processing
-		inConfig = inConfig.clone();
-		
+		OperandConfig inConfig = rule.config.getIn().clone();
+				
 		// Set aggregations based on the input tags. Group only by tags used to compute the cluster names.
 		// We only want one atg for each report item.
 		List<String> groupByTags = report.getClusterNameBuilder().getReferencedTags();
@@ -632,7 +632,7 @@ public class PostProcessor {
 		InputOperand inOperand = new InputOperand(inConfig, accountService, resourceService);
 		
 		int maxNum = data.getMaxNum();
-		Map<AggregationTagGroup, Double[]> inData = getInData(inOperand, data, false, maxNum);
+		Map<AggregationTagGroup, Double[]> inData = getInData(inOperand, data, false, maxNum, rule.config.getName());
 		
 		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), resourceService);
 		int numUserTags = resourceService.getCustomTags().size();

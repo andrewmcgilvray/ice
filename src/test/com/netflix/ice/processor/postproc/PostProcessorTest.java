@@ -280,7 +280,7 @@ public class PostProcessorTest {
 		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs);
 		
-		Map<AggregationTagGroup, Double[]> inMap = pp.getInData(rule.getIn(), data, true, data.getMaxNum());
+		Map<AggregationTagGroup, Double[]> inMap = pp.getInData(rule.getIn(), data, true, data.getMaxNum(), rule.config.getName());
 		
 		assertEquals("Wrong number of matched tags", 3, inMap.size());
 		// Scan map and make sure we have 2 US and 1 EU
@@ -476,7 +476,7 @@ public class PostProcessorTest {
 		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		Rule rule = new Rule(getConfig(surchargeConfigYaml), as, ps, rs);
 				
-		Map<AggregationTagGroup, Double[]> inMap = pp.getInData(rule.getIn(), data, true, data.getMaxNum());
+		Map<AggregationTagGroup, Double[]> inMap = pp.getInData(rule.getIn(), data, true, data.getMaxNum(), rule.config.getName());
 		
 		assertEquals("Wrong number of matched tags", 4, inMap.size());
 		// Scan map and make sure we have 2 us-east-1 and 2 eu-west-1
