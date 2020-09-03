@@ -44,6 +44,12 @@ public class KubernetesReportTest {
 		}
 	}
 	
+	@Test
+	public void testProductServiceCodes() {
+		String[] codes = new String[]{"EC2Instance", "AmazonCloudWatch", "EBS", "AWSDataTransfer"};
+		assertArrayEquals("bad product list", codes, KubernetesReport.productServiceCodes.toArray());
+	}
+	
 	@Test(expected = Exception.class)
 	public void testBadBucketConfig() throws Exception {
         String[] customTags = new String[]{"Tag1", "Tag2", "Tag3"};

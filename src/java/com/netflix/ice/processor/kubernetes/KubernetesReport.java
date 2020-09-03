@@ -60,7 +60,7 @@ public class KubernetesReport extends Report {
 			Product.Code.DataTransfer,
 		};
 	public static final List<String> productServiceCodes = Lists.newArrayList();
-	{
+	static {
 		for (Product.Code c: productCodes)
 			productServiceCodes.add(c.serviceCode);
 	}
@@ -180,17 +180,20 @@ public class KubernetesReport extends Report {
 		String filename = fileKey.substring(prefix.length());
         File file = new File(localDir, filename);
 
-        if (getS3ObjectSummary().getLastModified().getTime() > file.lastModified()) {
-	        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName() + 
-	        		" from account " + s3BucketConfig.getAccountId() + " using role " + s3BucketConfig.getAccessRole() + 
-	        		(StringUtils.isEmpty(s3BucketConfig.getExternalId()) ? "" : " with exID: " + s3BucketConfig.getExternalId()) + "...");
-	        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), s3BucketConfig.getRegion(), prefix, file, file.lastModified(),
-	        		s3BucketConfig.getAccountId(), s3BucketConfig.getAccessRole(), s3BucketConfig.getExternalId());
-	        if (downloaded)
-	            logger.info("downloaded " + fileKey);
-	        else {
-	            logger.info("file already downloaded " + fileKey + "...");
-	        }
+        // kubernetes report files all have the same name for the same month, so remove any
+        // local copy and download
+        if (file.exists())
+        	file.delete();
+        
+        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName() + 
+        		" from account " + s3BucketConfig.getAccountId() + " using role " + s3BucketConfig.getAccessRole() + 
+        		(StringUtils.isEmpty(s3BucketConfig.getExternalId()) ? "" : " with exID: " + s3BucketConfig.getExternalId()) + "...");
+        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), s3BucketConfig.getRegion(), prefix, file, file.lastModified(),
+        		s3BucketConfig.getAccountId(), s3BucketConfig.getAccessRole(), s3BucketConfig.getExternalId());
+        if (downloaded)
+            logger.info("downloaded " + fileKey);
+        else {
+            logger.info("file already downloaded " + fileKey + "...");
         }
 
         return file;
