@@ -22,9 +22,10 @@ import static org.junit.Assert.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -38,6 +39,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
@@ -1177,7 +1179,17 @@ public class PostProcessorTest {
 			assertFalse("Empty namespace tag", v.getOutput("K8sNamespace").isEmpty());
 		}
 		
-		//ar.writeCsv(kr.getMonth(), new OutputStreamWriter(System.out));
+		StringWriter writer = new StringWriter();
+		
+		ar.writeCsv(kr.getMonth(), writer);
+		String[] records = writer.toString().split("\r\n");
+		List<String> expected = Lists.newArrayList(new String[]{"StartDate","EndDate","Allocation","_Product","Cluster","inEnvironment","K8sNamespace","outEnvironment"});
+		Collections.sort(expected);
+		List<String> got = Lists.newArrayList(records[0].split(","));
+		Collections.sort(got);
+		//logger.info("csv:\n" + writer.toString());
+		assertArrayEquals("bad header", expected.toArray(new String[]{}), got.toArray(new String[]{}));
+		assertEquals("wrong number of data fields", expected.size(), records[1].split(",").length);
 	}
 		
 	@Test

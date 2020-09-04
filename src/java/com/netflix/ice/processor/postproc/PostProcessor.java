@@ -625,7 +625,11 @@ public class PostProcessor {
 				
 		// Set aggregations based on the input tags. Group only by tags used to compute the cluster names.
 		// We only want one atg for each report item.
-		List<String> groupByTags = report.getClusterNameBuilder().getReferencedTags();
+		List<String> groupByTags = Lists.newArrayList();
+		for (String key: rule.config.getAllocation().getIn().keySet()) {
+			if (!key.startsWith("_"))
+				groupByTags.add(key);
+		}
 		inConfig.setGroupBy(Lists.<String>newArrayList("Product"));
 		inConfig.setGroupByTags(groupByTags);
 		
@@ -636,6 +640,8 @@ public class PostProcessor {
 		
 		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), resourceService);
 		int numUserTags = resourceService.getCustomTags().size();
+		
+		Set<String> unprocessedClusters = Sets.newHashSet(report.getClusters());
 		
 		for (AggregationTagGroup atg: inData.keySet()) {
 			Double[] inValues = inData.get(atg);
@@ -649,28 +655,41 @@ public class PostProcessor {
 			// Get the cluster name for this tag group.
 			String clusterName = report.getClusterName(ut);
 			if (clusterName == null) {
-				String[] reportClusters = report.getClusters().toArray(new String[]{});
-				String[] clusterNames = report.getClusterNameBuilder().getClusterNames(ut).toArray(new String[]{});
-				logger.warn("No cluster name for aggregation tag group: " + atg + " in cluster names: " + clusterNames + " for report clusters: " + reportClusters);
+				logger.warn("No cluster name for aggregation tag group: " + atg + " in cluster names: " + report.getClusterNameBuilder().getClusterNames(ut) + " for report clusters: " + report.getClusters());
 				continue;
 			}
-						
+			
+			unprocessedClusters.remove(clusterName);
+			
+			List<String> inTags = getInTags(allocationReport, ut, atg.getProduct());
+			
 			for (int hour = 0; hour < maxHours; hour++) {						
 				List<String[]> hourClusterData = report.getData(clusterName, hour);
 				if (hourClusterData != null && !hourClusterData.isEmpty()) {
-					addHourClusterRecords(allocationReport, hour, atg.getProduct(), ut, clusterName, report, hourClusterData);
+					addHourClusterRecords(allocationReport, hour, atg.getProduct(), inTags, clusterName, report, hourClusterData);
 				}
 			}
+		}
+		
+		if (!unprocessedClusters.isEmpty()) {
+			logger.warn("unprocessed clusters in Kubernetes report for rule " + rule.config.getName() + ": " + unprocessedClusters);
 		}
 		
 		return allocationReport;
 	}
 	
-	protected void addHourClusterRecords(AllocationReport allocationReport, int hour, Product product, UserTag[] userTags, String clusterName, KubernetesReport report, List<String[]> hourClusterData) {
-		List<String> inTags = report.getClusterNameBuilder().getReferencedTagValues(userTags);
-		// Add entry for Product tag
-		inTags.add(product.getServiceCode());
-		
+	private List<String> getInTags(AllocationReport allocationReport, UserTag[] userTags, Product product) {
+		List<String> tags = Lists.newArrayList();
+		for (Integer i: allocationReport.getInTagIndeces()) {
+			if (i < 0)
+				tags.add(product.getServiceCode());
+			else
+				tags.add(userTags[i].name);
+		}
+		return tags;
+	}
+	
+	protected void addHourClusterRecords(AllocationReport allocationReport, int hour, Product product, List<String> inTags, String clusterName, KubernetesReport report, List<String[]> hourClusterData) {
 		double remainingAllocation = 1.0;
 		for (String[] item: hourClusterData) {
 			double allocation = report.getAllocationFactor(product, item);

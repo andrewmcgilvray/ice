@@ -30,13 +30,11 @@ public class ClusterNameBuilder {
 	final private static String rulesSeparator = "\\+";
 	final private List<List<Rule>> formulae;
 	final private List<String> referencedTags;
-	final private List<Integer> referencedTagIndeces;
 	
 	ClusterNameBuilder(List<String> formulae, List<String> tagNames) {
 		this.formulae = Lists.newArrayList();
 		
-		List<String> refTags = Lists.newArrayList();
-		List<Integer> refTagIndeces = Lists.newArrayList();
+		referencedTags = Lists.newArrayList();
 		
 		for (String formula: formulae) {
 			List<Rule> rules = Lists.newArrayList();
@@ -45,15 +43,12 @@ public class ClusterNameBuilder {
 			for (String rule: rulesStrs) {
 				Rule r = new Rule(rule, tagNames);
 				rules.add(r);
-				if (r.tagIndex >= 0 && !refTagIndeces.contains(r.tagIndex)) {
-					refTags.add(tagNames.get(r.tagIndex));
-					refTagIndeces.add(r.tagIndex);
+				if (r.tagIndex >= 0 && !referencedTags.contains(tagNames.get(r.tagIndex))) {
+					referencedTags.add(tagNames.get(r.tagIndex));
 				}
 			}
 			this.formulae.add(rules);
 		}
-		this.referencedTags = refTags;
-		this.referencedTagIndeces = refTagIndeces;
 	}
 	
 	public Set<String> getClusterNames(UserTag[] userTags) {
@@ -71,13 +66,6 @@ public class ClusterNameBuilder {
 	
 	public List<String> getReferencedTags() {
 		return referencedTags;
-	}
-
-	public List<String> getReferencedTagValues(UserTag[] userTags) {
-		List<String> values = Lists.newArrayList();
-		for (int i: referencedTagIndeces)
-			values.add(userTags[i].name);
-		return values;
 	}
 
 	class Rule {

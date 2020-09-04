@@ -170,7 +170,7 @@ public class KubernetesReport extends Report {
 		File file = download(localDir);
         logger.info("loading " + fileKey + "...");
 		long end = readFile(file);
-        logger.info("done loading " + fileKey + ", end is " + LineItem.amazonBillingDateFormat.print(new DateTime(end)));
+        logger.info("done loading " + fileKey + ", end is " + LineItem.amazonBillingDateFormat.print(new DateTime(end)) + ", clusters: " + getClusters());
         return true;
 	}
 
@@ -358,6 +358,10 @@ public class KubernetesReport extends Report {
 		}
 		
 		return null;
+	}
+	
+	public List<List<String[]>> getData(String cluster) {
+		return data.get(cluster);
 	}
 	
 	public List<String[]> getData(String cluster, int i) {

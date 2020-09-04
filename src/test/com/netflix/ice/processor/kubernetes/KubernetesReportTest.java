@@ -26,6 +26,8 @@ import java.util.Set;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -40,6 +42,7 @@ import com.netflix.ice.processor.postproc.RuleConfig;
 import com.netflix.ice.tag.UserTag;
 
 public class KubernetesReportTest {
+    protected Logger logger = LoggerFactory.getLogger(getClass());
 	private static final String resourceDir = "src/test/resources/";
 
 	class TestKubernetesReport extends KubernetesReport {

@@ -124,6 +124,14 @@ public class AllocationReport extends Report {
 		}
 	}
 	
+	public List<String> getInTagKeys() {
+		return inTagKeys;
+	}
+	
+	public List<Integer> getInTagIndeces() {
+		return inTagIndeces;
+	}
+	
 	public List<String> getOutTagKeys() {
 		return outTagKeys;
 	}
