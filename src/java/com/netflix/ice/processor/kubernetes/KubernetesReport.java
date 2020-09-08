@@ -415,17 +415,17 @@ public class KubernetesReport extends Report {
 			double memoryGiB = getDouble(item, KubernetesColumn.RequestsMemoryGiB);
 			double clusterMemoryGiB = getDouble(item, KubernetesColumn.ClusterMemoryGiB);
 			double unitsPerCluster = clusterCores * vCpuToMemoryCostRatio + clusterMemoryGiB;
-			return (cpuCores * vCpuToMemoryCostRatio + memoryGiB) / unitsPerCluster;
+			return unitsPerCluster <= 0 ? 0 : ((cpuCores * vCpuToMemoryCostRatio + memoryGiB) / unitsPerCluster);
 		}
 		else if (product.isEbs()) {
 			double pvcGiB = getDouble(item, KubernetesColumn.PersistentVolumeClaimGiB);
 			double clusterPvcGiB = getDouble(item, KubernetesColumn.ClusterPersistentVolumeClaimGiB);
-			return pvcGiB / clusterPvcGiB;
+			return clusterPvcGiB <= 0 ? 0 : (pvcGiB / clusterPvcGiB);
 		}
 		else if (product.isDataTransfer()) {
 			double networkGiB = getDouble(item, KubernetesColumn.NetworkInGiB) + getDouble(item, KubernetesColumn.NetworkOutGiB);
 			double clusterNetworkGiB = getDouble(item, KubernetesColumn.ClusterNetworkInGiB) + getDouble(item, KubernetesColumn.ClusterNetworkOutGiB);
-			return networkGiB / clusterNetworkGiB;
+			return clusterNetworkGiB <= 0 ? 0 : (networkGiB / clusterNetworkGiB);
 		}
 		return 0;
 	}

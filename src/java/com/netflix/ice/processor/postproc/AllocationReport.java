@@ -475,6 +475,10 @@ public class AllocationReport extends Report {
 	    	int startHour = (int) ((new DateTime(record.get(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
 	    	int endHour = (int) ((new DateTime(record.get(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
 	    	double allocation = Double.parseDouble(record.get(AllocationColumn.Allocation));
+	    	if (Double.isNaN(allocation) || Double.isInfinite(allocation)) {
+	    		logger.warn("Allocation report entry with NaN or Inf allocation, skipping.");
+	    		continue;
+	    	}
 	    	for (String key: inTagKeys)
 	    		inTags.add(record.get(config.getIn().get(key)));
 	    	for (String key: outTagKeys)

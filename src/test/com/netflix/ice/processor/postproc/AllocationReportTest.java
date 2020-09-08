@@ -152,10 +152,13 @@ public class AllocationReportTest {
 				
 		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), rs);
 		
+		// Throw in a record with a NaN for the allocation to make sure we ignore it
 		String csv = "" +
 		"StartDate,EndDate,Allocation,inCol1,inCol2,outCol1,outCol2\n" +
 		"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.75,in1a,in1b,out1a,out1b\n" +
-		"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,in1a,in1b,out2a,out2b\n";
+		"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,in1a,in1b,out2a,out2b\n" +
+		"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,NaN,in1a,in1b,out2a,out2b\n" +
+		"";
 		
 		DateTime start = new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC);
 		
