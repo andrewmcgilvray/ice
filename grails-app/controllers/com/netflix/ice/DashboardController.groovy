@@ -110,6 +110,7 @@ class DashboardController {
 		startProcessor: "POST",
 		getSubscriptions: "GET",
 		getMonths: "GET",
+		getPostProcessorStats: "GET",
 	];
 			
     private static ReaderConfig getConfig() {
@@ -535,6 +536,12 @@ class DashboardController {
 		
 	def getMonths = {
 		def result = [status: 200, data: getManagers().getMonths()];
+		render result as JSON
+	}
+	
+	def getPostProcessorStats = {
+		String month = params.get("month");
+		def result = [status: 200, data: getManagers().getPostProcessorStats(month)];
 		render result as JSON
 	}
 

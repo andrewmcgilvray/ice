@@ -40,6 +40,7 @@ import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
@@ -204,6 +205,7 @@ public class PostProcessor {
 		Map<AggregationTagGroup, Map<String, Double[]>> opValues = getOperandValues(rule, inData, dataByOperand, isNonResource, maxNum);
 		int results = applyRule(rule, inData, opValues, opSingleValues, resultData, isNonResource, maxNum);
 		
+		data.addPostProcessorStats(rule.config.getName(), RuleType.Fixed, isNonResource, inData.size(), results);
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- results size = " + results);
 	}
 	
@@ -580,6 +582,7 @@ public class PostProcessor {
 				processHourData(allocationReport, data.getCost(tg.product), hour, tg, allocatedTagGroups);
 			}
 		}
+		data.addPostProcessorStats(rule.config.getName(), RuleType.Variable, false, inData.size(), allocatedTagGroups.size());
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- allocated size = " + allocatedTagGroups.size());
 	}
 		

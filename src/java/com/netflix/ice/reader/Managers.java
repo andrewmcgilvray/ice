@@ -166,4 +166,6 @@ public interface Managers {
     public String getSubscriptionsReport(SubscriptionType subscriptionType, String month);
 
     public Collection<String> getMonths();
+    
+    public List<List<String>> getPostProcessorStats(String month);
 }

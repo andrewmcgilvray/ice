@@ -41,7 +41,7 @@
 	<tbody>
 	  <g:set var="odd" value="${0}"/>
 	  <g:each in="${statistics.userTagStats}" var="stats">
-	    <tr class="${odd == 0 ? 'even' : 'odd'}" foo="${odd}">
+	    <tr class="${odd == 0 ? 'even' : 'odd'}">
 		  <td>${stats.key}</td>
 		  <td>${stats.values}</td>
 		  <td>${stats.caseVariations}</td>
@@ -51,6 +51,30 @@
 	  </g:each>
 	</tbody>
   </table>
+  <h1>Post-Processor Statistics</h1>
+  <g:set var="postProcessorStats" value="${ReaderConfig.getInstance().managers.getPostProcessorStats()}" scope="request"/>
+  <div class="list">
+	  <table style="width: 100%;">
+	    <thead>
+	      <tr>
+	        <g:each in="${postProcessorStats[0]}" var="col">
+	          <th>${col}</th>
+	        </g:each>
+	      </tr>
+	    </thead>
+	    <tbody>
+	      <g:set var="odd" value="${0}"/>
+	      <g:each in="${postProcessorStats.subList(1, postProcessorStats.size())}" var="stats">
+	        <tr class="${odd == 0 ? 'even' : 'odd'}">
+	          <g:each in="${stats}" var="col">
+	            <td>${col}</td>
+	          </g:each>
+	        </tr>
+	      <g:set var="odd" value="${odd ^ 1}"/>
+	      </g:each>
+	    </tbody>
+	  </table>
+  </div>
 
 </div>
 </body>

@@ -736,4 +736,9 @@ public class BasicManagers extends Poller implements Managers {
     		months.add(AwsUtils.monthDateFormat.print(month));
     	return months;
     }
+    
+    public List<List<String>> getPostProcessorStats(String month) {
+    	return getCsvData(month, "postProcessorStats_");
+    }
+
 }

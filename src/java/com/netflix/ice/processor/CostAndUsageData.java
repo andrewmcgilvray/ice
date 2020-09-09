@@ -82,6 +82,7 @@ public class CostAndUsageData {
     private Map<ReservationArn, Reservation> reservations;
     private Map<SavingsPlanArn, SavingsPlan> savingsPlans;
     private Set<Product> savingsPlanProducts;
+    private List<PostProcessorStats> postProcessorStats;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -102,6 +103,7 @@ public class CostAndUsageData {
         this.reservations = Maps.newHashMap();
         this.savingsPlans = Maps.newHashMap();
         this.savingsPlanProducts = Sets.newHashSet();
+        this.postProcessorStats = Lists.newArrayList();
 	}
 	
 	public DateTime getStart() {
@@ -310,6 +312,7 @@ public class CostAndUsageData {
 
         archiveReservations();
         archiveSavingsPlans();
+        archivePostProcessorStats();
         
 		// Wait for completion
 		for (Future<Status> f: futures) {
@@ -797,6 +800,63 @@ public class CostAndUsageData {
         logger.info("uploaded " + file);
     }
     
+    private void archivePostProcessorStats() throws IOException {
+        DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+        File file = new File(workBucketConfig.localDir, "postProcessorStats_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
+        
+    	OutputStream os = new FileOutputStream(file);
+		Writer out = new OutputStreamWriter(os);
+        
+        try {
+        	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(PostProcessorStats.header()));
+        	for (PostProcessorStats pps: postProcessorStats) {
+        		printer.printRecord((Object[]) pps.values());
+        	}
+      	
+        	printer.close(true);
+        }
+        finally {
+            out.close();
+        }
+
+        // archive to s3
+        logger.info("uploading " + file + "...");
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, file.getName());
+        logger.info("uploaded " + file);
+    }
+    
+    public void addPostProcessorStats(String name, RuleType ruleType, boolean isNonResource, int in, int out) {
+    	postProcessorStats.add(new PostProcessorStats(name, ruleType, isNonResource, in, out));
+    }
+    
+	public enum RuleType {
+		Fixed,
+		Variable;
+	}
+	
+    public static class PostProcessorStats {
+    	private String ruleName;
+    	private RuleType ruleType;
+    	private int in;
+    	private int out;
+    	private boolean isNonResource; 
+    	
+    	public PostProcessorStats(String ruleName, RuleType ruleType, boolean isNonResource, int in, int out) {
+    		this.ruleName = ruleName;
+    		this.ruleType = ruleType;
+    		this.isNonResource = isNonResource;
+    		this.in = in;
+    		this.out = out;
+    	}
+    	
+        public static String[] header() {
+    		return new String[] {"Name", "Rule Type", "User Tags", "In", "Out"};
+        }
+        
+        public String[] values() {
+    		return new String[]{ ruleName, ruleType.toString(), isNonResource ? "no" : "yes", Integer.toString(in), Integer.toString(out) };
+        }
+    }
 }
 
 
