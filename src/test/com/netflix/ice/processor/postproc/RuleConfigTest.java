@@ -47,7 +47,7 @@ public class RuleConfigTest {
 		"  product: Product\n" + 
 		"  usageType: (..)-Requests-[12].*\n" + 
 		"results:\n" + 
-		"  - result:\n" + 
+		"  - out:\n" + 
 		"      type: cost\n" + 
 		"      product: ComputedCost\n" + 
 		"      usageType: ${group}-Requests\n" + 
@@ -61,7 +61,7 @@ public class RuleConfigTest {
 		assertEquals("Wrong rule name", "ComputedCost", rc.getName());
 		assertEquals("Wrong number of operands", 1, rc.getOperands().size());
 		assertEquals("Wrong in operand type", OperandType.usage, rc.getIn().getType());
-		OperandConfig out = rc.getResults().get(0).getResult();
+		OperandConfig out = rc.getResults().get(0).getOut();
 		assertEquals("Wrong product in result", "ComputedCost", out.getProduct());
 		assertEquals("Wrong usageType in result", "${group}-Requests", out.getUsageType());
 		assertEquals("Wrong out function", "(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000", rc.getResults().get(0).getValue());

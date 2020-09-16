@@ -26,6 +26,8 @@ import java.io.StringWriter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -41,6 +43,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.basic.BasicResourceService;
@@ -223,7 +226,7 @@ public class PostProcessorTest {
 			"  product: Test\n" + 
 			"  usageType: (..)-Usage\n" +
 			"results:\n" +
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      product: Foo\n" + 
 			"      usageType: Bar\n" + 
@@ -251,12 +254,12 @@ public class PostProcessorTest {
 			"  product: " + Product.Code.CloudFront.serviceCode + "\n" + 
 			"  usageType: (..)-Requests-[12].*\n" + 
 			"results:\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      product: ComputedCost\n" + 
 			"      usageType: ${group}-Requests\n" + 
 			"    value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: usage\n" + 
 			"      product: ComputedCost\n" + 
 			"      usageType: ${group}-Requests\n" + 
@@ -422,13 +425,13 @@ public class PostProcessorTest {
 		"  type: cost\n" +
 		"  groupBy: [Account,Region,Zone]\n" + 
 		"results:\n" + 
-		"  - result:\n" + 
+		"  - out:\n" + 
 		"      type: cost\n" + 
 		"      product: ComputedCost\n" + 
 		"      operation: \n" + 
 		"      usageType: Dollar\n" + 
 		"    value: '${in} * 0.03'\n" + 
-		"  - result:\n" + 
+		"  - out:\n" + 
 		"      type: usage\n" + 
 		"      product: ComputedCost\n" + 
 		"      operation: \n" + 
@@ -536,7 +539,7 @@ public class PostProcessorTest {
 			"  groupBy: [Account,Region]\n" +
 	        "  groupByTags: [Key1]\n" +
 			"results:\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      account: '${group}'\n" + 
 			"      region: '${group}'\n" +
@@ -544,7 +547,7 @@ public class PostProcessorTest {
 			"      operation: Split\n" +
 			"      usageType: Dollar\n" + 
 			"    value: '${lump-cost} * ${in} / ${total}'\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      account: " + a1 + "\n" +
 			"      region: global\n" +
@@ -753,12 +756,12 @@ public class PostProcessorTest {
 			"  product: " + Product.Code.CloudFront.serviceCode + "\n" + 
 			"  usageType: (..)-Requests-[12].*\n" + 
 			"results:\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      product: ComputedCost\n" + 
 			"      usageType: ${group}-Requests\n" + 
 			"    value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: usage\n" + 
 			"      product: ComputedCost\n" + 
 			"      usageType: ${group}-Requests\n" + 
@@ -820,7 +823,7 @@ public class PostProcessorTest {
 			"  product: '(?!GlobalFee$)^.*$'\n" +
 			"  groupBy: [Account,Region]\n" +
 			"results:\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      account: '${group}'\n" + 
 			"      region: '${group}'\n" +
@@ -907,7 +910,7 @@ public class PostProcessorTest {
 			"  product: '(?!GlobalFee$)^.*$'\n" +
 			"  groupBy: [Account,Region]\n" +
 			"results:\n" + 
-			"  - result:\n" + 
+			"  - out:\n" + 
 			"      type: cost\n" + 
 			"      account: '${group}'\n" + 
 			"      region: '${group}'\n" +
@@ -1010,7 +1013,7 @@ public class PostProcessorTest {
 		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rs);
 		
 		// First call with empty report to make sure it handles it
-		pp.processAllocationReport(rule, ar, data);
+		pp.processAllocationReport(rule, ar, data, "");
 		// Check that we have our original three EC2Instance records at hour 0
 		assertEquals("wrong number of output records", 3, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
 		// Make sure the original data is unchanged
@@ -1027,7 +1030,7 @@ public class PostProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
-		pp.processAllocationReport(rule, ar, data);
+		pp.processAllocationReport(rule, ar, data, "");
 		assertEquals("wrong number of output records", 5, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
 		
         TagGroupSpec[] expected = new TagGroupSpec[]{
@@ -1099,7 +1102,7 @@ public class PostProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
-		pp.processAllocationReport(rule, ar, data);
+		pp.processAllocationReport(rule, ar, data, "");
 		assertEquals("wrong number of output records", 3, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
 		
         TagGroupSpec[] expected = new TagGroupSpec[]{
@@ -1166,7 +1169,9 @@ public class PostProcessorTest {
         RuleConfig rc = getConfig(allocationYaml);
 		Rule rule = new Rule(rc, as, ps, rs);
 		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), rs);
-		AllocationReport ar = pp.generateAllocationReport(rule, kr, data);
+		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
+		Set<String> unprocessedAtgs = Sets.newHashSet();
+		AllocationReport ar = pp.generateAllocationReport(rule, kr, data, unprocessedClusters, unprocessedAtgs);
 				
 		assertEquals("wrong number of hours", testDataHour+1, ar.getNumHours());
 		assertEquals("wrong number of keys", 1, ar.getKeySet(testDataHour).size());
@@ -1251,8 +1256,14 @@ public class PostProcessorTest {
         RuleConfig rc = getConfig(allocationYaml);
 		Rule rule = new Rule(rc, as, ps, rs);
 		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), rs);
-		AllocationReport ar = pp.generateAllocationReport(rule, kr, data);
-		pp.processAllocationReport(rule, ar, data);
+		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
+		Set<String> unprocessedAtgs = Sets.newHashSet();
+		AllocationReport ar = pp.generateAllocationReport(rule, kr, data, unprocessedClusters, unprocessedAtgs);
+		pp.processAllocationReport(rule, ar, data, "");
+		
+		assertEquals("have wrong number of unprocessed clusters", 1, unprocessedClusters.size());
+		assertTrue("wrong unprocessed cluster", unprocessedClusters.contains("stage-usw2a"));
+		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
 		
 		double[] expectedAllocatedCosts = new double[]{ 0.3934, 0.4324, 0.4133 };
 		double[] expectedUnusedCosts = new double[]{ 11.7097, 12.0014, 21.1983 };

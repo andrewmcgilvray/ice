@@ -40,6 +40,7 @@ import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
@@ -126,6 +127,7 @@ public class PostProcessor {
 		// Prepare the allocation report
 		AllocationReport ar = null;
 		Rule rule = null;
+		String info = "";
 		
 		KubernetesConfig kc = rc.getAllocation().getKubernetes();
 		if (kc != null) {
@@ -140,10 +142,22 @@ public class PostProcessor {
 			// Pre-process the K8s report to produce an allocation report
 			KubernetesReport kr = new KubernetesReport(rc.getAllocation(), data.getStart(), resourceService);
 			if (kr.loadReport(workBucketConfig.localDir)) {
-				ar = generateAllocationReport(rule, kr, data);
+				Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
+				Set<String> unprocessedAtgs = Sets.newHashSet();
+
+				ar = generateAllocationReport(rule, kr, data, unprocessedClusters, unprocessedAtgs);
 				
 				String reportName = rc.getName() + "-" + AwsUtils.monthDateFormat.print(data.getStart()) + ".csv.gz";
 				ar.archiveReport(data.getStart(), reportName, workBucketConfig);
+				
+				if (!unprocessedClusters.isEmpty()) {
+					info = "unprocessed clusters in Kubernetes report: " + unprocessedClusters.toString();
+					logger.warn("unprocessed clusters in Kubernetes report for rule " + rule.config.getName() + ": " + unprocessedClusters);
+				}
+				if (!unprocessedAtgs.isEmpty()) {
+					info += (info.isEmpty() ? "" : "; ") + "unprocessed aggregation tag groups due to no matching cluster names in report: " + unprocessedAtgs.toString();
+					logger.warn("unprocessed aggregation tag groups due to no matching cluster names in report for rule " + rule.config.getName() + ": " + unprocessedAtgs);
+				}
 			}
 		}
 		else {
@@ -153,7 +167,7 @@ public class PostProcessor {
 			ar.loadReport(data.getStart(), workBucketConfig.localDir);
 		}
 		
-		processAllocationReport(rule, ar, data);
+		processAllocationReport(rule, ar, data, info);
 	}
 		
 	protected void processReadWriteData(Rule rule, CostAndUsageData data, boolean isNonResource, Map<String, Double[]> operandSingleValueCache) throws Exception {		
@@ -205,7 +219,7 @@ public class PostProcessor {
 		Map<AggregationTagGroup, Map<String, Double[]>> opValues = getOperandValues(rule, inData, dataByOperand, isNonResource, maxNum);
 		int results = applyRule(rule, inData, opValues, opSingleValues, resultData, isNonResource, maxNum);
 		
-		data.addPostProcessorStats(rule.config.getName(), RuleType.Fixed, isNonResource, inData.size(), results);
+		data.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Fixed, isNonResource, inData.size(), results, ""));
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- results size = " + results);
 	}
 	
@@ -558,7 +572,7 @@ public class PostProcessor {
 		return cacheHits;
 	}
 	
-	protected void processAllocationReport(Rule rule, AllocationReport allocationReport, CostAndUsageData data) throws Exception {
+	protected void processAllocationReport(Rule rule, AllocationReport allocationReport, CostAndUsageData data, String info) throws Exception {
 		OperandConfig resultConfig = new OperandConfig();
 		Operand result = new Operand(resultConfig, accountService, resourceService);
 		
@@ -582,7 +596,7 @@ public class PostProcessor {
 				processHourData(allocationReport, data.getCost(tg.product), hour, tg, allocatedTagGroups);
 			}
 		}
-		data.addPostProcessorStats(rule.config.getName(), RuleType.Variable, false, inData.size(), allocatedTagGroups.size());
+		data.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inData.size(), allocatedTagGroups.size(), info));
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- allocated size = " + allocatedTagGroups.size());
 	}
 		
@@ -622,7 +636,8 @@ public class PostProcessor {
 		}
 	}
 
-	protected AllocationReport generateAllocationReport(Rule rule, KubernetesReport report, CostAndUsageData data) throws Exception {
+	protected AllocationReport generateAllocationReport(Rule rule, KubernetesReport report, CostAndUsageData data,
+			Set<String> unprocessedClusters, Set<String> unprocessedAtgs) throws Exception {
 		// Clone the inConfig so remaining changes aren't carried to the Allocation Report processing
 		OperandConfig inConfig = rule.config.getIn().clone();
 				
@@ -644,8 +659,6 @@ public class PostProcessor {
 		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), resourceService);
 		int numUserTags = resourceService.getCustomTags().size();
 		
-		Set<String> unprocessedClusters = Sets.newHashSet(report.getClusters());
-		
 		for (AggregationTagGroup atg: inData.keySet()) {
 			Double[] inValues = inData.get(atg);
 
@@ -658,7 +671,7 @@ public class PostProcessor {
 			// Get the cluster name for this tag group.
 			String clusterName = report.getClusterName(ut);
 			if (clusterName == null) {
-				logger.warn("No cluster name for aggregation tag group: " + atg + " in cluster names: " + report.getClusterNameBuilder().getClusterNames(ut) + " for report clusters: " + report.getClusters());
+				unprocessedAtgs.add(atg.userTags.toString());
 				continue;
 			}
 			
@@ -672,10 +685,6 @@ public class PostProcessor {
 					addHourClusterRecords(allocationReport, hour, atg.getProduct(), inTags, clusterName, report, hourClusterData);
 				}
 			}
-		}
-		
-		if (!unprocessedClusters.isEmpty()) {
-			logger.warn("unprocessed clusters in Kubernetes report for rule " + rule.config.getName() + ": " + unprocessedClusters);
 		}
 		
 		return allocationReport;

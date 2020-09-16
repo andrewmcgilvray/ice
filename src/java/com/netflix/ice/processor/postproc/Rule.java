@@ -65,7 +65,7 @@ public class Rule {
 		results = Lists.newArrayList();
 		if (config.getResults() != null) {
 			for (ResultConfig rc: config.getResults()) {
-				Operand r = new Operand(rc.getResult(), accountService, resourceService);
+				Operand r = new Operand(rc.getOut(), accountService, resourceService);
 				logger.info("    result " + results.size() + ": " + r);
 				results.add(r);
 			}

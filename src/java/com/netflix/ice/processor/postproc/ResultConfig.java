@@ -18,14 +18,14 @@
 package com.netflix.ice.processor.postproc;
 
 public class ResultConfig {
-	private OperandConfig result;
+	private OperandConfig out;
 	private String value;
 	
-	public OperandConfig getResult() {
-		return result;
+	public OperandConfig getOut() {
+		return out;
 	}
-	public void setResult(OperandConfig result) {
-		this.result = result;
+	public void setOut(OperandConfig out) {
+		this.out = out;
 	}
 	public String getValue() {
 		return value;

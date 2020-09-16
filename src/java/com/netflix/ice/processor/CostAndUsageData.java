@@ -825,8 +825,8 @@ public class CostAndUsageData {
         logger.info("uploaded " + file);
     }
     
-    public void addPostProcessorStats(String name, RuleType ruleType, boolean isNonResource, int in, int out) {
-    	postProcessorStats.add(new PostProcessorStats(name, ruleType, isNonResource, in, out));
+    public void addPostProcessorStats(PostProcessorStats stats) {
+    	postProcessorStats.add(stats);
     }
     
 	public enum RuleType {
@@ -839,22 +839,24 @@ public class CostAndUsageData {
     	private RuleType ruleType;
     	private int in;
     	private int out;
-    	private boolean isNonResource; 
+    	private boolean isNonResource;
+    	private String info;
     	
-    	public PostProcessorStats(String ruleName, RuleType ruleType, boolean isNonResource, int in, int out) {
+    	public PostProcessorStats(String ruleName, RuleType ruleType, boolean isNonResource, int in, int out, String info) {
     		this.ruleName = ruleName;
     		this.ruleType = ruleType;
     		this.isNonResource = isNonResource;
     		this.in = in;
     		this.out = out;
+    		this.info = info;
     	}
     	
         public static String[] header() {
-    		return new String[] {"Name", "Rule Type", "User Tags", "In", "Out"};
+    		return new String[] {"Name", "Rule Type", "User Tags", "In", "Out", "Info"};
         }
         
         public String[] values() {
-    		return new String[]{ ruleName, ruleType.toString(), isNonResource ? "no" : "yes", Integer.toString(in), Integer.toString(out) };
+    		return new String[]{ ruleName, ruleType.toString(), isNonResource ? "no" : "yes", Integer.toString(in), Integer.toString(out), info };
         }
     }
 }
