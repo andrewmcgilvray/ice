@@ -620,7 +620,9 @@ public class PostProcessor {
 			TagGroup allocated = value.getOutputTagGroup(tg);
 			
 			allocatedTagGroups.add(allocated);
-						
+			
+			Double existing = costData.get(hour, allocated);
+			allocatedCost += existing == null ? 0.0 : existing;
 			costData.put(hour, allocated,  allocatedCost);
 			
 			unAllocatedCost -= allocatedCost;
