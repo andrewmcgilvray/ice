@@ -410,9 +410,9 @@ public class KubernetesReport extends Report {
 	
 	public double getAllocationFactor(Product product, String[] item) {
 		if (product.isEc2Instance() || product.isCloudWatch()) {
-			double cpuCores = getDouble(item, KubernetesColumn.RequestsCPUCores);
+			double cpuCores = Math.max(getDouble(item, KubernetesColumn.RequestsCPUCores), getDouble(item, KubernetesColumn.UsedCPUCores));
 			double clusterCores = getDouble(item, KubernetesColumn.ClusterCPUCores);
-			double memoryGiB = getDouble(item, KubernetesColumn.RequestsMemoryGiB);
+			double memoryGiB = Math.max(getDouble(item, KubernetesColumn.RequestsMemoryGiB), getDouble(item, KubernetesColumn.UsedMemoryGiB));
 			double clusterMemoryGiB = getDouble(item, KubernetesColumn.ClusterMemoryGiB);
 			double unitsPerCluster = clusterCores * vCpuToMemoryCostRatio + clusterMemoryGiB;
 			return unitsPerCluster <= 0 ? 0 : ((cpuCores * vCpuToMemoryCostRatio + memoryGiB) / unitsPerCluster);

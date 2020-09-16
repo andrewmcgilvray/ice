@@ -62,12 +62,12 @@ public class BillingDataConfigTest {
 		"      product: Product\n" + 
 		"      usageType: (..)-Requests-[12].*\n" + 
 		"    results:\n" + 
-		"      - result:\n" + 
+		"      - out:\n" + 
 		"          type: cost\n" + 
 		"          product: ComputedCost\n" + 
 		"          usageType: ${group}-Requests\n" + 
 		"        value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
-		"      - result:\n" + 
+		"      - out:\n" + 
 		"          type: usage\n" + 
 		"          product: ComputedCost\n" + 
 		"          usageType: ${group}-Requests\n" + 

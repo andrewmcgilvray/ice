@@ -1266,7 +1266,7 @@ public class PostProcessorTest {
 		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
 		
 		double[] expectedAllocatedCosts = new double[]{ 0.3934, 0.4324, 0.4133 };
-		double[] expectedUnusedCosts = new double[]{ 11.7097, 12.0014, 21.1983 };
+		double[] expectedUnusedCosts = new double[]{ 11.4360, 11.9054, 20.9427 };
 		int [] expectedAllocationCounts = new int[]{ 10, 8, 11};
 		Map<TagGroup, Double> hourCostData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
 		
