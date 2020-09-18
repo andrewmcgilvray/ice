@@ -1467,11 +1467,9 @@ $scope.addUserTagParams = function ($scope, params) {
   }
 
   $scope.showHideUserTags = function ($scope) {
-    if ($scope.showUserTags && $scope.groupBys.length < $scope.groupBysFullLen)
-      $scope.groupBys.push({name: "Tag"});
-    if ($scope.groupBy.name === "Tag")
-      $scope.groupBy = $scope.defaultGroupBy;
     if ($scope.showUserTags) {
+      if ($scope.groupBys.length < $scope.groupBysFullLen)
+        $scope.groupBys.push({name: "Tag"});
       if ($scope.userTags.length == 0) {
         usage_db.getUserTags($scope, function () {
           $scope.updateUserTagValues($scope, 0, true, false);
@@ -1480,6 +1478,16 @@ $scope.addUserTagParams = function ($scope, params) {
       else {
         $scope.updateUserTagValues($scope, 0, true, false);
       }
+    }
+    else {
+      for (var j in $scope.groupBys) {
+        if ($scope.groupBys[j].name === "Tag") {
+          $scope.groupBys.splice(j, 1);
+          break;
+        }
+      }
+      if ($scope.groupBy.name === "Tag")
+        $scope.groupBy = $scope.defaultGroupBy;
     }
   }
 }

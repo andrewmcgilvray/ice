@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,23 +41,39 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.LineItem;
 import com.netflix.ice.common.ResourceService;
-import com.netflix.ice.processor.BillingBucket;
 import com.netflix.ice.processor.Report;
+import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.processor.config.KubernetesConfig;
+import com.netflix.ice.processor.postproc.AllocationConfig;
+import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.UserTag;
 
 public class KubernetesReport extends Report {
     protected Logger logger = LoggerFactory.getLogger(getClass());
+
+    public static final double vCpuToMemoryCostRatio = 10.9;
     
+	public static final Product.Code[] productCodes = new Product.Code[]{
+			Product.Code.Ec2Instance,
+			Product.Code.CloudWatch,
+			Product.Code.Ebs,
+			Product.Code.DataTransfer,
+		};
+	public static final List<String> productServiceCodes = Lists.newArrayList();
+	static {
+		for (Product.Code c: productCodes)
+			productServiceCodes.add(c.serviceCode);
+	}
+
     private final DateTime month;
     private final long startMillis;
-    private final KubernetesConfig config;
-    private final int computeIndex;
-    private final int namespaceIndex;
+    private final AllocationConfig allocationConfig;
     private final ClusterNameBuilder clusterNameBuilder;
 
     public enum KubernetesColumn {
     	Cluster,
+    	Type,
+    	Resource,
     	Namespace,
     	StartDate,
     	EndDate,
@@ -76,35 +93,85 @@ public class KubernetesReport extends Report {
     	ClusterPersistentVolumeClaimGiB,
     }
     
-    private Map<KubernetesColumn, Integer> reportIndecies = null;
-    private Map<String, Integer> userTagIndecies = null;
+    private Map<KubernetesColumn, Integer> reportIndeces = null;
+    private Map<String, Integer> userTagIndeces = null;
     // Map of clusters with hourly data for the month - index will range from 0 to 743
     private Map<String, List<List<String[]>>> data = null;
-    private final Tagger tagger;
+    // Map of output tag keys to Kubernetes deployment parameters
+    private Map<String, KubernetesColumn> deployParams;
 
-	public KubernetesReport(S3ObjectSummary s3ObjectSummary, BillingBucket billingBucket,
-			DateTime month, KubernetesConfig config, ResourceService resourceService) {
-    	super(s3ObjectSummary, billingBucket);
+	public KubernetesReport(AllocationConfig allocationConfig, DateTime month, ResourceService resourceService) throws Exception {
+    	super();
+    	S3BucketConfig bucket = allocationConfig.getS3Bucket();
+    	// Make sure we have a valid bucket configuration
+    	String missingParams = getMissingParams(bucket);
+    	if (!missingParams.isEmpty())
+    		throw new Exception("Missing s3Bucket configuration parameters: " + missingParams);
+    	withS3BucketConfig(new S3BucketConfig()
+    								.withName(bucket.getName())
+    								.withRegion(bucket.getRegion())
+    								.withPrefix(bucket.getPrefix())
+    								.withAccountId(bucket.getAccountId())
+    								.withAccessRole(bucket.getAccessRole())
+    								.withExternalId(bucket.getExternalId())
+    								);
     	this.month = month;
     	this.startMillis = month.getMillis();
-		this.config = config;
-		this.computeIndex = StringUtils.isEmpty(config.getComputeTag()) ? -1 : resourceService.getUserTagIndex(config.getComputeTag());
-		this.namespaceIndex = StringUtils.isEmpty(config.getNamespaceTag()) ? -1 : resourceService.getUserTagIndex(config.getNamespaceTag());
+		this.allocationConfig = allocationConfig;
 		
+		KubernetesConfig config = allocationConfig.getKubernetes();
 		List<String> clusterNameFormulae = config.getClusterNameFormulae();
-		this.clusterNameBuilder = clusterNameFormulae == null || clusterNameFormulae.isEmpty() ? null : new ClusterNameBuilder(config.getClusterNameFormulae(), resourceService.getCustomTags());		
-    	this.tagger = new Tagger(config.getTags(), config.getNamespaceMappings(), resourceService);
+		clusterNameBuilder = clusterNameFormulae == null || clusterNameFormulae.isEmpty() ? null : new ClusterNameBuilder(config.getClusterNameFormulae(), resourceService.getCustomTags());
+		if (clusterNameBuilder != null && !allocationConfig.getIn().keySet().containsAll(clusterNameBuilder.getReferencedTags()))
+			throw new Exception("Cluster name formulae refer to tags not in the input tag key list");
+		
+		deployParams = Maps.newHashMap();
+		if (config.getOut() != null) {
+			for (String deployParam: config.getOut().keySet()) {
+				deployParams.put(config.getOut().get(deployParam), KubernetesColumn.valueOf(deployParam));
+			}
+		}
+	}
+	
+	private String getMissingParams(S3BucketConfig bucket) {
+		List<String> errors = Lists.newArrayList();		
+    	if (bucket.getName() == null)
+    		errors.add("name");
+    	if (bucket.getRegion() == null)
+    		errors.add("region");
+    	if (bucket.getAccountId() == null)
+    		errors.add("accountId");
+    	return String.join(", ", errors);
 	}
 
-	public long loadReport(String localDir)
+	public boolean loadReport(String localDir)
 			throws Exception {
 		
+		S3BucketConfig bucket = allocationConfig.getS3Bucket();
+        if (bucket.getName().isEmpty())
+        	return false;
+                    
+        String prefix = bucket.getPrefix();
+
+        String fileKey = prefix + AwsUtils.monthDateFormat.print(month);
+
+        logger.info("trying to list objects in allocation report bucket " + bucket.getName() +
+        		" using assume role \"" + bucket.getAccountId() + ":" + bucket.getAccessRole() + "\", and external id \"" + bucket.getExternalId() + "\" with key " + fileKey);
+        
+        List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bucket.getName(), bucket.getRegion(), fileKey,
+        		bucket.getAccountId(), bucket.getAccessRole(), bucket.getExternalId());
+        logger.info("found " + objectSummaries.size() + " allocation report(s) in bucket " + bucket.getName());
+        
+        if (objectSummaries.size() == 0)
+            return false;
+        
+        withS3ObjectSummary(objectSummaries.get(0));
+		
 		File file = download(localDir);
-    	String fileKey = getReportKey();
         logger.info("loading " + fileKey + "...");
 		long end = readFile(file);
-        logger.info("done loading " + fileKey + ", end is " + LineItem.amazonBillingDateFormat.print(new DateTime(end)));
-        return end;
+        logger.info("done loading " + fileKey + ", end is " + LineItem.amazonBillingDateFormat.print(new DateTime(end)) + ", clusters: " + getClusters());
+        return true;
 	}
 
 	private File download(String localDir) {
@@ -113,15 +180,20 @@ public class KubernetesReport extends Report {
 		String filename = fileKey.substring(prefix.length());
         File file = new File(localDir, filename);
 
-        if (getS3ObjectSummary().getLastModified().getTime() > file.lastModified()) {
-	        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + billingBucket.s3BucketPrefix + file.getName() + "...");
-	        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), billingBucket.s3BucketRegion, prefix, file, file.lastModified(),
-	                billingBucket.accountId, billingBucket.accessRoleName, billingBucket.accessExternalId);
-	        if (downloaded)
-	            logger.info("downloaded " + fileKey);
-	        else {
-	            logger.info("file already downloaded " + fileKey + "...");
-	        }
+        // kubernetes report files all have the same name for the same month, so remove any
+        // local copy and download
+        if (file.exists())
+        	file.delete();
+        
+        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName() + 
+        		" from account " + s3BucketConfig.getAccountId() + " using role " + s3BucketConfig.getAccessRole() + 
+        		(StringUtils.isEmpty(s3BucketConfig.getExternalId()) ? "" : " with exID: " + s3BucketConfig.getExternalId()) + "...");
+        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), s3BucketConfig.getRegion(), prefix, file, file.lastModified(),
+        		s3BucketConfig.getAccountId(), s3BucketConfig.getAccessRole(), s3BucketConfig.getExternalId());
+        if (downloaded)
+            logger.info("downloaded " + fileKey);
+        else {
+            logger.info("file already downloaded " + fileKey + "...");
         }
 
         return file;
@@ -197,21 +269,22 @@ public class KubernetesReport extends Report {
                 logger.error("Cannot close BufferedReader...", e);
             }
         }
+        logger.info("processed " + lineNumber + " lines from file: " + fileName);
         return endMilli;
 	}
 	
 	private void initIndecies(String[] header) {
-		reportIndecies = Maps.newHashMap();
-		userTagIndecies = Maps.newHashMap();
+		reportIndeces = Maps.newHashMap();
+		userTagIndeces = Maps.newHashMap();
 		
 		for (int i = 0; i < header.length; i++) {
-			if (config.getTags().contains(header[i])) {
-				userTagIndecies.put(header[i], i);
+			if (allocationConfig.getOut() != null && allocationConfig.getOut().containsKey(header[i])) {
+				userTagIndeces.put(header[i], i);
 			}
 			else {
 				try {
 					KubernetesColumn col = KubernetesColumn.valueOf(header[i]);
-					reportIndecies.put(col, i);
+					reportIndeces.put(col, i);
 				}
 				catch (IllegalArgumentException e) {
 					logger.warn("Undefined column in Kubernetes report: " + header[i]);
@@ -221,15 +294,19 @@ public class KubernetesReport extends Report {
 		
 		// Check that we have all the columns we expect
 		for (KubernetesColumn col: KubernetesColumn.values()) {
-			if (!reportIndecies.containsKey(col))
-				logger.error("Kubernetes report does not have column for " + col);
+			if (!reportIndeces.containsKey(col)) {
+				if (col == KubernetesColumn.Type || col == KubernetesColumn.Resource)
+					logger.info("Kubernetes report does not have column for " + col);
+				else
+					logger.error("Kubernetes report does not have column for " + col);
+			}
 		}		
 	}
 	
 	private long processOneLine(String[] item) {
-		DateTime startDate = new DateTime(item[reportIndecies.get(KubernetesColumn.StartDate)], DateTimeZone.UTC);
+		DateTime startDate = new DateTime(item[reportIndeces.get(KubernetesColumn.StartDate)], DateTimeZone.UTC);
 		long millisStart = startDate.getMillis();
-		DateTime endDate = new DateTime(item[reportIndecies.get(KubernetesColumn.EndDate)], DateTimeZone.UTC);
+		DateTime endDate = new DateTime(item[reportIndeces.get(KubernetesColumn.EndDate)], DateTimeZone.UTC);
 		long millisEnd = endDate.getMillis();
         int startIndex = (int)((millisStart - startMillis)/ AwsUtils.hourMillis);
         int endIndex = (int)((millisEnd + 1000 - startMillis)/ AwsUtils.hourMillis);
@@ -243,7 +320,7 @@ public class KubernetesReport extends Report {
         	return startMillis;
         }
         
-        String cluster = item[reportIndecies.get(KubernetesColumn.Cluster)];
+        String cluster = item[reportIndeces.get(KubernetesColumn.Cluster)];
         List<List<String[]>> clusterData = data.get(cluster);
         if (clusterData == null) {
         	clusterData = Lists.newArrayList();
@@ -265,13 +342,36 @@ public class KubernetesReport extends Report {
 		return data.keySet();
 	}
 
+	public boolean hasData(Collection<String> possibleClusterNames) {
+		for (String cluster: possibleClusterNames) {
+			if (data.containsKey(cluster))
+				return true;
+		}
+		return false;
+	}
+	
+	public String getClusterName(UserTag[] userTags) {
+		// return the first matching cluster name
+		for (String name: clusterNameBuilder.getClusterNames(userTags)) {
+			if (data.containsKey(name))
+				return name;
+		}
+		
+		return null;
+	}
+	
+	public List<List<String[]>> getData(String cluster) {
+		return data.get(cluster);
+	}
+	
 	public List<String[]> getData(String cluster, int i) {
 		List<List<String[]>> clusterData = data.get(cluster);
 		return clusterData == null || clusterData.size() <= i ? null : clusterData.get(i);
 	}
 	
 	public String getString(String[] item, KubernetesColumn col) {
-		return item[reportIndecies.get(col)];
+		Integer i = reportIndeces.get(col);
+		return i == null ? "" : item[i];
 	}
 	
 	public double getDouble(String[] item, KubernetesColumn col) {
@@ -280,23 +380,58 @@ public class KubernetesReport extends Report {
 	}
 	
 	public String getUserTag(String[] item, String col) {
-		return userTagIndecies.get(col) == null ? "" : item[userTagIndecies.get(col)];
+		return userTagIndeces.get(col) == null ? "" : item[userTagIndeces.get(col)];
 	}
 
-	public Tagger getTagger() {
-		return tagger;
+	public List<String> getTagValues(String[] item, List<String> tagKeys) {
+		List<String> values = Lists.newArrayList();
+		for (String key: tagKeys) {
+			values.add(deployParams.containsKey(key) ? getString(item, deployParams.get(key)) : getUserTag(item, key));
+		}
+		return values;
 	}
 	
-	public boolean isCompute(UserTag[] userTags) {
-		return userTags[computeIndex] != null && userTags[computeIndex].name.equals(config.getComputeValue());
+	// Return an empty set of tag values with the deploy parameters set to "unused"
+	public List<String> getUnusedTagValues(List<String> tagKeys) {
+		List<String> values = Lists.newArrayList();
+		for (String key: tagKeys) {
+			values.add(deployParams.containsKey(key) ? "unused" : "");
+		}
+		return values;
 	}
 	
 	public ClusterNameBuilder getClusterNameBuilder() {
 		return clusterNameBuilder;
 	}
+		
+	public AllocationConfig getConfig() {
+		return allocationConfig;
+	}
 	
-	public int getNamespaceIndex() {
-		return namespaceIndex;
+	public double getAllocationFactor(Product product, String[] item) {
+		if (product.isEc2Instance() || product.isCloudWatch()) {
+			double cpuCores = Math.max(getDouble(item, KubernetesColumn.RequestsCPUCores), getDouble(item, KubernetesColumn.UsedCPUCores));
+			double clusterCores = getDouble(item, KubernetesColumn.ClusterCPUCores);
+			double memoryGiB = Math.max(getDouble(item, KubernetesColumn.RequestsMemoryGiB), getDouble(item, KubernetesColumn.UsedMemoryGiB));
+			double clusterMemoryGiB = getDouble(item, KubernetesColumn.ClusterMemoryGiB);
+			double unitsPerCluster = clusterCores * vCpuToMemoryCostRatio + clusterMemoryGiB;
+			return unitsPerCluster <= 0 ? 0 : ((cpuCores * vCpuToMemoryCostRatio + memoryGiB) / unitsPerCluster);
+		}
+		else if (product.isEbs()) {
+			double pvcGiB = getDouble(item, KubernetesColumn.PersistentVolumeClaimGiB);
+			double clusterPvcGiB = getDouble(item, KubernetesColumn.ClusterPersistentVolumeClaimGiB);
+			return clusterPvcGiB <= 0 ? 0 : (pvcGiB / clusterPvcGiB);
+		}
+		else if (product.isDataTransfer()) {
+			double networkGiB = getDouble(item, KubernetesColumn.NetworkInGiB) + getDouble(item, KubernetesColumn.NetworkOutGiB);
+			double clusterNetworkGiB = getDouble(item, KubernetesColumn.ClusterNetworkInGiB) + getDouble(item, KubernetesColumn.ClusterNetworkOutGiB);
+			return clusterNetworkGiB <= 0 ? 0 : (networkGiB / clusterNetworkGiB);
+		}
+		return 0;
+	}
+
+	public DateTime getMonth() {
+		return month;
 	}
 }
 

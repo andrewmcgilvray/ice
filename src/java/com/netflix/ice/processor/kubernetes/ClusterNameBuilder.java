@@ -18,31 +18,41 @@
 package com.netflix.ice.processor.kubernetes;
 
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.netflix.ice.tag.UserTag;
 
 public class ClusterNameBuilder {
 	final private static String rulesSeparator = "\\+";
 	final private List<List<Rule>> formulae;
+	final private List<String> referencedTags;
 	
 	ClusterNameBuilder(List<String> formulae, List<String> tagNames) {
 		this.formulae = Lists.newArrayList();
+		
+		referencedTags = Lists.newArrayList();
+		
 		for (String formula: formulae) {
 			List<Rule> rules = Lists.newArrayList();
 			
 			String[] rulesStrs = formula.split(rulesSeparator);
 			for (String rule: rulesStrs) {
-				rules.add(new Rule(rule, tagNames));
+				Rule r = new Rule(rule, tagNames);
+				rules.add(r);
+				if (r.tagIndex >= 0 && !referencedTags.contains(tagNames.get(r.tagIndex))) {
+					referencedTags.add(tagNames.get(r.tagIndex));
+				}
 			}
 			this.formulae.add(rules);
 		}
 	}
 	
-	public List<String> getClusterNames(UserTag[] userTags) {
-		List<String> ret = Lists.newArrayList();
+	public Set<String> getClusterNames(UserTag[] userTags) {
+		Set<String> ret = Sets.newHashSet();
 		for (List<Rule> rules: formulae) {
 			StringBuilder sb = new StringBuilder(32);
 			for (Rule rule: rules) {
@@ -52,6 +62,10 @@ public class ClusterNameBuilder {
 				ret.add(sb.toString());
 		}
 		return ret;
+	}
+	
+	public List<String> getReferencedTags() {
+		return referencedTags;
 	}
 
 	class Rule {

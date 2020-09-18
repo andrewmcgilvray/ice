@@ -260,7 +260,8 @@ public class BasicResourceService extends ResourceService {
 	
 	@Override
 	public int getUserTagIndex(String tag) {
-		return tagResourceGroupIndeces.get(tag);
+		Integer index = tagResourceGroupIndeces.get(tag);
+		return index == null ? -1 : index;
 	}
 
     @Override

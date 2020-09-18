@@ -43,6 +43,7 @@ import com.netflix.ice.common.IceOptions;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.WorkBucketDataConfig;
 import com.netflix.ice.processor.config.AccountConfig;
+import com.netflix.ice.processor.config.BillingBucket;
 import com.netflix.ice.processor.config.BillingDataConfig;
 import com.netflix.ice.processor.pricelist.PriceListService;
 

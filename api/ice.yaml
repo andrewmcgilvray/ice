@@ -617,4 +617,23 @@ paths:
             type: array
             items:
               type: string
-               
+  /getPostProcessorStats:
+    get:
+      description: Get list of statistics for the post processor rules for the given month
+      operationId: /getPostProcessorStats
+      parameters:
+        - name: month
+          in: query
+          description: Year and month in ISO format. e.g. 2020-04
+          type: string
+          required: true
+      responses:
+        '200':
+          description: List of statistics
+          schema:
+            type: array
+            items:
+              type: array
+              items:
+                type: string
+        

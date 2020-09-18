@@ -15,7 +15,7 @@
  *     limitations under the License.
  *
  */
-package com.netflix.ice.processor;
+package com.netflix.ice.processor.config;
 
 import java.io.IOException;
 
@@ -25,28 +25,53 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.gson.Gson;
 
-public class BillingBucket {
-    public String accountId;
-    public String s3BucketName;
-    public String s3BucketRegion;
-    public String s3BucketPrefix;
-    public String accessRoleName;
-    public String accessExternalId;
-    public String rootName;
-    public String configBasename;
+public class BillingBucket extends S3BucketConfig {
+    private String rootName;
+    private String configBasename;
     
     public BillingBucket() {
+    	this.rootName = "";
+    	this.configBasename = "";
     }
     
-    public BillingBucket(String s3BucketName, String s3BucketRegion, String s3BucketPrefix, String accountId, String accessRoleName, String accessExternalId, String rootName, String configBasename) {
-    	this.s3BucketName = s3BucketName;
-    	this.s3BucketRegion = s3BucketRegion;
-    	this.s3BucketPrefix = s3BucketPrefix;
-    	this.accountId = accountId;
-    	this.accessRoleName = accessRoleName;
-    	this.accessExternalId = accessExternalId;
+    @Override
+    public BillingBucket withName(String name) {
+    	return (BillingBucket) super.withName(name);
+    }
+        
+    @Override
+    public BillingBucket withRegion(String region) {
+    	return (BillingBucket) super.withRegion(region);
+    }
+        
+    @Override
+    public BillingBucket withPrefix(String prefix) {
+    	return (BillingBucket) super.withPrefix(prefix);
+    }
+        
+    @Override
+    public BillingBucket withAccountId(String accountId) {
+    	return (BillingBucket) super.withAccountId(accountId);
+    }
+        
+    @Override
+    public BillingBucket withAccessRole(String accessRole) {
+    	return (BillingBucket) super.withAccessRole(accessRole);
+    }
+        
+    @Override
+    public BillingBucket withExternalId(String externalId) {
+    	return (BillingBucket) super.withExternalId(externalId);
+    }
+        
+    public BillingBucket withRootName(String rootName) {
     	this.rootName = rootName;
+    	return this;
+    }
+    
+    public BillingBucket withConfigBasename(String configBasename) {
     	this.configBasename = configBasename;
+    	return this;
     }
     
     /**
@@ -68,13 +93,20 @@ public class BillingBucket {
 			ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 			bb = mapper.readValue(in, getClass());			
 		}
-    	this.s3BucketName = bb.s3BucketName;
-    	this.s3BucketRegion = bb.s3BucketRegion;
-    	this.s3BucketPrefix = bb.s3BucketPrefix;
-    	this.accountId = bb.accountId;
-    	this.accessRoleName = bb.accessRoleName;
-    	this.accessExternalId = bb.accessExternalId;
+    	setName(bb.getName());
+    	setRegion(bb.getRegion());
+    	setPrefix(bb.getPrefix());
+    	setAccountId(bb.getAccountId());
+    	setExternalId(bb.getExternalId());
     	this.rootName = bb.rootName;
     	this.configBasename = bb.configBasename;
+    }
+    
+    public String getRootName() {
+    	return rootName;
+    }
+    
+    public String getConfigBasename() {
+    	return configBasename;
     }
 }

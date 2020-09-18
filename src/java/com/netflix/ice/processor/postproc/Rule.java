@@ -46,8 +46,8 @@ public class Rule {
 				StringUtils.isEmpty(config.getStart()) ||
 				StringUtils.isEmpty(config.getEnd()) ||
 				config.getIn() == null ||
-				config.getResults() == null) {
-			String err = "Missing required parameters in post processor rule config for " + config.getName() + ". Must have: name, start, end, in, and results";
+				(config.getResults() == null && config.getAllocation() == null) || (config.getResults() != null && config.getAllocation() != null)) {
+			String err = "Missing required parameters in post processor rule config for " + config.getName() + ". Must have: name, start, end, in, and either results or allocation, but not both";
 			logger.error(err);
 			throw new Exception(err);
 		}
@@ -63,10 +63,12 @@ public class Rule {
 		
 		in = new InputOperand(config.getIn(), accountService, resourceService);
 		results = Lists.newArrayList();
-		for (ResultConfig rc: config.getResults()) {
-			Operand r = new Operand(rc.getResult(), accountService, resourceService);
-			logger.info("    result " + results.size() + ": " + r);
-			results.add(r);
+		if (config.getResults() != null) {
+			for (ResultConfig rc: config.getResults()) {
+				Operand r = new Operand(rc.getOut(), accountService, resourceService);
+				logger.info("    result " + results.size() + ": " + r);
+				results.add(r);
+			}
 		}
 	}
 	
@@ -93,6 +95,5 @@ public class Rule {
 	public String getResultValue(int index) {
 		return config.getResults().get(index).getValue();
 	}
-		
 }
 

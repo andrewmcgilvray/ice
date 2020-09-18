@@ -34,8 +34,8 @@ import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.*;
 import com.netflix.ice.processor.config.AccountConfig;
+import com.netflix.ice.processor.config.BillingBucket;
 import com.netflix.ice.processor.config.BillingDataConfig;
-import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.postproc.RuleConfig;
 import com.netflix.ice.processor.pricelist.PriceListService;
 import com.netflix.ice.tag.Region;
@@ -71,7 +71,6 @@ public class ProcessorConfig extends Config {
     public final AccountService accountService;
     public final ResourceService resourceService;
     public final List<BillingBucket> billingBuckets;
-    public final List<BillingBucket> kubernetesBuckets;
     public final DateTime costAndUsageStartDate;
     public final DateTime costAndUsageNetUnblendedStartDate;
     public final SortedMap<DateTime,Double> edpDiscounts;
@@ -93,8 +92,6 @@ public class ProcessorConfig extends Config {
     	daily;  // generate daily newline delimited JSON records - one record per line
     }
     
-    // Kubernetes configuration data keyed by payer account ID
-    public List<KubernetesConfig> kubernetesConfigs;
     // Post=processor configuration rules
     public List<RuleConfig> postProcessorRules;
     
@@ -122,8 +119,6 @@ public class ProcessorConfig extends Config {
         
         this.billingBuckets = Lists.newArrayList();
         initBillingBuckets(properties);
-        this.kubernetesBuckets = Lists.newArrayList();
-        initKubernetesBuckets(properties);
         
         if (reservationService == null)
         	throw new IllegalArgumentException("reservationService must be specified");
@@ -204,42 +199,19 @@ public class ProcessorConfig extends Config {
         String[] configBasenames = properties.getProperty(IceOptions.BILLING_ICE_CONFIG_BASENAME, "").split(",");
         
         for (int i = 0; i < billingS3BucketNames.length; i++) {
-        	BillingBucket bb = new BillingBucket(
-        			billingS3BucketNames.length > i ? billingS3BucketNames[i] : "",
-        			billingS3BucketRegions.length > i ? billingS3BucketRegions[i] : "",
-        			billingS3BucketPrefixes.length > i ? billingS3BucketPrefixes[i] : "",
-        			billingAccountIds.length > i ? billingAccountIds[i] : "",
-        			billingAccessRoleNames.length > i ? billingAccessRoleNames[i] : "",
-        			billingAccessExternalIds.length > i ? billingAccessExternalIds[i] : "",
-        			rootNames.length > i ? rootNames[i] : "",
-        			configBasenames.length > i ? configBasenames[i] : ""        					
-        		);
+        	BillingBucket bb = new BillingBucket()
+        			.withName(billingS3BucketNames.length > i ? billingS3BucketNames[i] : "")
+        			.withRegion(billingS3BucketRegions.length > i ? billingS3BucketRegions[i] : "")
+        			.withPrefix(billingS3BucketPrefixes.length > i ? billingS3BucketPrefixes[i] : "")
+        			.withAccountId(billingAccountIds.length > i ? billingAccountIds[i] : "")
+        			.withAccessRole(billingAccessRoleNames.length > i ? billingAccessRoleNames[i] : "")
+        			.withExternalId(billingAccessExternalIds.length > i ? billingAccessExternalIds[i] : "")
+        			.withRootName(rootNames.length > i ? rootNames[i] : "")
+        			.withConfigBasename(configBasenames.length > i ? configBasenames[i] : "");
         	billingBuckets.add(bb);
         }
     }
     
-    private void initKubernetesBuckets(Properties properties) {
-    	String[] kubernetesS3BucketNames = properties.getProperty(IceOptions.KUBERNETES_S3_BUCKET_NAME, "").split(",");
-    	String[] kubernetesS3BucketRegions = properties.getProperty(IceOptions.KUBERNETES_S3_BUCKET_REGION, "").split(",");
-    	String[] kubernetesS3BucketPrefixes = properties.getProperty(IceOptions.KUBERNETES_S3_BUCKET_PREFIX, "").split(",");
-    	String[] kubernetesAccountIds = properties.getProperty(IceOptions.KUBERNETES_ACCOUNT_ID, "").split(",");
-    	String[] kubernetesAccessRoleNames = properties.getProperty(IceOptions.KUBERNETES_ACCESS_ROLENAME, "").split(",");
-    	String[] kubernetesAccessExternalIds = properties.getProperty(IceOptions.KUBERNETES_ACCESS_EXTERNALID, "").split(",");
-
-        for (int i = 0; i < kubernetesS3BucketNames.length; i++) {
-        	BillingBucket bb = new BillingBucket(
-        			kubernetesS3BucketNames.length > i ? kubernetesS3BucketNames[i] : "",
-        			kubernetesS3BucketRegions.length > i ? kubernetesS3BucketRegions[i] : "",
-        			kubernetesS3BucketPrefixes.length > i ? kubernetesS3BucketPrefixes[i] : "",
-        			kubernetesAccountIds.length > i ? kubernetesAccountIds[i] : "",
-        			kubernetesAccessRoleNames.length > i ? kubernetesAccessRoleNames[i] : "",
-        			kubernetesAccessExternalIds.length > i ? kubernetesAccessExternalIds[i] : "",
-        			"", ""
-        		);
-        	kubernetesBuckets.add(bb);
-        }
-    }
-
     public void start () throws Exception {
         logger.info("starting up...");
 
@@ -314,7 +286,10 @@ public class ProcessorConfig extends Config {
 	            }
             }
             catch(AmazonEC2Exception e) {
-            	logger.error("failed to get zones for region " + region + ", " + e.getErrorMessage());
+            	if (e.getErrorCode().equals("UnauthorizedOperation"))
+            		logger.warn("Not authorized to get zones for region " + region);
+            	else
+            		logger.error("failed to get zones for region " + region + ", code: " + e.getErrorCode() + ", " + e.getErrorMessage());
             }
     	}
     }
@@ -379,13 +354,13 @@ public class ProcessorConfig extends Config {
     	
         for (BillingBucket bb: billingBuckets) {            
             // Only process each payer account once. Can have two if processing both DBRs and CURs
-            if (done.contains(bb.accountId))
+            if (done.contains(bb.getAccountId()))
             	continue;            
-            done.add(bb.accountId);
+            done.add(bb.getAccountId());
             
-            if (!AwsUtils.isMasterAccount(bb.accountId, bb.accessRoleName, bb.accessExternalId)) {
+            if (!AwsUtils.isMasterAccount(bb.getAccountId(), bb.getAccessRole(), bb.getExternalId())) {
             	// Billing bucket account is no longer a master account, so don't look up linked accounts.
-            	logger.info("Billing account " + bb.accountId + " is no longer a master account. Not pulling accounts from organizations service.");
+            	logger.info("Billing account " + bb.getAccountId() + " is no longer a master account. Not pulling accounts from organizations service.");
             	continue;
             }
             
@@ -411,18 +386,18 @@ public class ProcessorConfig extends Config {
     }
     
     protected static Map<String, AccountConfig> getOrganizationAccounts(BillingBucket bb, List<String> customTags) {
-        logger.info("Get account/organizational unit hierarchy for " + bb.accountId +
-        		" using assume role \"" + bb.accessRoleName + "\", and external id \"" + bb.accessExternalId + "\"");
+        logger.info("Get account/organizational unit hierarchy for " + bb.getAccountId() +
+        		" using assume role \"" + bb.getAccessRole() + "\", and external id \"" + bb.getExternalId() + "\"");
         
-        Map<String, List<String>> accountParents = AwsUtils.getAccountParents(bb.accountId, bb.accessRoleName, bb.accessExternalId, bb.rootName);
+        Map<String, List<String>> accountParents = AwsUtils.getAccountParents(bb.getAccountId(), bb.getAccessRole(), bb.getExternalId(), bb.getRootName());
         
-        logger.info("Get accounts for organization " + bb.accountId +
-        		" using assume role \"" + bb.accessRoleName + "\", and external id \"" + bb.accessExternalId + "\"");
-        List<Account> accounts = AwsUtils.listAccounts(bb.accountId, bb.accessRoleName, bb.accessExternalId);
+        logger.info("Get accounts for organization " + bb.getAccountId() +
+        		" using assume role \"" + bb.getAccessRole() + "\", and external id \"" + bb.getExternalId() + "\"");
+        List<Account> accounts = AwsUtils.listAccounts(bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
     	Map<String, AccountConfig> result = Maps.newHashMap();
         for (Account a: accounts) {
         	// Get tags for the account
-        	List<com.amazonaws.services.organizations.model.Tag> tags = AwsUtils.listAccountTags(a.getId(), bb.accountId, bb.accessRoleName, bb.accessExternalId);
+        	List<com.amazonaws.services.organizations.model.Tag> tags = AwsUtils.listAccountTags(a.getId(), bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
         	AccountConfig ac = new AccountConfig(a, accountParents.get(a.getId()), tags, customTags);
         	result.put(ac.getId(), ac);
         }
@@ -499,7 +474,6 @@ public class ProcessorConfig extends Config {
      * Get the billing data configurations specified along side the billing reports and override any account names and default tagging
      */
     protected void processBillingDataConfig(Map<String, AccountConfig> accountConfigs) {
-    	kubernetesConfigs = Lists.newArrayList();
     	postProcessorRules = Lists.newArrayList();
     	
         for (BillingBucket bb: billingBuckets) {
@@ -511,7 +485,6 @@ public class ProcessorConfig extends Config {
         	logger.info("Billing Data Configuration: Found " +
         			(bdc.getAccounts() == null ? "null" : bdc.getAccounts().size()) + " accounts, " +
         			(bdc.getTags() == null ? "null" : bdc.getTags().size()) + " tags, " +
-        			(bdc.getKubernetes() == null ? "null" : bdc.getKubernetes().size()) + " kubernetes, " +
         			(bdc.getPostprocrules() == null ? "null" : bdc.getPostprocrules().size()) + " post-proc");
 
         	if (bdc.getAccounts() != null) {
@@ -531,10 +504,7 @@ public class ProcessorConfig extends Config {
         	}
         	
         	if (resourceService != null && bdc.getTags() != null)
-        		resourceService.setTagConfigs(bb.accountId, bdc.getTags());
-        	List<KubernetesConfig> k = bdc.getKubernetes();
-        	if (k != null)
-        		kubernetesConfigs.addAll(k);
+        		resourceService.setTagConfigs(bb.getAccountId(), bdc.getTags());
         	
         	List<RuleConfig> ruleConfigs = bdc.getPostprocrules();
         	if (ruleConfigs != null)
@@ -544,14 +514,16 @@ public class ProcessorConfig extends Config {
     
     protected BillingDataConfig readBillingDataConfig(BillingBucket bb) {
     	// Make sure prefix ends with /
-    	String prefix = bb.s3BucketPrefix.endsWith("/") ? bb.s3BucketPrefix : bb.s3BucketPrefix + "/";
-    	String basename = bb.configBasename.isEmpty() ? billingDataConfigBasename : bb.configBasename;
-    	logger.info("Look for data config: " + bb.s3BucketName + ", " + bb.s3BucketRegion + ", " + prefix + basename + ", " + bb.accountId);
-    	List<S3ObjectSummary> configFiles = AwsUtils.listAllObjects(bb.s3BucketName, bb.s3BucketRegion, prefix + basename + ".", bb.accountId, bb.accessRoleName, bb.accessExternalId);
+    	String prefix = bb.getPrefix();
+    	if (!prefix.endsWith("/"))
+    			prefix += "/";
+    	String basename = bb.getConfigBasename().isEmpty() ? billingDataConfigBasename : bb.getConfigBasename();
+    	logger.info("Look for data config: " + bb.getName() + ", " + bb.getRegion() + ", " + prefix + basename + ", " + bb.getAccountId());
+    	List<S3ObjectSummary> configFiles = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), prefix + basename + ".", bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
     	if (configFiles.size() == 0 && !basename.equals(billingDataConfigBasename)) {
     		// Default baseName was overridden but we didn't find it. Fall back to the default config file basename
-        	logger.info("Look for data config: " + bb.s3BucketName + ", " + bb.s3BucketRegion + ", " + prefix + billingDataConfigBasename + ", " + bb.accountId);
-        	configFiles = AwsUtils.listAllObjects(bb.s3BucketName, bb.s3BucketRegion, prefix + billingDataConfigBasename + ".", bb.accountId, bb.accessRoleName, bb.accessExternalId);
+        	logger.info("Look for data config: " + bb.getName() + ", " + bb.getRegion() + ", " + prefix + billingDataConfigBasename + ", " + bb.getAccountId());
+        	configFiles = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), prefix + billingDataConfigBasename + ".", bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
         	if (configFiles.size() == 0) {
         		return null;
         	}
@@ -560,7 +532,7 @@ public class ProcessorConfig extends Config {
     	String fileKey = configFiles.get(0).getKey();
         File file = new File(workBucketConfig.localDir, fileKey.substring(prefix.length()));
         // Always download - specify 0 for time since.
-		boolean downloaded = AwsUtils.downloadFileIfChangedSince(bb.s3BucketName, bb.s3BucketRegion, prefix, file, 0, bb.accountId, bb.accessRoleName, bb.accessExternalId);
+		boolean downloaded = AwsUtils.downloadFileIfChangedSince(bb.getName(), bb.getRegion(), prefix, file, 0, bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
     	if (downloaded) {
         	String body;
 			try {
@@ -569,11 +541,11 @@ public class ProcessorConfig extends Config {
 				logger.error("Error reading account properties " + e);
 				return null;
 			}
-        	logger.info("downloaded billing data config: " + bb.s3BucketName + "/" + fileKey);
+        	logger.info("downloaded billing data config: " + bb.getName() + "/" + fileKey);
         	try {
 				return new BillingDataConfig(body);
 			} catch (Exception e) {
-				logger.error("Failed to parse billing data config: " + bb.s3BucketName + "/" + fileKey);
+				logger.error("Failed to parse billing data config: " + bb.getName() + "/" + fileKey);
 				e.printStackTrace();
 				return null;
 			}    	

@@ -61,7 +61,7 @@ public class CostAndUsageReportLineItemTest {
 	public void testGetUsageQuantity() {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null);
+		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null, "");
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		li.setItems(item);
 		assertEquals("Usage quantity is incorrect", Double.parseDouble(li.getUsageQuantity()), 1.0, 0.001);
@@ -71,7 +71,7 @@ public class CostAndUsageReportLineItemTest {
 	public void testResourceTags() {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
-		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null);
+		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null, "");
 		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
 		li.setItems(item);
 		assertEquals("Wrong resource tags size", 1, li.getResourceTagsSize());

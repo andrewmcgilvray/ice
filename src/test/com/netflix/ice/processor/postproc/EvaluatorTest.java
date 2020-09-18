@@ -61,4 +61,32 @@ public class EvaluatorTest {
 		assertEquals("wrong number of tokens", 5, tokens.size());
 		assertEquals("wrong value", expect, e.eval(expr), 0.001);
 	}
+	
+	/* Tests for unuary minus operator when we support it.
+	@Test
+	public void testLeadingUnaryMinus() throws Exception {
+		String expr = "-1.0 * 0.0059919";
+		Double expect = -1.0 * 0.0059919;
+		Evaluator e = new Evaluator();
+		List<String> tokens = e.parse(expr);
+		assertEquals("wrong number of tokens", 3, tokens.size());
+		assertEquals("wrong value", expect, e.eval(expr), 0.001);
+		
+		// Test with parenthetical expression
+		expr = "-(1.0 * 0.0059919)";
+		expect = -(1.0 * 0.0059919);
+		e = new Evaluator();
+		tokens = e.parse(expr);
+		assertEquals("wrong number of tokens", 6, tokens.size());
+		assertEquals("wrong value", expect, e.eval(expr), 0.001);
+
+		// Test negative zero
+		expr = "-0.0 * 0.0059919";
+		expect = -0.0 * 0.0059919;
+		e = new Evaluator();
+		tokens = e.parse(expr);
+		assertEquals("wrong number of tokens", 3, tokens.size());
+		assertEquals("wrong value", expect, e.eval(expr), 0.001);
+	}
+	*/
 }

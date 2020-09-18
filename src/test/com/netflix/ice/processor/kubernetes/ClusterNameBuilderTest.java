@@ -20,6 +20,7 @@ package com.netflix.ice.processor.kubernetes;
 import static org.junit.Assert.*;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.Test;
 
@@ -34,22 +35,23 @@ public class ClusterNameBuilderTest {
 	public void testNoFuncs() {
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("Tag3"), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Two"), UserTag.get("Three")};
-		String name = cnb.getClusterNames(userTags).get(0);
+		String name = cnb.getClusterNames(userTags).iterator().next();
 		assertEquals("Rule with no functions failed", "Three", name);
 	}
 	
 	@Test
 	public void testLiteral() {
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("\"foobar\""), null);
-		String name = cnb.getClusterNames(null).get(0);
-		assertEquals("ToUpper failed", "foobar", name);
+		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Two"), UserTag.get("Three")};
+		String name = cnb.getClusterNames(userTags).iterator().next();
+		assertEquals("Literal failed", "foobar", name);
 	}
 	
 	@Test
 	public void testToUpper() {		
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("Tag2.toUpper()"), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Two"), UserTag.get("Three")};
-		String name = cnb.getClusterNames(userTags).get(0);
+		String name = cnb.getClusterNames(userTags).iterator().next();
 		assertEquals("ToUpper failed", "TWO", name);
 	}
 
@@ -57,7 +59,7 @@ public class ClusterNameBuilderTest {
 	public void testToLower() {		
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("Tag2.toLower()"), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Two"), UserTag.get("Three")};
-		String name = cnb.getClusterNames(userTags).get(0);
+		String name = cnb.getClusterNames(userTags).iterator().next();
 		assertEquals("ToLower failed", "two", name);
 	}
 
@@ -65,7 +67,7 @@ public class ClusterNameBuilderTest {
 	public void testRegex() {		
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("Tag2.regex(\"Stripme-(.*)\")"), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Stripme-Two"), UserTag.get("Three")};
-		String name = cnb.getClusterNames(userTags).get(0);
+		String name = cnb.getClusterNames(userTags).iterator().next();
 		assertEquals("Regex failed", "Two", name);
 	}
 
@@ -73,7 +75,7 @@ public class ClusterNameBuilderTest {
 	public void testRegexWithToLower() {		
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("Tag2.regex(\"Stripme-(.*)\").toLower()"), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Stripme-Two"), UserTag.get("Three")};
-		String name = cnb.getClusterNames(userTags).get(0);
+		String name = cnb.getClusterNames(userTags).iterator().next();
 		assertEquals("Regex failed", "two", name);
 	}
 	
@@ -81,7 +83,7 @@ public class ClusterNameBuilderTest {
 	public void testMultipleTagRules() {		
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList("Tag1.toLower()+Tag2.regex(\"Stripme(-.*)\")"), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Stripme-Two"), UserTag.get("Three")};
-		String name = cnb.getClusterNames(userTags).get(0);
+		String name = cnb.getClusterNames(userTags).iterator().next();
 		assertEquals("Regex failed", "one-Two", name);
 	}
 	
@@ -97,9 +99,9 @@ public class ClusterNameBuilderTest {
 		String[] formulae = new String[]{ "Tag1.toLower()+Tag2.regex(\"Stripme(-.*)\")", "Tag3.regex(\"k8s-(.*)\")" };
 		ClusterNameBuilder cnb = new ClusterNameBuilder(Lists.newArrayList(formulae), tags);
 		UserTag[] userTags = new UserTag[]{ UserTag.get("One"), UserTag.get("Stripme-Two"), UserTag.get("k8s-Three")};
-		List<String> names = cnb.getClusterNames(userTags);
+		Set<String> names = cnb.getClusterNames(userTags);
 		assertEquals("Wrong number of cluster names", 2, names.size());
-		assertEquals("Regex failed", "one-Two", names.get(0));
-		assertEquals("Regex failed", "Three", names.get(1));
+		assertTrue("Regex failed for one-Two", names.contains("one-Two"));
+		assertTrue("Regex failed for Three", names.contains("Three"));
 	}
 }

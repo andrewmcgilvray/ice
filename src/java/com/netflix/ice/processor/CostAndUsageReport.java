@@ -38,6 +38,8 @@ import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.netflix.ice.common.AwsUtils;
+import com.netflix.ice.processor.config.BillingBucket;
+import com.netflix.ice.processor.config.S3BucketConfig;
 
 public class CostAndUsageReport extends MonthlyReport {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -45,14 +47,14 @@ public class CostAndUsageReport extends MonthlyReport {
     
 	private Manifest manifest = null;
 	
-	public CostAndUsageReport(S3ObjectSummary s3ObjectSummary, BillingBucket billingBucket, MonthlyReportProcessor processor) {
-		super(s3ObjectSummary, billingBucket, processor);
+	public CostAndUsageReport(S3ObjectSummary s3ObjectSummary, S3BucketConfig s3BucketConfig, MonthlyReportProcessor processor, String rootName) {
+		super(s3ObjectSummary, s3BucketConfig, processor, rootName);
 		
 		// Download the manifest
         String fileKey = s3ObjectSummary.getKey();
         logger.info("trying to download " + fileKey + "...");
-        byte[] manifestBytes = AwsUtils.readManifest(s3ObjectSummary.getBucketName(), billingBucket.s3BucketRegion, fileKey,
-                billingBucket.accountId, billingBucket.accessRoleName, billingBucket.accessExternalId);
+        byte[] manifestBytes = AwsUtils.readManifest(s3ObjectSummary.getBucketName(), s3BucketConfig.getRegion(), fileKey,
+        		s3BucketConfig.getAccountId(), s3BucketConfig.getAccessRole(), s3BucketConfig.getExternalId());
         Gson gson = new GsonBuilder().create();
         boolean downloaded = false;
         try {
@@ -69,8 +71,8 @@ public class CostAndUsageReport extends MonthlyReport {
 	/**
 	 * Constructor used for testing only
 	 */
-	public CostAndUsageReport(S3ObjectSummary s3ObjectSummary, File manifest, MonthlyReportProcessor processor) {
-		super(s3ObjectSummary, new BillingBucket(null, null, null, null, null, null, "", ""), processor);
+	public CostAndUsageReport(S3ObjectSummary s3ObjectSummary, File manifest, MonthlyReportProcessor processor, String rootName) {
+		super(s3ObjectSummary, new BillingBucket(), processor, rootName);
 		if (manifest == null)
 			return;
 		

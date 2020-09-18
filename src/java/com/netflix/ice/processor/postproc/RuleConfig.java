@@ -40,6 +40,7 @@ public class RuleConfig {
 	private Map<String, OperandConfig> operands;
 	private OperandConfig in;
 	private List<ResultConfig> results;
+	private AllocationConfig allocation;
 	
 	public String getName() {
 		return name;
@@ -80,5 +81,13 @@ public class RuleConfig {
 	}
 	public void setResults(List<ResultConfig> results) {
 		this.results = results;
+	}
+	
+	public AllocationConfig getAllocation() {
+		return allocation;
+	}
+	
+	public void setAllocation(AllocationConfig allocation) {
+		this.allocation = allocation;
 	}
 }

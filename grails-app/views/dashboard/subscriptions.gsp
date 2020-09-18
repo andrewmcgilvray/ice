@@ -24,8 +24,7 @@
 </head>
 <body>
 <div class="" style="margin: auto; width: 1800px; padding: 20px 30px" ng-controller="subscriptionsCtrl">
-  <h1>Subscriptions
-  </h1>
+  <h1>Subscriptions</h1>
   <input type="radio" ng-model="ri_sp" value="RI" id="radio_ri" ng-click="update()"> <label for="radio_ri" style="cursor: pointer">Reserved Instances</label>&nbsp;&nbsp;
   <input type="radio" ng-model="ri_sp" value="SP" id="radio_sp" ng-click="update()"> <label for="radio_sp" style="cursor: pointer">Savings Plans</label>
   <span style="padding-left: 20px">Month:	
