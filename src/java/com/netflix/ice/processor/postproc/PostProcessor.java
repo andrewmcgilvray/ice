@@ -582,6 +582,8 @@ public class PostProcessor {
 		// Keep some statistics
 		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
 		
+		TagGroup overAllocationTagGroup = null;
+		int firstOverAllocationHour = 0;
 		for (AggregationTagGroup atg: inData.keySet()) {
 			Double[] inValues = inData.get(atg);
 
@@ -593,23 +595,32 @@ public class PostProcessor {
 				return;
 			
 			for (int hour = 0; hour < maxHours; hour++) {						
-				processHourData(allocationReport, data.getCost(tg.product), hour, tg, allocatedTagGroups);
+				if (processHourData(allocationReport, data.getCost(tg.product), hour, tg, allocatedTagGroups) && overAllocationTagGroup == null) {
+					overAllocationTagGroup = tg;
+					firstOverAllocationHour = hour;
+				}
 			}
+		}
+		if (overAllocationTagGroup != null) {
+			info += info.isEmpty() ? "" : ", " + "Allocations exceeded 100% at hour " + Integer.toString(firstOverAllocationHour) + ". first over allocated tag group: " + overAllocationTagGroup.toString();
 		}
 		data.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inData.size(), allocatedTagGroups.size(), info));
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- allocated size = " + allocatedTagGroups.size());
 	}
-		
-	protected void processHourData(AllocationReport report, ReadWriteData costData, int hour, TagGroup tg, Set<TagGroup> allocatedTagGroups) {
+	
+	// returns true if any allocation set exceeds 100%
+	protected boolean processHourData(AllocationReport report, ReadWriteData costData, int hour, TagGroup tg, Set<TagGroup> allocatedTagGroups) {
 		Double totalCost = costData.get(hour, tg);
-		if (totalCost == null)
-			return;
+		if (totalCost == null || totalCost == 0.0)
+			return false;
 				
 		AllocationReport.Key key = report.getKey(tg);
 		List<AllocationReport.Value> hourClusterData = report.getData(hour, key);
 		if (hourClusterData == null || hourClusterData.isEmpty())
-			return;
-
+			return false;
+		
+		// Remove the source value - we'll add any unallocated back at the end
+		costData.remove(hour, tg);
 		double unAllocatedCost = totalCost;
 		for (AllocationReport.Value value: hourClusterData) {
 			double allocatedCost = totalCost * value.getAllocation();
@@ -622,20 +633,21 @@ public class PostProcessor {
 			allocatedTagGroups.add(allocated);
 			
 			Double existing = costData.get(hour, allocated);
-			allocatedCost += existing == null ? 0.0 : existing;
-			costData.put(hour, allocated,  allocatedCost);
+			costData.put(hour, allocated,  allocatedCost + (existing == null ? 0.0 : existing));
 			
 			unAllocatedCost -= allocatedCost;
 		}
 		
+		double threshold = 0.000000001;
 		// Unused cost can go negative if, for example, a K8s cluster is over-subscribed, so test the absolute value.
-		if (Math.abs(unAllocatedCost) < 0.0001) {
-			costData.remove(hour, tg);
-		}
-		else {
+		if (Math.abs(unAllocatedCost) > threshold) {
 			// Put the remaining cost on the original tagGroup
 			costData.put(hour, tg, unAllocatedCost);
 		}
+		boolean overAllocated = unAllocatedCost < -threshold;
+		if (overAllocated)
+			logger.warn("Over allocation at hour " + hour + " for tag group: " + tg);
+		return overAllocated;
 	}
 
 	protected AllocationReport generateAllocationReport(Rule rule, KubernetesReport report, CostAndUsageData data,

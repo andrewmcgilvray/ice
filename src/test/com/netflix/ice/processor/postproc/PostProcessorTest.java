@@ -1015,7 +1015,8 @@ public class PostProcessorTest {
 		// First call with empty report to make sure it handles it
 		pp.processAllocationReport(rule, ar, data, "");
 		// Check that we have our original three EC2Instance records at hour 0
-		assertEquals("wrong number of output records", 3, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+		Map<TagGroup, Double> hourData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
+		assertEquals("wrong number of output records", 3, hourData.keySet().size());
 		// Make sure the original data is unchanged
         for (TagGroupSpec spec: dataSpecs) {
         	TagGroup tg = spec.getTagGroup();
@@ -1031,7 +1032,8 @@ public class PostProcessorTest {
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
 		pp.processAllocationReport(rule, ar, data, "");
-		assertEquals("wrong number of output records", 5, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+		hourData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
+		assertEquals("wrong number of output records", 5, hourData.keySet().size());
 		
         TagGroupSpec[] expected = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 50.0),
@@ -1054,6 +1056,53 @@ public class PostProcessorTest {
         	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
         	assertEquals("wrong data for spec " + spec.toString(), spec.value, costData.get(tg));
         }
+        
+        // Process a report with duplicated entry
+		String allocationYaml2 = "" +
+				"name: k8s\n" + 
+				"start: 2019-11\n" + 
+				"end: 2022-11\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  region: eu-west-1\n" + 
+				"  userTags:\n" +
+				"    Key2: compute\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  type: cost\n" +
+				"  in:\n" +
+				"    _Product: _Product\n" +
+				"    Key1: Key1\n" +
+				"  out:\n" +
+				"    Key2: Key2\n" +
+				"";
+		rule = new Rule(getConfig(allocationYaml2), as, ps, rs);
+		reportData = "" +
+				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,EC2Instance,clusterC,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,EC2Instance,clusterC,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterC,seventy\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterC,seventy\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		pp.processAllocationReport(rule, ar, data, "");
+		hourData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
+		assertEquals("wrong number of output records", 7, hourData.keySet().size());
+		
+        expected = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, -9000.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "twenty-five"}, 5000.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "seventy"}, 14000.0),
+        };
+        
+        for (TagGroupSpec spec: expected) {
+        	TagGroup tg = spec.getTagGroup();
+        	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
+        	assertEquals("wrong data for spec " + spec.toString(), spec.value, costData.get(tg));
+        }
+        
+        
 	}
 
 	@Test
