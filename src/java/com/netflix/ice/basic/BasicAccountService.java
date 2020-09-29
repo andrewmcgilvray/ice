@@ -42,7 +42,7 @@ public class BasicAccountService implements AccountService {
     public static final List<String> unlinkedAccountParents = Lists.newArrayList(unlinkedAccountOrgUnitName);
 
     private Map<String, Account> accountsById = Maps.newConcurrentMap();
-    private Map<String, Account> accountsByIceName = Maps.newConcurrentMap();
+    private Map<String, List<Account>> accountsByIceName = Maps.newConcurrentMap();
     private Map<Account, Set<String>> reservationAccounts = Maps.newHashMap();
     private Map<Account, String> reservationAccessRoles = Maps.newHashMap();
     private Map<Account, String> reservationAccessExternalIds = Maps.newHashMap();
@@ -52,7 +52,7 @@ public class BasicAccountService implements AccountService {
     	for (AccountConfig a: configs.values()) {
     		String iceName = StringUtils.isEmpty(a.name) ? a.awsName : a.name;
 			Account account = new Account(a.id, iceName, a.awsName, a.email, a.parents, a.status, a.joinedMethod, a.joinedDate, a.tags);
-			accountsByIceName.put(iceName, account);
+			putAccountByIceName(account);
 			accountsById.put(a.id, account);
 			if (a.riProducts != null && a.riProducts.size() > 0) {
 				reservationAccounts.put(account, Sets.newHashSet(a.riProducts));
@@ -72,13 +72,24 @@ public class BasicAccountService implements AccountService {
     	for (Account a: accounts) {
     		a.initDefaultTags();
     		accountsById.put(a.getId(), a);
-    		accountsByIceName.put(a.getIceName(), a);
+    		putAccountByIceName(a);
     	}
     	// Reservation maps are not used by the reader.
     }
     
     // Used by test code
     public BasicAccountService() {}
+    
+    private void putAccountByIceName(Account account) {
+    	String iceName = account.getIceName();
+    	if (accountsByIceName.containsKey(iceName)) {
+    		accountsByIceName.get(iceName).add(account);
+    		logger.error("More than one account with the name: " + account.getIceName());
+    	}
+    	else {
+    		accountsByIceName.put(iceName, Lists.<Account>newArrayList(account));
+    	}
+    }
     
     // testing methods
     protected boolean hasAccountByIceName(String name) {
@@ -97,14 +108,25 @@ public class BasicAccountService implements AccountService {
     			// Add the new account
     			a.initDefaultTags();
     			accountsById.put(a.getId(), a);
-    			accountsByIceName.put(a.getIceName(), a);
+    			putAccountByIceName(a);
     		}
     		else {
     			// Remove the account by old name
-    			accountsByIceName.remove(existing.getIceName());
+    			List<Account> al = accountsByIceName.get(existing.getIceName());
+    			for (int i = 0; i < al.size(); i++) {
+    				if (al.get(i).getId().equals(existing.getId())) {
+    					al.remove(i);
+    					break;
+    				}
+    			}
+    			if (al.isEmpty()) {
+    				// empty list, remove the list from the map
+    				accountsByIceName.remove(existing.getIceName());
+    			}
+    			
     			// Update account organization info
     			existing.update(a);
-    			accountsByIceName.put(a.getIceName(), a);
+    			putAccountByIceName(a);
     		}
     	}
     }
@@ -124,7 +146,7 @@ public class BasicAccountService implements AccountService {
         	// We get here when the billing data has an account that is no longer active in any of the payer accounts
         	String[] parents = StringUtils.isEmpty(root) ? new String[]{ unlinkedAccountOrgUnitName } : new String[]{ root, unlinkedAccountOrgUnitName };
             account = new Account(accountId, accountId, Lists.newArrayList(parents));
-            accountsByIceName.put(account.getIceName(), account);
+            putAccountByIceName(account);
             accountsById.put(account.getId(), account);
             logger.info("getAccountById() created account " + accountId + "=\"" + account.getIceName() + "\".");
         }
@@ -132,7 +154,14 @@ public class BasicAccountService implements AccountService {
     }
     
     public Account getAccountByName(String accountName) {
-        Account account = accountsByIceName.get(accountName);
+        Account account = null;
+        List<Account> accounts = accountsByIceName.get(accountName);
+        if (accounts != null) {
+        	account = accounts.get(0);
+        	if (accounts.size() > 1)
+        		logger.warn("More than one account with the name: " + account.getIceName());
+        }
+        	
         // for accounts that were not mapped to names in ice.properties (ice.account.xxx), this check will make sure that
         // data/tags are updated properly once the mapping is established in ice.properties
         if (account == null) {
@@ -140,7 +169,7 @@ public class BasicAccountService implements AccountService {
         }
         if (account == null) {
             account = new Account(accountName, accountName, unlinkedAccountParents);
-            accountsByIceName.put(account.getIceName(), account);
+            putAccountByIceName(account);
             accountsById.put(account.getId(), account);
             logger.info("getAccountByName() created account " + accountName + ".");
         }
@@ -157,8 +186,10 @@ public class BasicAccountService implements AccountService {
 
     public List<Account> getAccounts(List<String> accountNames) {
         List<Account> result = Lists.newArrayList();
-        for (String name: accountNames)
-            result.add(accountsByIceName.get(name));
+        for (String name: accountNames) {
+        	for (Account a: accountsByIceName.get(name))
+        		result.add(a);
+        }
         return result;
     }
 
