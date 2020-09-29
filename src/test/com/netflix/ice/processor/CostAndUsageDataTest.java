@@ -181,13 +181,13 @@ public class CostAndUsageDataTest {
 		}
 
 		@Override
-	    void archive() throws IOException {
+		public void archive() throws IOException {
 			if (archive != null)
 				archive.putAll((ReadWriteData)data);
 	    }
 	    
 		@Override
-	    void delete() {
+	    public void delete() {
 	    }
 	}
 	

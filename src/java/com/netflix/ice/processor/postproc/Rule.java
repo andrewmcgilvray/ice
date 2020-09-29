@@ -29,6 +29,7 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
+import com.netflix.ice.tag.TagType;
 
 public class Rule {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -37,6 +38,20 @@ public class Rule {
 	private Map<String, InputOperand> operands;
 	private InputOperand in;
 	private List<Operand> results;
+	
+	private static TagType[] tagTypes = new TagType[]{
+		TagType.Account,
+		TagType.Region,
+		TagType.Zone,
+		TagType.Product,
+		TagType.Operation,
+		TagType.UsageType,
+	};
+	private static Map<String, TagType> allocationKeyMap = Maps.newHashMap();
+	static {
+		for (TagType tt: tagTypes)
+			allocationKeyMap.put("_" + tt.toString(), tt);
+	}
 	
 	public Rule(RuleConfig config, AccountService accountService, ProductService productService, ResourceService resourceService) throws Exception {
 		this.config = config;
@@ -68,6 +83,32 @@ public class Rule {
 				Operand r = new Operand(rc.getOut(), accountService, resourceService);
 				logger.info("    result " + results.size() + ": " + r);
 				results.add(r);
+			}
+		}
+		
+		if (config.getAllocation() != null) {
+			// Make sure we're not allocating on a dimension that we've aggregated in the 'in' operand
+			List<String> inAllocationTagKeys = Lists.newArrayList(config.getAllocation().getIn().keySet());
+			List<TagType> inTagKeys = config.getIn().getGroupBy();
+			List<String> inUserTagKeys = config.getIn().getGroupByTags();
+			
+			for (String key: inAllocationTagKeys) {
+				if (key.startsWith("_")) {
+					TagType tt = allocationKeyMap.get(key);
+					if (inTagKeys != null && !inTagKeys.contains(tt)) {
+						String err = "Post-processor rule " + config.getName() + " has allocation report that references aggregated tag key: " + tt;
+						logger.error(err);
+						throw new Exception(err);
+					}
+				}
+				else {
+					if (inUserTagKeys != null && !inUserTagKeys.contains(key)) {
+						String err = "Post-processor rule " + config.getName() + " has allocation report that references aggregated user tag key: " + key;
+						logger.error(err);
+						throw new Exception(err);
+					}
+				}
+				
 			}
 		}
 	}

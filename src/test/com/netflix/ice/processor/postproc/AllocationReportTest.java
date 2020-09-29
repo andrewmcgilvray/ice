@@ -61,7 +61,6 @@ public class AllocationReportTest {
 		"  region: us-east-1\n" + 
 		"  prefix: cluster-name\n" + 
 		"  accountId: 123456789012\n" + 
-		"type: cost\n" + 
 		"in:\n" + 
 		"  InTag1: inCol1\n" + 
 		"out:\n" + 
@@ -107,7 +106,6 @@ public class AllocationReportTest {
 		"  region: us-east-1\n" + 
 		"  prefix: cluster-name\n" + 
 		"  accountId: 123456789012\n" + 
-		"type: cost\n" + 
 		"in:\n" + 
 		"  InTag1: inCol1\n" + 
 		"  InTag2: inCol2\n" + 
@@ -142,7 +140,6 @@ public class AllocationReportTest {
 		"  region: us-east-1\n" + 
 		"  prefix: cluster-name\n" + 
 		"  accountId: 123456789012\n" + 
-		"type: cost\n" + 
 		"in:\n" + 
 		"  InTag1: inCol1\n" + 
 		"  InTag2: inCol2\n" + 

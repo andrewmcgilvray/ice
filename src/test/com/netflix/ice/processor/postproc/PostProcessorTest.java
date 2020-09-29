@@ -19,6 +19,7 @@ package com.netflix.ice.processor.postproc;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -55,9 +56,11 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
+import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.TagType;
 
 public class PostProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -974,7 +977,7 @@ public class PostProcessorTest {
 	public void testAllocationReport() throws Exception {
 		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
 		String allocationYaml = "" +
-				"name: k8s\n" + 
+				"name: allocation-report-test\n" + 
 				"start: 2019-11\n" + 
 				"end: 2022-11\n" + 
 				"in:\n" + 
@@ -984,7 +987,6 @@ public class PostProcessorTest {
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
-				"  type: cost\n" +
 				"  in:\n" +
 				"    _Product: _Product\n" +
 				"    Key1: Key1\n" +
@@ -1013,7 +1015,7 @@ public class PostProcessorTest {
 		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rs);
 		
 		// First call with empty report to make sure it handles it
-		pp.processAllocationReport(rule, ar, data, "");
+		pp.processAllocationReport(rule, ar, data, data, "");
 		// Check that we have our original three EC2Instance records at hour 0
 		Map<TagGroup, Double> hourData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
 		assertEquals("wrong number of output records", 3, hourData.keySet().size());
@@ -1031,7 +1033,7 @@ public class PostProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
-		pp.processAllocationReport(rule, ar, data, "");
+		pp.processAllocationReport(rule, ar, data, data, "");
 		hourData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
 		assertEquals("wrong number of output records", 5, hourData.keySet().size());
 		
@@ -1070,7 +1072,6 @@ public class PostProcessorTest {
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
-				"  type: cost\n" +
 				"  in:\n" +
 				"    _Product: _Product\n" +
 				"    Key1: Key1\n" +
@@ -1086,7 +1087,7 @@ public class PostProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterC,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
-		pp.processAllocationReport(rule, ar, data, "");
+		pp.processAllocationReport(rule, ar, data, data, "");
 		hourData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
 		assertEquals("wrong number of output records", 7, hourData.keySet().size());
 		
@@ -1119,7 +1120,6 @@ public class PostProcessorTest {
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
-				"  type: cost\n" +
 				"  in:\n" +
 				"    _Product: _Product\n" +
 				"    Key1: Key1\n" +
@@ -1151,7 +1151,7 @@ public class PostProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
-		pp.processAllocationReport(rule, ar, data, "");
+		pp.processAllocationReport(rule, ar, data, data, "");
 		assertEquals("wrong number of output records", 3, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
 		
         TagGroupSpec[] expected = new TagGroupSpec[]{
@@ -1165,6 +1165,111 @@ public class PostProcessorTest {
         	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
         	assertEquals("wrong data for spec " + spec.toString(), spec.value, costData.get(tg));
         }
+	}
+
+	@Test
+	public void testReportAllocationReport() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
+		String allocationYaml = "" +
+				"name: report-test\n" + 
+				"start: 2019-11\n" + 
+				"end: 2022-11\n" + 
+				"reports: [monthly]\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  userTags:\n" +
+				"    Key2: compute\n" +
+				"  groupBy: [Account]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  in:\n" +
+				"    Key1: Key1\n" +
+				"  out:\n" +
+				"    Key2: Key2\n" +
+				"";
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
+        loadData(dataSpecs, data, 0);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
+		pp.debug = true;
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs);
+
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rs);
+		
+		// Process with a report
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,Key1,Key2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,clusterA,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,clusterA,seventy\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		
+		CostAndUsageData outData = new CostAndUsageData(data);
+		pp.processAllocationReport(rule, ar, data, outData, "");
+		
+		// Make sure source data wasn't changed
+		assertEquals("wrong number of output records", 1, data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+    	TagGroup tg = dataSpecs[0].getTagGroup();
+    	Map<TagGroup, Double> costData = data.getCost(tg.product).getData(0);
+    	assertEquals("wrong data for spec " + dataSpecs[0].toString(), dataSpecs[0].value, costData.get(tg));
+		
+    	Account a = as.getAccountById(a1);
+        TagGroup[] expectedTg = new TagGroup[]{
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "seventy"})),
+         };
+        Double[] expectedValues = new Double[]{ 5.0, 25.0, 70.0 };
+        
+        for (int i = 0; i < expectedTg.length; i++) {
+        	tg = expectedTg[i];
+        	costData = outData.getCost(null).getData(0);
+        	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg));
+        }
+        
+        InputOperand in = rule.getIn();
+		ReadWriteData rwData = outData.getCost(null);
+        
+		String filename = pp.reportName(outData.getStart(), rule.config.getName(), RuleConfig.Aggregation.hourly);
+		TestReportWriter writer = new TestReportWriter(filename, data.getStart(), OperandConfig.OperandType.cost, in.getGroupBy(), in.getGroupByTagsIndeces(), in.getGroupByTags(), rwData);		
+		writer.archive();
+		
+		String csv = writer.baos.toString();
+		String[] rows = csv.split("\r\n");
+		assertEquals("wrong number of lines", 4, rows.length);
+		
+		String[] expectedRows = new String[]{
+			"Date,Cost,Account ID,Account Name,Key1,Key2",
+			"2020-08-01T00:00:00Z,25.0,1111111111111,1111111111111,clusterA,twenty-five",
+			"2020-08-01T00:00:00Z,70.0,1111111111111,1111111111111,clusterA,seventy",
+			"2020-08-01T00:00:00Z,5.0,1111111111111,1111111111111,clusterA,compute",
+		};
+		for (int i = 0; i < rows.length; i++) {
+			assertEquals("wrong number of columns on row" + Integer.toString(i + 1), 6, rows[i].split(",").length);
+			assertEquals("wrong results for line " + Integer.toString(i), expectedRows[i], rows[i]);
+		}
+	}
+	
+	class TestReportWriter extends ReportWriter {
+		public ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		
+		public TestReportWriter(String name, DateTime month, OperandConfig.OperandType type,
+				List<TagType> tagKeys, List<Integer> userTagKeyIndeces, List<String> userTagKeys,
+				ReadWriteData data) throws Exception {
+			super(name, null, month, type, tagKeys, userTagKeyIndeces, userTagKeys, data);
+		}
+		
+		@Override
+	    public void open() throws IOException {
+	    	os = baos;
+	    }
+		
+		@Override
+	    public void close() throws IOException {
+	    }
 	}
 
 	class TestKubernetesReport extends KubernetesReport {
@@ -1193,7 +1298,6 @@ public class PostProcessorTest {
 				"    name: reports\n" +
 				"    region: us-east-1\n" +
 				"    accountId: 123456789012\n" +
-				"  type: cost\n" +
 				"  in:\n" +
 				"    _Product: _Product\n" +
 				"    Cluster: Cluster\n" +
@@ -1275,7 +1379,6 @@ public class PostProcessorTest {
 				"    name: reports\n" +
 				"    region: us-east-1\n" +
 				"    accountId: 123456789012\n" +
-				"  type: cost\n" +
 				"  in:\n" +
 				"    _Product: _Product\n" +
 				"    Cluster: Cluster\n" +
@@ -1308,7 +1411,7 @@ public class PostProcessorTest {
 		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
 		Set<String> unprocessedAtgs = Sets.newHashSet();
 		AllocationReport ar = pp.generateAllocationReport(rule, kr, data, unprocessedClusters, unprocessedAtgs);
-		pp.processAllocationReport(rule, ar, data, "");
+		pp.processAllocationReport(rule, ar, data, data, "");
 		
 		assertEquals("have wrong number of unprocessed clusters", 1, unprocessedClusters.size());
 		assertTrue("wrong unprocessed cluster", unprocessedClusters.contains("stage-usw2a"));

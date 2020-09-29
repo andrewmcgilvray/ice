@@ -75,9 +75,7 @@ public class InputOperand extends Operand {
 		
 		groupBy = opConfig.getGroupBy() == null ? allTagTypes : Lists.<TagType>newArrayList();
 		if (opConfig.getGroupBy() != null) {
-			for (String tagType: opConfig.getGroupBy()) {
-				groupBy.add(TagType.valueOf(tagType));
-			}
+			groupBy.addAll(opConfig.getGroupBy());
 			aggregates |= !groupBy.containsAll(allTagTypes);
 		}
 		
@@ -102,11 +100,11 @@ public class InputOperand extends Operand {
 		
 		this.aggregation = new Aggregation(groupBy, groupByTagsIndeces);
 		
-		List<String> exclude = opConfig.getExclude();
+		List<TagType> exclude = opConfig.getExclude();
 		if (exclude != null) {
 			// If we're using the exclude feature on any of the lists, then we're aggregating
-			for (String tagType: exclude) {
-				switch (TagType.valueOf(tagType)) {
+			for (TagType tagType: exclude) {
+				switch (tagType) {
 				case Account: excludeAccount = true; aggregates = true; break;
 				case Region: excludeRegion = true; aggregates = true; break;
 				case Zone: excludeZone = true; aggregates = true; break;
@@ -124,6 +122,18 @@ public class InputOperand extends Operand {
 			aggregates = true;
 		
 		this.aggregates = aggregates;
+	}
+	
+	public List<TagType> getGroupBy() {
+		return this.groupBy;
+	}
+	
+	public List<Integer> getGroupByTagsIndeces() {
+		return this.groupByTagsIndeces;
+	}
+	
+	public List<String> getGroupByTags() {
+		return this.groupByTags;
 	}
 	
 	public boolean hasAggregation() {

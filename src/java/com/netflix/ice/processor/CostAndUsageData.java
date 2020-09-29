@@ -106,6 +106,27 @@ public class CostAndUsageData {
         this.postProcessorStats = Lists.newArrayList();
 	}
 	
+	/*
+	 * Constructor that creates a new empty data set based on another data set. Used by the post processor for generating reports
+	 */
+	public CostAndUsageData(CostAndUsageData other) {
+		this.startMilli = other.startMilli;
+        this.userTagKeys = other.userTagKeys;
+		this.usageDataByProduct = Maps.newHashMap();
+		this.costDataByProduct = Maps.newHashMap();
+        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.workBucketConfig = other.workBucketConfig;
+        this.accountService = other.accountService;
+        this.productService = other.productService;
+        this.tagCoverage = null;
+        this.collectTagCoverageWithUserTags = false;
+        this.reservations = null;
+        this.savingsPlans = null;
+        this.savingsPlanProducts = null;
+        this.postProcessorStats = null;
+	}
+	
 	public DateTime getStart() {
 		return new DateTime(startMilli, DateTimeZone.UTC);
 	}

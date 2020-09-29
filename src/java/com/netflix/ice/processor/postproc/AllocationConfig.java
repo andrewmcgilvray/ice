@@ -9,7 +9,6 @@ import com.netflix.ice.processor.config.KubernetesConfig;
 public class AllocationConfig {
 	private S3BucketConfig s3Bucket;
 	private KubernetesConfig kubernetes;
-	private String type;
 	// Input tag map = UserTag Key is the map key, Report Column name is the map value.
 	private Map<String, String> in;
 	// Output tag map = UserTag Key is the map key, Report Column name is the map value.
@@ -27,12 +26,6 @@ public class AllocationConfig {
 	}
 	public void setKubernetes(KubernetesConfig kubernetes) {
 		this.kubernetes = kubernetes;
-	}
-	public String getType() {
-		return type;
-	}
-	public void setType(String type) {
-		this.type = type;
 	}
 	public Map<String, String> getIn() {
 		return in;

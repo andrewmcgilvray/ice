@@ -88,7 +88,6 @@ public class RuleConfigTest {
 	    "    externalId: 234567890123\n" +
 	    "  kubernetes: # use the kubernetes precprocessor i.e. preprocess a Kubernetes report into an Allocation report.\n" +
 	    "    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex(\"k8s-(.*)\")', '\"literal-cluster\"' ]\n" +
-	    "  type: cost\n" +
 	    "  in:\n" +
 		"    Cluster: Cluster\n" +
 		"    Product: Product\n" +
@@ -121,4 +120,28 @@ public class RuleConfigTest {
 		assertNotNull("Should have a kubernetes config object", kc);
 		assertEquals("Wrong cluster name for literal expression", "\"literal-cluster\"", kc.getClusterNameFormulae().get(2));
 	}
+	
+	@Test
+	public void testReportRuleRead() throws JsonParseException, JsonMappingException, IOException {
+		String yaml = "" +
+		"name: kubernetes-breakout\n" + 
+		"start: 2019-11\n" + 
+		"end: 2022-11\n" + 
+		"reports: [monthly]\n" + 
+		"in:\n" + 
+		"  type: cost\n" + 
+		"  product: Product\n" + 
+		"  userTags:\n" + 
+		"    Role: compute\n" + 
+		"";
+		
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+		RuleConfig rc = new RuleConfig();
+		rc = mapper.readValue(yaml, rc.getClass());
+		
+		assertTrue("isReport failing", rc.isReport());
+		assertEquals("wrong number of reports", 1, rc.getReports().size());
+		assertEquals("wrong report aggregation", RuleConfig.Aggregation.monthly, rc.getReports().get(0));
+	}
+
 }

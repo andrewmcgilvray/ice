@@ -94,7 +94,6 @@ public class BillingDataConfigTest {
 		"          Namespace: K8sNamespace\n" +
 		"          Resource: K8sResource\n" +
 		"          Type: K8sType\n" +
-	    "      type: cost\n" +
 	    "      in:\n" +
 		"        Cluster: Cluster\n" +
 		"        _Product: _Product\n" +

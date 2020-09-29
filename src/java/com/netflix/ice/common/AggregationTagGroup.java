@@ -173,13 +173,11 @@ public class AggregationTagGroup {
         int result = 1;
         
     	for (Tag t: tags) {
-    		if (t != null)
-    			result = prime * result + t.hashCode();
+    		result = prime * result + (t != null ? t.hashCode() : 0);
     	}
     	if (userTags != null) {
 	    	for (Tag t: userTags) {
-	    		if (t != null)
-	    			result = prime * result + t.hashCode();
+	    		result = prime * result + (t != null ? t.hashCode() : 0);
 	    	}
 	    }
         

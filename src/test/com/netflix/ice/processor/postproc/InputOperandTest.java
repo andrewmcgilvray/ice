@@ -34,6 +34,7 @@ import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.TagType;
 
 public class InputOperandTest {
 	static private BasicAccountService as;
@@ -77,7 +78,7 @@ public class InputOperandTest {
 		
 		
 		List<String> accounts = Lists.newArrayList(new String[]{"234567890123"});
-		List<String> exclude = Lists.newArrayList(new String[]{"Account"});
+		List<TagType> exclude = Lists.newArrayList(new TagType[]{TagType.Account});
 		oc.setAccounts(accounts);
 		oc.setExclude(exclude);
 		io = new InputOperand(oc, as, rs);
@@ -157,7 +158,7 @@ public class InputOperandTest {
 		/*
 		 * Test case where operand groups by five tag types
 		 */
-		List<String> groupBy = Lists.newArrayList(new String[]{"Account","Zone","Operation","UsageType"});
+		List<TagType> groupBy = Lists.newArrayList(new TagType[]{TagType.Account,TagType.Zone,TagType.Operation,TagType.UsageType});
 		oc.setGroupBy(groupBy);
 		io = new InputOperand(oc, as, rs);
 		key = io.cacheKey(atg);
@@ -210,17 +211,17 @@ public class InputOperandTest {
 		
 		
 		// Test case where operand is aggregating everything
-		List<String> groupBy = Lists.newArrayList(new String[]{});
+		List<TagType> groupBy = Lists.newArrayList(new TagType[]{});
 		oc = new OperandConfig();
 		oc.setType(OperandType.cost);
 		oc.setGroupBy(groupBy);
-		oc.setGroupByTags(groupBy);
+		oc.setGroupByTags(Lists.<String>newArrayList());
 		io = new InputOperand(oc, as, rs);
 		TagGroup tg1 = TagGroup.getTagGroup("123456789012", "us-west-2", null, "IOTestProduct", "OP2", "UT2", "", new String[]{"tag2", ""}, as, ps);		
 		assertTrue("TagGroup should match all aggregation operand", io.matches(atg, tg1));
 		
 		// Test case where aggregating all accounts, but tag group account is different
-		groupBy = Lists.newArrayList(new String[]{"Region","Zone","Product","Operation","UsageType"});
+		groupBy = Lists.newArrayList(new TagType[]{TagType.Region,TagType.Zone,TagType.Product,TagType.Operation,TagType.UsageType});
 		oc = new OperandConfig();
 		oc.setType(OperandType.cost);
 		oc.setGroupBy(groupBy);
@@ -245,7 +246,7 @@ public class InputOperandTest {
 		inOperand.setProduct("(?!IOTestProduct$)^.*$");
 		inOperand.setOperation("(?!OP$)^.*$");
 		inOperand.setUsageType("(?!UT$)^.*$");
-		List<String> groupBy = Lists.newArrayList(new String[]{"Account","Region","Zone"});
+		List<TagType> groupBy = Lists.newArrayList(new TagType[]{TagType.Account,TagType.Region,TagType.Zone});
 		inOperand.setGroupBy(groupBy);
 		InputOperand in = new InputOperand(inOperand, as, rs);		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		

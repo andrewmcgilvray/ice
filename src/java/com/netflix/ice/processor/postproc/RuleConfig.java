@@ -24,8 +24,13 @@ import java.util.Map;
  * Post Processor Rule Configuration
  * 
  * The post processor provides a way to generate arbitrary cost and usage records based on existing cost and usage data processed from the reports.
- * Each rule can be given a name which is used only by the processor for logging purposes. Start and end dates inform the processor when in time
+ * Each rule can be given a name which is used only by the processor for logging purposes and report naming. Start and end dates inform the processor when in time
  * the rule is active. The rule will not be applied to data outside of the active window.
+ * 
+ * The 'reports' property specifies that the destination for the cost and usage records will be one to three CSV report files. When the rule specifies a
+ * report, the monthly cost and usage data will remain unchanged. The report property is used to specify one, two, or three aggregation reports. Possible
+ * values are 'hourly', 'daily', and 'monthly'.
+ * reports are written to the work bucket named [name]_[aggregation]_yyyy_mm.csv.gz.
  * 
  * Inputs to the rule are specified using Operands. The 'in' operand drives the process while additional operands can be used to get values for
  * the result value expressions.
@@ -37,11 +42,17 @@ public class RuleConfig {
 	private String name;
 	private String start;
 	private String end;
+	private List<Aggregation> reports;
 	private Map<String, OperandConfig> operands;
 	private OperandConfig in;
 	private List<ResultConfig> results;
 	private AllocationConfig allocation;
 	
+	public enum Aggregation {
+		hourly,
+		daily,
+		monthly;
+	}
 	public String getName() {
 		return name;
 	}
@@ -59,6 +70,15 @@ public class RuleConfig {
 	}
 	public void setEnd(String end) {
 		this.end = end;
+	}
+	public boolean isReport() {
+		return reports != null;
+	}
+	public List<Aggregation> getReports() {
+		return reports;
+	}
+	public void setReports(List<Aggregation> reports) {
+		this.reports = reports;
 	}
 	public Map<String, OperandConfig> getOperands() {
 		return operands;

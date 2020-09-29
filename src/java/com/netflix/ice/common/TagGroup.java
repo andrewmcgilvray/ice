@@ -73,22 +73,22 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
     public int compareTo(TagGroup t) {
     	if (this == t)
     		return 0;
-        int result = this.account.compareTo(t.account);
+        int result = this.account == t.account ? 0 : (this.account == null ? 1 : (t.account == null ? -1 : this.account.compareTo(t.account)));
         if (result != 0)
             return result;
-        result = this.region.compareTo(t.region);
+        result = this.region == t.region ? 0 : (this.region == null ? 1 : (t.region == null ? -1 : this.region.compareTo(t.region)));
         if (result != 0)
             return result;
         result = this.zone == t.zone ? 0 : (this.zone == null ? 1 : (t.zone == null ? -1 : t.zone.compareTo(this.zone)));
         if (result != 0)
             return result;
-        result = this.product.compareTo(t.product);
+        result = this.product == t.product ? 0 : (this.product == null ? 1 : (t.product == null ? -1 : this.product.compareTo(t.product)));
         if (result != 0)
             return result;
-        result = this.operation.compareTo(t.operation);
+        result = this.operation == t.operation ? 0 : (this.operation == null ? 1 : (t.operation == null ? -1 : this.operation.compareTo(t.operation)));
         if (result != 0)
             return result;
-        result = this.usageType.compareTo(t.usageType);
+        result = this.usageType == t.usageType ? 0 : (this.usageType == null ? 1 : (t.usageType == null ? -1 : this.usageType.compareTo(t.usageType)));
         if (result != 0)
             return result;
         result = this.resourceGroup == t.resourceGroup ? 0 : (this.resourceGroup == null ? 1 : (t.resourceGroup == null ? -1 : t.resourceGroup.compareTo(this.resourceGroup)));
@@ -118,41 +118,6 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
                 this.operation == other.operation &&
                 this.usageType == other.usageType &&
                 this.resourceGroup == other.resourceGroup;
-/* For debugging & ensuring we don't inadvertently create TagGroup permutations       
-        if (!match) {
-        	// Check for value match
-            boolean valueMatch = 
-            		this.account.equals(other.account) &&
-            		this.region.equals(other.region) &&
-            		((this.zone == null && other.zone == null) || (this.zone != null && other.zone != null && this.zone.equals(other.zone))) &&
-            		this.product.equals(other.product) &&
-            		this.operation.equals(other.operation) &&
-            		this.usageType.equals(other.usageType) &&
-            		((this.resourceGroup == null && other.resourceGroup == null) || (this.resourceGroup != null && other.resourceGroup != null && this.resourceGroup.equals(other.resourceGroup)));
-            
-            if (match != valueMatch) {
-            	List<String> mismatches = Lists.newArrayList();
-            	if (this.account != other.account)
-            		mismatches.add("account");
-            	if (this.region != other.region)
-            		mismatches.add("region");
-            	if (this.zone != other.zone)
-            		mismatches.add("zone");
-            	if (this.product != other.product)
-            		mismatches.add("product");
-            	if (this.operation != other.operation)
-            		mismatches.add("operation");
-            	if (this.usageType != other.usageType)
-            		mismatches.add("usageType("+ this.usageType.hashCode() + "," + other.usageType.hashCode() + ")");
-            	if (this.resourceGroup != other.resourceGroup)
-            		mismatches.add("resourceGroup(" + this.resourceGroup.hashCode() + "," + other.resourceGroup.hashCode() + ")");
-            	
-            	logger.error("non-equivalent tag sets in TagGroup comparison: (" + this + "), (" + other + "), " + mismatches);
-            	
-            	match = valueMatch;
-            }          
-        }
-*/        
         return match;
     }
 
@@ -164,15 +129,13 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
     private int genHashCode() {
         final int prime = 31;
         int result = 1;
-        if (this.zone != null)
-            result = prime * result + this.zone.hashCode();
-        result = prime * result + this.account.hashCode();
-        result = prime * result + this.region.hashCode();
-        result = prime * result + this.product.hashCode();
-        result = prime * result + this.operation.hashCode();
-        result = prime * result + this.usageType.hashCode();
-        if (this.resourceGroup != null)
-            result = prime * result + this.resourceGroup.hashCode();
+        result = prime * result + (zone != null ? zone.hashCode() : 0);
+        result = prime * result + (account != null ? account.hashCode() : 0);
+        result = prime * result + (region != null ? region.hashCode() : 0);
+        result = prime * result + (product != null ? product.hashCode() : 0);
+        result = prime * result + (operation != null ? operation.hashCode() : 0);
+        result = prime * result + (usageType != null ? usageType.hashCode() : 0);
+        result = prime * result + (resourceGroup != null ? resourceGroup.hashCode() : 0);
 
         return result;
     }
@@ -227,11 +190,11 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         }
 
         public static void serialize(DataOutput out, TagGroup tagGroup) throws IOException {
-            out.writeUTF(tagGroup.account.getId());
-            out.writeUTF(tagGroup.region.toString());
+            out.writeUTF(tagGroup.account == null ? "" : tagGroup.account.getId());
+            out.writeUTF(tagGroup.region == null ? "" : tagGroup.region.toString());
             out.writeUTF(tagGroup.zone == null ? "" : tagGroup.zone.toString());
-            out.writeUTF(tagGroup.product.getServiceCode());
-            out.writeUTF(tagGroup.operation.toString());
+            out.writeUTF(tagGroup.product == null ? "" : tagGroup.product.getServiceCode());
+            out.writeUTF(tagGroup.operation == null ? "" : tagGroup.operation.toString());
             UsageType.serialize(out, tagGroup.usageType);
             ResourceGroup.serialize(out,  tagGroup.resourceGroup);
         }
@@ -244,11 +207,11 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         }
 
         public static void serializeCsv(Writer out, TagGroup tagGroup) throws IOException {
-            out.write(tagGroup.account.getId() + ",");
-            out.write(tagGroup.region.toString() + ",");
-            out.write(tagGroup.zone == null ? "," : (tagGroup.zone.toString() + ","));
-            out.write(tagGroup.product.getServiceCode() + ",");
-            out.write(tagGroup.operation.toString() + ",");
+            out.write((tagGroup.account == null ? "" : tagGroup.account.getId()) + ",");
+            out.write((tagGroup.region == null ? "" : tagGroup.region.toString()) + ",");
+            out.write((tagGroup.zone == null ? "" : tagGroup.zone.toString()) + ",");
+            out.write((tagGroup.product == null ? "" : tagGroup.product.getServiceCode()) + ",");
+            out.write((tagGroup.operation == null ? "" : tagGroup.operation.toString()) + ",");
             UsageType.serializeCsv(out, tagGroup.usageType);
             if (tagGroup.resourceGroup != null) {
             	out.write(",");
@@ -273,13 +236,21 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         }
 
         public static TagGroup deserialize(AccountService accountService, ProductService productService, int numUserTags, DataInput in) throws IOException, BadZone {
-            Account account = accountService.getAccountById(in.readUTF());
-            Region region = Region.getRegionByName(in.readUTF());
-            String zoneStr = in.readUTF();
-            Zone zone = StringUtils.isEmpty(zoneStr) ? null : region.getZone(zoneStr);
-            String prodStr = in.readUTF();
-            Product product = productService.getProductByServiceCode(prodStr);
-            Operation operation = Operation.deserializeOperation(in.readUTF());
+        	String v = in.readUTF();
+            Account account = v.isEmpty() ? null : accountService.getAccountById(v);
+            
+            v = in.readUTF();
+            Region region = v.isEmpty() ? null : Region.getRegionByName(v);
+            
+            v = in.readUTF();
+            Zone zone = v.isEmpty() ? null : region.getZone(v);
+            
+            v = in.readUTF();
+            Product product =  v.isEmpty() ? null : productService.getProductByServiceCode(v);
+            
+            v = in.readUTF();
+            Operation operation = v.isEmpty() ? null : Operation.deserializeOperation(v);
+            
             UsageType usageType = UsageType.deserialize(in);
             ResourceGroup resourceGroup = ResourceGroup.deserialize(in, numUserTags);
 
@@ -297,19 +268,19 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
                 	StringBuilder sb = new StringBuilder(256);
                 	sb.append(dateFormatter.print(monthMilli));
                 	sb.append(",");
-                	sb.append(tagGroup.account.toString());
+                	sb.append(tagGroup.account == null ? "" : tagGroup.account.toString());
                 	sb.append(",");
-                	sb.append(tagGroup.region.toString());
+                	sb.append(tagGroup.region == null ? "" : tagGroup.region.toString());
                 	sb.append(",");
                 	sb.append(tagGroup.zone == null ? "" : tagGroup.zone.toString());
                 	sb.append(",");
-                	sb.append(tagGroup.product.getServiceCode());
+                	sb.append(tagGroup.product == null ? "" : tagGroup.product.getServiceCode());
                 	sb.append(",");
-                	sb.append(tagGroup.operation.toString());
+                	sb.append(tagGroup.operation == null ? "" : tagGroup.operation.toString());
                 	sb.append(",");
-                	sb.append(tagGroup.usageType.name);
+                	sb.append(tagGroup.usageType == null ? "" : tagGroup.usageType.name);
                 	sb.append(",");
-                	sb.append(tagGroup.usageType.unit);
+                	sb.append(tagGroup.usageType == null ? "" : tagGroup.usageType.unit);
                 	sb.append(",");
                     sb.append(tagGroup.resourceGroup == null ? "" : tagGroup.resourceGroup.toString());
                     sb.append("\n");

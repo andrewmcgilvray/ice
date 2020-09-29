@@ -151,7 +151,6 @@ public class KubernetesReportTest {
 	    "    externalId: 234567890123\n" +
 	    "  kubernetes: # use the kubernetes precprocessor i.e. preprocess a Kubernetes report into an Allocation report.\n" +
 	    "    clusterNameFormulae: [ '\"literal-cluster\"' ]\n" +
-	    "  type: cost\n" +
 	    "  in:\n" +
 		"    Cluster: Cluster\n" +
 		"    _Product: _Product\n" +

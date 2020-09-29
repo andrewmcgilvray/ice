@@ -114,7 +114,7 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     /**
      * Set the supplied data in the map. Called by the cost and usage data archiver to merge summary data.
      */
-    void setData(List<Map<TagGroup, T>> newData, int startIndex) {
+    public void setData(List<Map<TagGroup, T>> newData, int startIndex) {
         for (int i = 0; i < newData.size(); i++) {
             int index = startIndex + i;
 

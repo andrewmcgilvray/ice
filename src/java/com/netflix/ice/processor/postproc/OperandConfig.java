@@ -22,6 +22,7 @@ import java.util.Map;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.netflix.ice.tag.TagType;
 
 /**
  * OperandConfig specifies the set of tags used to filter and aggregate usage or cost data in a
@@ -73,9 +74,9 @@ public class OperandConfig {
 	private String operation;
 	private String usageType;
 	private Map<String, String> userTags;
-	private List<String> groupBy;
+	private List<TagType> groupBy;
 	private List<String> groupByTags;
-	private List<String> exclude;
+	private List<TagType> exclude;
 	private boolean monthly;
 	private boolean single;
 	
@@ -177,11 +178,11 @@ public class OperandConfig {
 		this.userTags = userTags;
 	}
 
-	public List<String> getGroupBy() {
+	public List<TagType> getGroupBy() {
 		return groupBy;
 	}
 
-	public void setGroupBy(List<String> groupBy) {
+	public void setGroupBy(List<TagType> groupBy) {
 		this.groupBy = groupBy;
 	}
 
@@ -193,11 +194,11 @@ public class OperandConfig {
 		this.groupByTags = groupByTags;
 	}
 
-	public List<String> getExclude() {
+	public List<TagType> getExclude() {
 		return exclude;
 	}
 
-	public void setExclude(List<String> exclude) {
+	public void setExclude(List<TagType> exclude) {
 		this.exclude = exclude;
 	}
 
