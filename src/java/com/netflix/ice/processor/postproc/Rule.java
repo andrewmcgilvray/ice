@@ -17,8 +17,10 @@
  */
 package com.netflix.ice.processor.postproc;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
@@ -26,9 +28,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.tag.TagType;
 
 public class Rule {
@@ -53,7 +55,7 @@ public class Rule {
 			allocationKeyMap.put("_" + tt.toString(), tt);
 	}
 	
-	public Rule(RuleConfig config, AccountService accountService, ProductService productService, ResourceService resourceService) throws Exception {
+	public Rule(RuleConfig config, AccountService accountService, ProductService productService, List<String> userTagKeys) throws Exception {
 		this.config = config;
 		
 		// Check for mandatory values in the config
@@ -61,7 +63,7 @@ public class Rule {
 				StringUtils.isEmpty(config.getStart()) ||
 				StringUtils.isEmpty(config.getEnd()) ||
 				config.getIn() == null ||
-				(config.getResults() == null && config.getAllocation() == null) || (config.getResults() != null && config.getAllocation() != null)) {
+				(config.getResults() == null && config.getAllocation() == null && !config.isReport()) || (config.getResults() != null && config.getAllocation() != null)) {
 			String err = "Missing required parameters in post processor rule config for " + config.getName() + ". Must have: name, start, end, in, and either results or allocation, but not both";
 			logger.error(err);
 			throw new Exception(err);
@@ -70,17 +72,17 @@ public class Rule {
 		operands = Maps.newHashMap();
 		if (config.getOperands() != null) {
 			for (String oc: config.getOperands().keySet()) {
-				InputOperand io = new InputOperand(config.getOperand(oc), accountService, resourceService);
+				InputOperand io = new InputOperand(config.getOperand(oc), accountService, userTagKeys);
 				operands.put(oc, io);
 				logger.info("    operand " + oc + ": " + io);
 			}
 		}
 		
-		in = new InputOperand(config.getIn(), accountService, resourceService);
+		in = new InputOperand(config.getIn(), accountService, userTagKeys);
 		results = Lists.newArrayList();
 		if (config.getResults() != null) {
 			for (ResultConfig rc: config.getResults()) {
-				Operand r = new Operand(rc.getOut(), accountService, resourceService);
+				Operand r = new Operand(rc.getOut(), accountService, userTagKeys);
 				logger.info("    result " + results.size() + ": " + r);
 				results.add(r);
 			}
@@ -111,6 +113,18 @@ public class Rule {
 				
 			}
 		}
+	}
+	
+	public List<String> getOutUserTagKeys() {
+		Set<String> keys = Sets.newHashSet();
+		keys.addAll(in.getGroupByTags());
+		if (config.getAllocation() != null) {
+			keys.addAll(config.getAllocation().getOut().keySet());
+		}
+		
+		List<String> sortedKeys = Lists.newArrayList(keys);
+		Collections.sort(sortedKeys);
+		return sortedKeys;
 	}
 	
 	public InputOperand getOperand(String name) {

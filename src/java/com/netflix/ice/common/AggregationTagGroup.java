@@ -93,6 +93,10 @@ public class AggregationTagGroup {
 		return null;
 	}
 	
+	public TagGroup getTagGroup(int numUserTags) {
+		return TagGroup.getTagGroup(getAccount(), getRegion(), getZone(), getProduct(), getOperation(), getUsageType(), getResourceGroup(numUserTags));
+	}
+	
 	public UserTag getUserTag(Integer index) {
 		if (userTagIndeces == null || userTags == null)
 			return UserTag.empty;

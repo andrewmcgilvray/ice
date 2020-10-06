@@ -83,6 +83,7 @@ public class CostAndUsageData {
     private Map<SavingsPlanArn, SavingsPlan> savingsPlans;
     private Set<Product> savingsPlanProducts;
     private List<PostProcessorStats> postProcessorStats;
+    private List<String> userTagKeysAsStrings;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -109,9 +110,9 @@ public class CostAndUsageData {
 	/*
 	 * Constructor that creates a new empty data set based on another data set. Used by the post processor for generating reports
 	 */
-	public CostAndUsageData(CostAndUsageData other) {
+	public CostAndUsageData(CostAndUsageData other, List<UserTagKey> userTagKeys) {
 		this.startMilli = other.startMilli;
-        this.userTagKeys = other.userTagKeys;
+        this.userTagKeys = userTagKeys;
 		this.usageDataByProduct = Maps.newHashMap();
 		this.costDataByProduct = Maps.newHashMap();
         this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
@@ -137,6 +138,19 @@ public class CostAndUsageData {
 	
 	public int getNumUserTags() {
 		return userTagKeys == null ? 0 : userTagKeys.size();
+	}
+	
+	public List<String> getUserTagKeysAsStrings() {
+        if (userTagKeys == null)
+        	return null;
+        
+        if (userTagKeysAsStrings == null) {
+        	userTagKeysAsStrings = Lists.newArrayList();
+	        for (UserTagKey utk: userTagKeys)
+	        	userTagKeysAsStrings.add(utk.name);
+        }
+        
+		return userTagKeysAsStrings;
 	}
 	
 	public ReadWriteData getUsage(Product product) {
@@ -275,7 +289,7 @@ public class CostAndUsageData {
     	
     	ReadWriteTagCoverageData data = tagCoverage.get(product);
     	if (data == null) {
-    		data = new ReadWriteTagCoverageData(userTagKeys == null ? 0 : getNumUserTags());
+    		data = new ReadWriteTagCoverageData(getNumUserTags());
     		tagCoverage.put(product, data);
     	}
     	
@@ -689,7 +703,7 @@ public class CostAndUsageData {
     		@Override
     		public Status call() {
     			try {
-	    	        int numUserTags = userTagKeys == null ? 0 : getNumUserTags();
+	    	        int numUserTags = getNumUserTags();
 	                Collection<TagGroup> tagGroups = data.getTagGroups();
 	
 	                // init daily, weekly and monthly

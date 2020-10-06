@@ -26,7 +26,6 @@ import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.Aggregation;
 import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Operation;
@@ -68,8 +67,8 @@ public class InputOperand extends Operand {
 		return super.toString().split("}")[0] + (flags.size() > 0 ? "," + StringUtils.join(flags, ",") : "") + "}";
 	}
 	
-	public InputOperand(OperandConfig opConfig, AccountService accountService, ResourceService resourceService) throws Exception {
-		super(opConfig, accountService, resourceService);
+	public InputOperand(OperandConfig opConfig, AccountService accountService, List<String> userTagKeys) throws Exception {
+		super(opConfig, accountService, userTagKeys);
 
 		boolean aggregates = false;
 		
@@ -83,7 +82,7 @@ public class InputOperand extends Operand {
 		groupByTags = Lists.newArrayList();
 		if (opConfig.getGroupByTags() == null) {
 			// no aggregation, group by all user tag keys
-			List<String> customTags = resourceService.getCustomTags();
+			List<String> customTags = userTagKeys;
 			for (int i = 0; i < customTags.size(); i++) {
 				groupByTagsIndeces.add(i);
 				groupByTags.add(customTags.get(i));
@@ -91,11 +90,11 @@ public class InputOperand extends Operand {
 		}
 		else {
 	    	for (String key: opConfig.getGroupByTags()) {
-	    		int tagIndex = resourceService.getUserTagIndex(key);
+	    		int tagIndex = userTagKeys.indexOf(key);
 	    		groupByTagsIndeces.add(tagIndex);
 	    		groupByTags.add(key);
 	    	}
-	    	aggregates |= groupByTagsIndeces.size() == resourceService.getCustomTags().size();
+	    	aggregates |= groupByTagsIndeces.size() == userTagKeys.size();
 		}
 		
 		this.aggregation = new Aggregation(groupBy, groupByTagsIndeces);

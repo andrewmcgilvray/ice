@@ -61,7 +61,7 @@ public class OperandTest {
 		Map<String, String> userTags = Maps.newHashMap();
 		userTags.put("Key1", "tag1");
 		oc.setUserTags(userTags);
-		Operand o = new Operand(oc, as, rs);
+		Operand o = new Operand(oc, as, rs.getCustomTags());
 		
 		TagGroup tg = o.tagGroup(null, as, ps, false);
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{"tag1", ""});

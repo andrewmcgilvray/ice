@@ -67,7 +67,7 @@ public class AllocationReportTest {
 		"  InTag1: outCol1\n" + 
 		""; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), rs);
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
 		assertNotNull("report is null", ar);
 	}
 	
@@ -91,7 +91,7 @@ public class AllocationReportTest {
 		""; 
 		
 		// should throw
-		new AllocationReport(getAllocationConfig(arConfigYaml), rs);
+		new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
 		fail("constructor didn't throw");
 	}
 
@@ -113,7 +113,7 @@ public class AllocationReportTest {
 		"  OutTag1: outCol1\n" + 
 		"  OutTag2: outCol2\n"; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), rs);
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
 		ar.add(0, 1.0, Lists.newArrayList(new String[]{"inA", "inB"}), Lists.newArrayList(new String[]{"outA", "outB"}));
 		
 		StringWriter out = new StringWriter();
@@ -147,7 +147,7 @@ public class AllocationReportTest {
 		"  OutTag1: outCol1\n" + 
 		"  OutTag2: outCol2\n"; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), rs);
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
 		
 		// Throw in a record with a NaN for the allocation to make sure we ignore it
 		String csv = "" +

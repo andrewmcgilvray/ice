@@ -27,12 +27,12 @@ public class ReportWriter extends DataFile {
 	boolean isCost;
 	private List<String> header;
 	private List<TagType> tagKeys;
-	private List<Integer> userTagKeyIndeces;
+	private List<String> userTagKeys;
 	private ReadWriteData data;
 	
 	public ReportWriter(String name, WorkBucketConfig config,
 			DateTime month, OperandConfig.OperandType type,
-			List<TagType> tagKeys, List<Integer> userTagKeyIndeces, List<String> userTagKeys,
+			List<TagType> tagKeys, List<String> userTagKeys,
 			ReadWriteData data) throws Exception {
 		
 		super(name, config);
@@ -40,7 +40,7 @@ public class ReportWriter extends DataFile {
 		this.month = month;
 		this.isCost = type == OperandConfig.OperandType.cost;
 		this.tagKeys = tagKeys;
-		this.userTagKeyIndeces = userTagKeyIndeces;
+		this.userTagKeys = userTagKeys;
 		this.data = data;
 		header = Lists.newArrayList();
 		header.add("Date");
@@ -100,11 +100,9 @@ public class ReportWriter extends DataFile {
     				}    					
     			}
     			
-    			if (!userTagKeyIndeces.isEmpty()) {
-    				UserTag[] userTags = tg.resourceGroup.getUserTags();
-	    			for (Integer i: userTagKeyIndeces) {
-	    				cols.add(userTags[i].name);
-	    			}
+    			if (!userTagKeys.isEmpty()) {
+    				for (UserTag ut: tg.resourceGroup.getUserTags())
+    					cols.add(ut.name);
     			}
     	    	printer.printRecord(cols);
     		}

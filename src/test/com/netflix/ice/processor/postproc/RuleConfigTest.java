@@ -143,5 +143,4 @@ public class RuleConfigTest {
 		assertEquals("wrong number of reports", 1, rc.getReports().size());
 		assertEquals("wrong report aggregation", RuleConfig.Aggregation.monthly, rc.getReports().get(0));
 	}
-
 }

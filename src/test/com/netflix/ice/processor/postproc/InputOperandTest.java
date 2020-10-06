@@ -54,7 +54,7 @@ public class InputOperandTest {
 	@Test
 	public void testEmptyOperand() throws Exception {
 		OperandConfig oc = new OperandConfig();
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
 		AggregationTagGroup atg = io.aggregateTagGroup(tg, as, ps);
@@ -65,14 +65,14 @@ public class InputOperandTest {
 	public void testNonEmptyOperand() throws Exception {
 		OperandConfig oc = new OperandConfig();
 		oc.setAccount("123456789012");
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
 		AggregationTagGroup atg = io.aggregateTagGroup(tg, as, ps);
 		assertTrue("tg should match", io.matches(atg, tg));
 		
 		oc.setAccount("234567890123");
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		assertNull("should not have an aggregationTagGroup", io.aggregateTagGroup(tg, as, ps));
 		oc.setAccount(null);
 		
@@ -81,7 +81,7 @@ public class InputOperandTest {
 		List<TagType> exclude = Lists.newArrayList(new TagType[]{TagType.Account});
 		oc.setAccounts(accounts);
 		oc.setExclude(exclude);
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		atg = io.aggregateTagGroup(tg, as, ps);
 		assertTrue("tg should match", io.matches(atg, tg));		
 		TagGroup tg1 = TagGroup.getTagGroup("234567890123", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
@@ -94,7 +94,7 @@ public class InputOperandTest {
 		Map<String, String> userTags = Maps.newHashMap();
 		userTags.put("Key1", "tag1");
 		oc.setUserTags(userTags);
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);
 		AggregationTagGroup atg = io.aggregateTagGroup(tg, as, ps);
@@ -108,9 +108,9 @@ public class InputOperandTest {
 	@Test
 	public void testTagGroup() throws Exception {
 		OperandConfig inOperandConfig = new OperandConfig();
-		InputOperand io = new InputOperand(inOperandConfig, as, rs);
+		InputOperand io = new InputOperand(inOperandConfig, as, rs.getCustomTags());
 		OperandConfig otherOperandConfig = new OperandConfig();
-		InputOperand oo = new InputOperand(otherOperandConfig, as, rs);
+		InputOperand oo = new InputOperand(otherOperandConfig, as, rs.getCustomTags());
 
 		// Test no-resource
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
@@ -129,7 +129,7 @@ public class InputOperandTest {
 		// Test with groupByTags
 		List<String> groupByTags = Lists.newArrayList(new String[]{"Key1"});
 		inOperandConfig.setGroupByTags(groupByTags);
-		io = new InputOperand(inOperandConfig, as, rs);
+		io = new InputOperand(inOperandConfig, as, rs.getCustomTags());
 		atg = io.aggregateTagGroup(tg, as, ps);
 		outTg = oo.tagGroup(atg, as, ps, false);
 		TagGroup expected = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);
@@ -141,7 +141,7 @@ public class InputOperandTest {
 		// Set up the in operand
 		OperandConfig inOperand = new OperandConfig();
 		inOperand.setType(OperandType.usage);
-		InputOperand in = new InputOperand(inOperand, as, rs);		
+		InputOperand in = new InputOperand(inOperand, as, rs.getCustomTags());		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", "tag2"}, as, ps);		
 		AggregationTagGroup atg = in.aggregateTagGroup(tg, as, ps);
 		
@@ -150,7 +150,7 @@ public class InputOperandTest {
 		 */
 		OperandConfig oc = new OperandConfig();
 		oc.setType(OperandType.usage);
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		String key = io.cacheKey(atg);
 		
 		assertEquals("wrong operand cache key with no aggregation", "usage,123456789012,us-east-1,null,IOTestProduct,OP1,UT1,tag1,tag2,", key);
@@ -160,7 +160,7 @@ public class InputOperandTest {
 		 */
 		List<TagType> groupBy = Lists.newArrayList(new TagType[]{TagType.Account,TagType.Zone,TagType.Operation,TagType.UsageType});
 		oc.setGroupBy(groupBy);
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		key = io.cacheKey(atg);
 		
 		assertEquals("wrong operand cache key with aggregation", "usage,123456789012,null,OP1,UT1,tag1,tag2,", key);
@@ -176,12 +176,12 @@ public class InputOperandTest {
 		oc.setOperation("OP1");
 		oc.setUsageType("UT1");
 		oc.setGroupByTags(Lists.<String>newArrayList());
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		key = io.cacheKey(atg);		
 		assertEquals("wrong operand cache key with no aggregation or atg dependencies", "usage,123456789012,us-east-1,null,IOTestProduct,OP1,UT1,", key);
 		
 		oc.setGroupByTags(Lists.<String>newArrayList(new String[]{"Key1", "Key2"}));
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		key = io.cacheKey(atg);		
 		assertEquals("wrong operand cache key with no aggregation or atg dependencies", "usage,123456789012,us-east-1,null,IOTestProduct,OP1,UT1,tag1,tag2,", key);
 		
@@ -189,7 +189,7 @@ public class InputOperandTest {
 		 * Test case where operand gets all it's tags from the config and the aggregation tag group is null
 		 */
 		oc.setGroupByTags(Lists.<String>newArrayList());
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		key = io.cacheKey(null);		
 		assertEquals("wrong operand cache key with no aggregation or atg dependencies", "usage,123456789012,us-east-1,null,IOTestProduct,OP1,UT1,", key);
 	}
@@ -199,14 +199,14 @@ public class InputOperandTest {
 		// Set up the in operand
 		OperandConfig inOperand = new OperandConfig();
 		inOperand.setType(OperandType.usage);
-		InputOperand in = new InputOperand(inOperand, as, rs);		
+		InputOperand in = new InputOperand(inOperand, as, rs.getCustomTags());		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);		
 		AggregationTagGroup atg = in.aggregateTagGroup(tg, as, ps);
 
 		// Test case where operand depends on 'in' operand for all its tag types
 		OperandConfig oc = new OperandConfig();
 		oc.setType(OperandType.cost);
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		assertTrue("TagGroup should match operand that depends on 'in'", io.matches(atg, tg));
 		
 		
@@ -216,7 +216,7 @@ public class InputOperandTest {
 		oc.setType(OperandType.cost);
 		oc.setGroupBy(groupBy);
 		oc.setGroupByTags(Lists.<String>newArrayList());
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		TagGroup tg1 = TagGroup.getTagGroup("123456789012", "us-west-2", null, "IOTestProduct", "OP2", "UT2", "", new String[]{"tag2", ""}, as, ps);		
 		assertTrue("TagGroup should match all aggregation operand", io.matches(atg, tg1));
 		
@@ -225,14 +225,14 @@ public class InputOperandTest {
 		oc = new OperandConfig();
 		oc.setType(OperandType.cost);
 		oc.setGroupBy(groupBy);
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		tg1 = TagGroup.getTagGroup("234567890123", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);		
 		assertTrue("TagGroup should match account aggregation operand with different account", io.matches(atg, tg1));
 		
 		// Test case where group by user tag
 		List<String> groupByUserTag = Lists.newArrayList(new String[]{"Key1"});
 		oc.setGroupByTags(groupByUserTag);
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		assertTrue("TagGroup should match corrent user tag when not aggregating that key", io.matches(atg, tg1));
 		tg1 = TagGroup.getTagGroup("234567890123", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag2", ""}, as, ps);		
 		assertFalse("TagGroup should not match user tag when not aggregating that key with different tag value", io.matches(atg, tg1));
@@ -248,7 +248,7 @@ public class InputOperandTest {
 		inOperand.setUsageType("(?!UT$)^.*$");
 		List<TagType> groupBy = Lists.newArrayList(new TagType[]{TagType.Account,TagType.Region,TagType.Zone});
 		inOperand.setGroupBy(groupBy);
-		InputOperand in = new InputOperand(inOperand, as, rs);		
+		InputOperand in = new InputOperand(inOperand, as, rs.getCustomTags());		
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
 		AggregationTagGroup atg = in.aggregateTagGroup(tg, as, ps);
 
@@ -258,7 +258,7 @@ public class InputOperandTest {
 		oc.setProduct("(?!IOTestProduct$)^.*$");
 		oc.setOperation("(?!OP$)^.*$");
 		oc.setUsageType("(?!UT$)^.*$");
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		TagGroup tg1 = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);		
 		assertFalse("TagGroup should not match product aggregation operand with ommitted product", io.matches(atg, tg1));
 		
@@ -280,7 +280,7 @@ public class InputOperandTest {
 		oc.setOperation("OP1");
 		oc.setUsageType("UT1");
 		
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
 		assertEquals("tag groups should match", tg, io.tagGroup(null, as, ps, true));
 	}
@@ -294,7 +294,7 @@ public class InputOperandTest {
 		oc.setRegion("us-east-1");
 		oc.setProduct("IOTestProduct1");
 		
-		InputOperand io = new InputOperand(oc, as, rs);
+		InputOperand io = new InputOperand(oc, as, rs.getCustomTags());
 		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
 		assertTrue("tag group should match", io.matches(null, tg));
 
@@ -303,7 +303,7 @@ public class InputOperandTest {
 		userTags.put("Key1", "tag1");
 		oc.setUserTags(userTags);
 		
-		io = new InputOperand(oc, as, rs);
+		io = new InputOperand(oc, as, rs.getCustomTags());
 		tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", new String[]{"tag2", ""}, as, ps);		
 		assertFalse("tag group should not match with wrong user tag", io.matches(null, tg));
 		
@@ -317,6 +317,6 @@ public class InputOperandTest {
 		Map<String, String> userTags = Maps.newHashMap();
 		userTags.put("Key3", "tag1");
 		oc.setUserTags(userTags);
-		new InputOperand(oc, as, rs);
+		new InputOperand(oc, as, rs.getCustomTags());
 	}
 }

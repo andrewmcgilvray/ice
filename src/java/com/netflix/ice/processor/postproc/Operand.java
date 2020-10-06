@@ -29,7 +29,6 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
 import com.netflix.ice.tag.Account;
@@ -94,7 +93,7 @@ public class Operand {
 		return "{" + StringUtils.join(tags, ",") + "}";
 	}
 	
-	public Operand(OperandConfig opConfig, AccountService accountService, ResourceService resourceService) throws Exception {
+	public Operand(OperandConfig opConfig, AccountService accountService, List<String> userTagKeys) throws Exception {
 		type = opConfig.getType();
 		accounts = Lists.newArrayList();
 		for (String a: opConfig.getAccounts()) {
@@ -111,15 +110,15 @@ public class Operand {
 		userTagFilters = Maps.newHashMap();
 		userTagFilterIndeces = Maps.newHashMap();
 		if (opConfig.getUserTags() != null) {
-			List<String> customTags = resourceService.getCustomTags();
+			List<String> customTags = userTagKeys;
 			for (String key: opConfig.getUserTags().keySet()) {
 				if (!customTags.contains(key))
 					throw new Exception("Invalid user tag key name: \"" + key + "\"");
 				userTagFilters.put(key, new TagFilter(opConfig.getUserTags().get(key)));
-		    	userTagFilterIndeces.put(key, resourceService.getUserTagIndex(key));
+		    	userTagFilterIndeces.put(key, userTagKeys.indexOf(key));
 			}
 		}
-		numUserTags = resourceService.getCustomTags().size();
+		numUserTags = userTagKeys.size();
 		single = opConfig.isSingle();
 		monthly = opConfig.isMonthly();
 		emptyUserTags = new String[numUserTags];

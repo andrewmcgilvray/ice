@@ -116,7 +116,7 @@ public class ResourceGroup  implements Comparable<ResourceGroup>, Serializable {
     }
     
     public static ResourceGroup getResourceGroup(UserTag[] tags) throws ResourceException {
-    	if (tags == null)
+    	if (tags == null || tags.length == 0)
     		return null;
     	
     	ResourceGroup rgNew = new ResourceGroup(tags);

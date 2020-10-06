@@ -36,7 +36,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.Config.WorkBucketConfig;
-import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagMappings;
 import com.netflix.ice.processor.Report;
@@ -63,8 +62,9 @@ public class AllocationReport extends Report {
 	private List<String> header;
 	private Map<String, Tagger> taggers; // taggers for outTagKeys
 	private Map<Integer, Tagger> otherTaggers; // taggers for userTags not included in the report
+	private List<String> newTagKeys;
 
-	public AllocationReport(AllocationConfig config, ResourceService resourceService) throws Exception {
+	public AllocationReport(AllocationConfig config, boolean isReport, List<String> userTagKeys) throws Exception {
     	super();
     	S3BucketConfig bucket = config.getS3Bucket();
     	withS3BucketConfig(new S3BucketConfig()
@@ -79,6 +79,7 @@ public class AllocationReport extends Report {
 		this.header = Lists.newArrayList(new String[]{AllocationColumn.StartDate.toString(), AllocationColumn.EndDate.toString(), AllocationColumn.Allocation.toString()});
 		this.inTagIndeces = Lists.newArrayList();
 		this.outTagIndeces = Lists.newArrayList();
+		this.newTagKeys = null;
 		this.data = Lists.newArrayList();
 		
 		this.inTagKeys = Lists.newArrayList(config.getIn().keySet());
@@ -87,7 +88,7 @@ public class AllocationReport extends Report {
 		Collections.sort(this.outTagKeys);
 		
 		for (String key: inTagKeys) {
-			int index = resourceService.getUserTagIndex(key);
+			int index = userTagKeys.indexOf(key);
 			if (index < 0 && !key.startsWith("_"))
 				throw new Exception("Bad input tag index for key: \"" + key + "\"");
 			inTagIndeces.add(index);
@@ -98,19 +99,26 @@ public class AllocationReport extends Report {
 		}
 		
 		for (String key: outTagKeys) {
-			outTagIndeces.add(resourceService.getUserTagIndex(key));
+			int index = userTagKeys.indexOf(key);
+			if (index < 0) {
+				if (isReport) {
+					if (newTagKeys == null)
+						newTagKeys = Lists.newArrayList();
+					newTagKeys.add(key);
+				}
+				else {
+					throw new Exception("Bad output tag index for key: " + key);
+				}
+			}
+			outTagIndeces.add(index);
 			String colName = config.getOut().get(key);
 			if (header.contains(colName))
 				throw new Exception("Duplicate output column name for key: \"" + key + "\", column name: \"" + colName + "\"");
 			header.add(colName);
-		}
-		if (outTagIndeces.contains(-1))
-			throw new Exception("Bad output tag index");
-		
+		}		
 		
 		taggers = Maps.newHashMap();
 		otherTaggers = Maps.newHashMap();
-		List<String> userTagKeys = resourceService.getCustomTags();
 
 		if (config.getTagMaps() != null) {
 			for (String tm: config.getTagMaps().keySet()) {
