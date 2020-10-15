@@ -1,6 +1,6 @@
 package com.netflix.ice.processor.postproc;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 
 import org.apache.commons.lang.time.StopWatch;
@@ -15,7 +15,6 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
-import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
 import com.netflix.ice.tag.Product;
 
 public abstract class RuleProcessor {
@@ -43,46 +42,62 @@ public abstract class RuleProcessor {
 	 * Aggregate the data using the regex groups contained in the input filters
 	 * @throws Exception 
 	 */
-	public Map<AggregationTagGroup, Double[]> getInData(InputOperand in, CostAndUsageData data,
-			boolean isNonResource, int maxNum, String ruleName) throws Exception {
+	public Map<AggregationTagGroup, Double[]> runQuery(Query query, CostAndUsageData data,
+			boolean isNonResource, int maxHours, String ruleName) throws Exception {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
-		int maxHours = in.isMonthly() ? 1 : maxNum;
-		Map<AggregationTagGroup, Double[]> inValues = Maps.newHashMap();
-		List<Product> inProducts = isNonResource ? Lists.newArrayList(new Product[]{null}) : in.getProducts(productService);			
+		Map<AggregationTagGroup, Double[]> valuesMap = Maps.newHashMap();
+		Collection<Product> products = isNonResource ? Lists.newArrayList(new Product[]{null}) : query.getProducts(productService);			
 
-		for (Product inProduct: inProducts) {
-			ReadWriteData inData = in.getType() == OperandType.cost ? data.getCost(inProduct) : data.getUsage(inProduct);
-			if (inData == null)
-				continue;
-			
-			for (TagGroup tg: inData.getTagGroups()) {
-				AggregationTagGroup aggregatedTagGroup = in.aggregateTagGroup(tg, accountService, productService);
-				if (aggregatedTagGroup == null)
+		if (query.isSingleTagGroup()) {
+			// Handle a single tagGroup lookup - Doing this explicitly avoids a scan of the tag group map.
+			TagGroup tg = query.getSingleTagGroup(accountService, productService, isNonResource);
+			Product product = isNonResource ? null : tg.product;
+			ReadWriteData inData = query.getType() == RuleConfig.DataType.cost ? data.getCost(product) : data.getUsage(product);
+			Double[] values = new Double[query.isMonthly() ? 1 : maxHours];
+			for (int i = 0; i < values.length; i++)
+				values[i] = 0.0;
+			getData(inData, tg, values, query.isMonthly());
+			AggregationTagGroup aggregatedTagGroup = query.aggregateTagGroup(tg, accountService, productService);
+			valuesMap.put(aggregatedTagGroup, values);
+		}
+		else {
+			for (Product product: products) {
+				ReadWriteData inData = query.getType() == RuleConfig.DataType.cost ? data.getCost(product) : data.getUsage(product);
+				if (inData == null)
 					continue;
 				
-				Double[] values = inValues.get(aggregatedTagGroup);
-				if (values == null) {
-					values = new Double[maxHours];
-					for (int i = 0; i < values.length; i++)
-						values[i] = 0.0;
-					inValues.put(aggregatedTagGroup, values);
-				}
-				for (int hour = 0; hour < inData.getNum(); hour++) {
-					Double v = inData.get(hour, tg);
-					if (v != null)
-						values[in.isMonthly() ? 0 : hour] += v;
+				for (TagGroup tg: inData.getTagGroups()) {
+					AggregationTagGroup aggregatedTagGroup = query.aggregateTagGroup(tg, accountService, productService);
+					if (aggregatedTagGroup == null)
+						continue;
+					
+					Double[] values = valuesMap.get(aggregatedTagGroup);
+					if (values == null) {
+						values = new Double[query.isMonthly() ? 1 : maxHours];
+						for (int i = 0; i < values.length; i++)
+							values[i] = 0.0;
+						valuesMap.put(aggregatedTagGroup, values);
+					}
+					getData(inData, tg, values, query.isMonthly());
 				}
 			}
 		}
-		if (inValues.isEmpty())
-			logger.warn("No input data for rule " + ruleName + ". In operand: " + in.toString());			
+		if (valuesMap.isEmpty())
+			logger.warn("No query results for rule " + ruleName + ". Query: " + query.toString());			
 		else
-			logger.info("  -- getInData elapsed time: " + sw + ", size: " + inValues.size());
-		return inValues;
+			logger.info("  -- runQuery elapsed time: " + sw + ", size: " + valuesMap.size());
+		return valuesMap;
 	}
 
+	private void getData(ReadWriteData data, TagGroup tg, Double[] values, boolean isMonthly) {
+		for (int hour = 0; hour < data.getNum(); hour++) {
+			Double v = data.get(hour, tg);
+			if (v != null)
+				values[isMonthly ? 0 : hour] += v;
+		}
+	}
 	
 	public abstract void process(CostAndUsageData data) throws Exception;
 }

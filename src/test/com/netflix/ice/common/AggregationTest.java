@@ -30,8 +30,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
+import com.netflix.ice.processor.postproc.Rule;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
-import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.Zone.BadZone;
 
 public class AggregationTest {
@@ -83,7 +83,7 @@ public class AggregationTest {
 	
 	@Test
 	public void test() throws Exception {
-		List<TagType> groupByTags = Lists.newArrayList(new TagType[]{TagType.Account, TagType.Product, TagType.Region});
+		List<Rule.TagKey> groupByTags = Lists.newArrayList(new Rule.TagKey[]{Rule.TagKey.account, Rule.TagKey.product, Rule.TagKey.region});
 		List<Integer> groupByUserTagIndeces = Lists.newArrayList();
 		
 		Aggregation ag = new Aggregation(groupByTags, groupByUserTagIndeces);

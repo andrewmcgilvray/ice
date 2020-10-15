@@ -62,6 +62,20 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
         tagGroups = Sets.newHashSet();
 		this.numUserTags = numUserTags;
     }
+	
+	public String toString() {
+		StringBuffer sb = new StringBuffer();
+		sb.append("[\n");
+		for (Map<TagGroup, T> map: data) {
+			sb.append("  {\n");
+			for (TagGroup tg: map.keySet()) {
+				sb.append("    " + tg.toString() + ": " + map.get(tg).toString() + "\n");
+			}
+			sb.append("  },\n");
+		}
+		sb.append("]\n");
+		return sb.toString();
+	}
 
     public int getNum() {
         return data.size();
@@ -82,6 +96,13 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
 
     public void put(int i, TagGroup tagGroup, T value) {
     	getCreateData(i).put(tagGroup, value);
+    	tagGroups.add(tagGroup);
+    }
+    
+    public void add(int i, TagGroup tagGroup, T value) {
+    	Map<TagGroup, T> map = getCreateData(i);
+    	T existing = map.get(tagGroup);
+    	map.put(tagGroup,  existing == null ? value : add(existing, value));
     	tagGroups.add(tagGroup);
     }
 

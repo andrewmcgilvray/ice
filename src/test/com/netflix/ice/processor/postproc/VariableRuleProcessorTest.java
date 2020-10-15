@@ -57,7 +57,6 @@ import com.netflix.ice.processor.postproc.TagGroupSpec.DataType;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
-import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UserTagKey;
 
 public class VariableRuleProcessorTest {
@@ -330,9 +329,10 @@ public class VariableRuleProcessorTest {
 				"reports: [monthly]\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
-				"  userTags:\n" +
-				"    Key2: compute\n" +
-				"  groupBy: [Account]\n" +
+				"  filter:\n" + 
+				"    userTags:\n" +
+				"      Key2: [compute]\n" +
+				"  groupBy: [account]\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0),
@@ -366,9 +366,10 @@ public class VariableRuleProcessorTest {
 				"reports: [monthly]\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
-				"  userTags:\n" +
-				"    Key2: compute\n" +
-				"  groupBy: [Account]\n" +
+				"  filter:\n" + 
+				"    userTags:\n" +
+				"      Key2: [compute]\n" +
+				"  groupBy: [account]\n" +
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
@@ -422,10 +423,10 @@ public class VariableRuleProcessorTest {
         	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg), 0.001);
         }
         
-        InputOperand in = rule.getIn();
+        Query in = rule.getIn();
 		ReadWriteData rwData = outData.getCost(null);
         
-		TestReportWriter writer = new TestReportWriter("test-report", data.getStart(), OperandConfig.OperandType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
+		TestReportWriter writer = new TestReportWriter("test-report", data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
 		writer.archive();
 		
 		String csv = writer.baos.toString();
@@ -451,9 +452,10 @@ public class VariableRuleProcessorTest {
 				"reports: [monthly]\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
-				"  userTags:\n" +
-				"    Key2: compute\n" +
-				"  groupBy: [Account]\n" +
+				"  filter:\n" + 
+				"    userTags:\n" +
+				"      Key2: [compute]\n" +
+				"  groupBy: [account]\n" +
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
@@ -505,10 +507,10 @@ public class VariableRuleProcessorTest {
         	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg));
         }
         
-        InputOperand in = rule.getIn();
+        Query in = rule.getIn();
 		ReadWriteData rwData = outData.getCost(null);
         
-		TestReportWriter writer = new TestReportWriter("report-test", data.getStart(), OperandConfig.OperandType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
+		TestReportWriter writer = new TestReportWriter("report-test", data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
 		writer.archive();
 		
 		String csv = writer.baos.toString();
@@ -558,8 +560,8 @@ public class VariableRuleProcessorTest {
 	class TestReportWriter extends ReportWriter {
 		public ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		
-		public TestReportWriter(String name, DateTime month, OperandConfig.OperandType type,
-				List<TagType> tagKeys, List<String> userTagKeys,
+		public TestReportWriter(String name, DateTime month, RuleConfig.DataType type,
+				List<Rule.TagKey> tagKeys, List<String> userTagKeys,
 				ReadWriteData data) throws Exception {
 			super(name, null, month, type, tagKeys, userTagKeys, data);
 		}
@@ -675,10 +677,10 @@ public class VariableRuleProcessorTest {
 				"end: 2022-11\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
-				"  accounts:\n" + 
-				"    - " + a1 + "\n" + 
-				"  userTags:\n" +
-				"    Role: compute\n" +
+				"  filter:\n" + 
+				"    account: [" + a1 + "]\n" + 
+				"    userTags:\n" +
+				"      Role: [compute]\n" +
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +

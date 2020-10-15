@@ -19,6 +19,7 @@ package com.netflix.ice.common;
 
 import java.util.List;
 
+import com.netflix.ice.processor.postproc.Rule;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
@@ -26,19 +27,18 @@ import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Tag;
-import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
 import com.netflix.ice.tag.Zone;
 
 public class AggregationTagGroup {
 	public final List<Tag> tags;
-	private final List<TagType> types;
+	private final List<Rule.TagKey> types;
 	public final List<UserTag> userTags;
 	private final List<Integer> userTagIndeces;
 	private final int hashcode;
 	
-	protected AggregationTagGroup(List<Tag> tags, List<TagType> types, List<UserTag> userTags, List<Integer> userTagIndeces) {
+	protected AggregationTagGroup(List<Tag> tags, List<Rule.TagKey> types, List<UserTag> userTags, List<Integer> userTagIndeces) {
 		this.tags = tags;
 		this.types = types;
 		this.userTags = userTags;
@@ -47,32 +47,32 @@ public class AggregationTagGroup {
 	}
 	
 	public Account getAccount() {
-		int index = types.indexOf(TagType.Account);
+		int index = types.indexOf(Rule.TagKey.account);
 		return index < 0 ? null : (Account) tags.get(index); 
 	}
 	
 	public Region getRegion() {
-		int index = types.indexOf(TagType.Region);
+		int index = types.indexOf(Rule.TagKey.region);
 		return index < 0 ? null : (Region) tags.get(index); 
 	}
 	
 	public Zone getZone() {
-		int index = types.indexOf(TagType.Zone);
+		int index = types.indexOf(Rule.TagKey.zone);
 		return index < 0 ? null : (Zone) tags.get(index); 
 	}
 	
 	public Product getProduct() {
-		int index = types.indexOf(TagType.Product);
+		int index = types.indexOf(Rule.TagKey.product);
 		return index < 0 ? null : (Product) tags.get(index); 
 	}
 	
 	public Operation getOperation() {
-		int index = types.indexOf(TagType.Operation);
+		int index = types.indexOf(Rule.TagKey.operation);
 		return index < 0 ? null : (Operation) tags.get(index); 
 	}
 	
 	public UsageType getUsageType() {
-		int index = types.indexOf(TagType.UsageType);
+		int index = types.indexOf(Rule.TagKey.usageType);
 		return index < 0 ? null : (UsageType) tags.get(index); 
 	}
 	
@@ -105,8 +105,8 @@ public class AggregationTagGroup {
 		return i < 0 ? UserTag.empty : userTags.get(i);
 	}
 	
-    public boolean groupBy(TagType tagType) {
-    	return types.contains(tagType);
+    public boolean groupBy(Rule.TagKey tagKey) {
+    	return types.contains(tagKey);
     }
     
     public boolean groupByUserTag(Integer index) {

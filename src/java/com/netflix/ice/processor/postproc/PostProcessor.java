@@ -77,6 +77,7 @@ public class PostProcessor {
 	}
 	
 	protected void processRule(RuleConfig rc, CostAndUsageData data) throws Exception {
+		logger.info("-------- Process rule: \"" + rc.getName() + "\" --------");
 		// Make sure the rule is in effect for the start date
 		if (!isActive(rc, data.getStartMilli())) {
 			logger.info("Post-process rule " + rc.getName() + " is not active for this month, start=" + rc.getStart() + ", end=" + rc.getEnd());
@@ -87,7 +88,7 @@ public class PostProcessor {
 		if (!rc.isReport() && rule.getIn().hasAggregation()) {
 			// We don't currently support allocating aggregated costs because we don't track the source tagGroups that were aggregated
 			// by the getInData() method. So if the input data set is the same as the out data set, we fail.
-			String info = "In-place allocation with aggregation is currently unsupported";
+			String info = "In-place allocation with aggregation is currently unsupported, in: " + rule.getIn().toString();
 			logger.error(info);
 			data.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, 0, 0, info));
 			return;
@@ -119,8 +120,8 @@ public class PostProcessor {
 	}
 				
 	protected void writeReports(Rule rule, CostAndUsageData cauData) throws Exception {
-		ReadWriteData data = rule.config.getIn().getType() == OperandConfig.OperandType.cost ? cauData.getCost(null) : cauData.getUsage(null);
-		InputOperand in = rule.getIn();
+		ReadWriteData data = rule.config.getIn().getType() == RuleConfig.DataType.cost ? cauData.getCost(null) : cauData.getUsage(null);
+		Query in = rule.getIn();
 		
 		Collection<RuleConfig.Aggregation> reports = rule.config.getReports();
 		
@@ -150,7 +151,7 @@ public class PostProcessor {
 	}
 	
 	protected void writeReport(DateTime month, List<String> userTagKeys, Rule rule, List<Map<TagGroup, Double>> data) throws Exception {
-		InputOperand in = rule.getIn();
+		Query in = rule.getIn();
 		String filename = reportName(month, rule.config.getName(), RuleConfig.Aggregation.hourly);
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
         rwData.setData(data, data.size());            

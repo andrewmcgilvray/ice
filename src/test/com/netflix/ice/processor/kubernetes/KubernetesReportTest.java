@@ -138,9 +138,10 @@ public class KubernetesReportTest {
 		"end: 2022-11\n" + 
 		"in:\n" + 
 		"  type: cost\n" + 
-		"  product: Product\n" + 
-		"  userTags:\n" + 
-		"    Role: compute\n" + 
+		"  filter:\n" + 
+		"    product: [Product]\n" + 
+		"    userTags:\n" + 
+		"      Role: [compute]\n" + 
 	    "allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)\n" +
 	    "  s3Bucket:\n" +
 	    "    name: k8s-report-bucket\n" +

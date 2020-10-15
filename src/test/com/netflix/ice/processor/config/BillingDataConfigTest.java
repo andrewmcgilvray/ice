@@ -56,30 +56,35 @@ public class BillingDataConfigTest {
 		"    operands:\n" + 
 		"      data:\n" + 
 		"        type: usage\n" + 
-		"        usageType: ${group}-DataTransfer-Out-Bytes\n" + 
+		"        filter:\n" + 
+		"          usageType: ['${region}-DataTransfer-Out-Bytes']\n" + 
 		"    in:\n" + 
 		"      type: usage\n" + 
-		"      product: Product\n" + 
-		"      usageType: (..)-Requests-[12].*\n" + 
+		"      filter:\n" + 
+		"        product: [Product]\n" + 
+		"        usageType: ['..-Requests-[12].*']\n" + 
+		"    patterns:\n" + 
+		"      region: '(..)-.*'\n" + 
 		"    results:\n" + 
-		"      - out:\n" + 
-		"          type: cost\n" + 
+		"      - type: cost\n" + 
+		"        out:\n" + 
 		"          product: ComputedCost\n" + 
-		"          usageType: ${group}-Requests\n" + 
+		"          usageType: ${region}-Requests\n" + 
 		"        value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
-		"      - out:\n" + 
-		"          type: usage\n" + 
+		"      - type: usage\n" + 
+		"        out:\n" + 
 		"          product: ComputedCost\n" + 
-		"          usageType: ${group}-Requests\n" + 
+		"          usageType: ${region}-Requests\n" + 
 		"        value: '${in} - (${data} * 4 * 8 / 2)'\n" +
 		"  - name: kubernetes-breakout\n" + 
 		"    start: 2019-11\n" + 
 		"    end: 2022-11\n" + 
 		"    in:\n" + 
 		"      type: cost\n" + 
-		"      product: Product\n" + 
-		"      userTags:\n" + 
-		"        Role: compute\n" + 
+		"      filter:\n" + 
+		"        product: [Product]\n" + 
+		"        userTags:\n" + 
+		"          Role: [compute]\n" + 
 	    "    allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)\n" +
 	    "      s3Bucket:\n" +
 	    "        name: k8s-report-bucket\n" +

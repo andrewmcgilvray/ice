@@ -24,7 +24,6 @@ import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
-import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UserTag;
 
 public class VariableRuleProcessor extends RuleProcessor {
@@ -70,7 +69,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 
 		
 		int maxNum = inCauData.getMaxNum();
-		Map<AggregationTagGroup, Double[]> inDataGroups = getInData(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
+		Map<AggregationTagGroup, Double[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
 		
 		int numSourceUserTags = resourceService.getCustomTags().size();
 		
@@ -104,7 +103,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 			
 			// Get the input and output data sets. If generating a report, put all of the data on the "null" product key.
 			ReadWriteData data = null;
-			if (rule.getIn().getType() == OperandConfig.OperandType.cost) {
+			if (rule.getIn().getType() == RuleConfig.DataType.cost) {
 				data = (copy ? outCauData : inCauData).getCost(copy ? null : tagGroup.product);
 			}
 			else {
@@ -149,9 +148,9 @@ public class VariableRuleProcessor extends RuleProcessor {
 		KubernetesConfig kc = rule.config.getAllocation().getKubernetes();
 		if (kc != null) {
 			// Make sure product list is limited to the four products we support
-			if (rc.getIn().getProduct() == null) {
+			if (rc.getIn().getFilter().getProduct() == null) {
 				// load the supported products into the input filter
-				rc.getIn().setProduct("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$");
+				rc.getIn().getFilter().setProduct(Lists.newArrayList("^(" + StringUtils.join(KubernetesReport.productServiceCodes, "|") + ")$"));
 			}
 			
 			// Pre-process the K8s report to produce an allocation report
@@ -226,8 +225,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 
 	protected AllocationReport generateAllocationReport(KubernetesReport report, CostAndUsageData data,
 			Set<String> unprocessedClusters, Set<String> unprocessedAtgs) throws Exception {
-		// Clone the inConfig so remaining changes aren't carried to the Allocation Report processing
-		OperandConfig inConfig = rule.config.getIn().clone();
+		// Copy the inConfig so remaining changes aren't carried to the Allocation Report processing
+		QueryConfig inConfig = new QueryConfig(rule.config.getIn());
 				
 		// Set aggregations based on the input tags. Group only by tags used to compute the cluster names.
 		// We only want one atg for each report item.
@@ -236,13 +235,13 @@ public class VariableRuleProcessor extends RuleProcessor {
 			if (!key.startsWith("_"))
 				groupByTags.add(key);
 		}
-		inConfig.setGroupBy(Lists.<TagType>newArrayList(TagType.Product));
+		inConfig.setGroupBy(Lists.<Rule.TagKey>newArrayList(Rule.TagKey.product));
 		inConfig.setGroupByTags(groupByTags);
 		
-		InputOperand inOperand = new InputOperand(inConfig, accountService, resourceService.getCustomTags());
+		Query query = new Query(inConfig, resourceService.getCustomTags());
 		
 		int maxNum = data.getMaxNum();
-		Map<AggregationTagGroup, Double[]> inData = getInData(inOperand, data, false, maxNum, rule.config.getName());
+		Map<AggregationTagGroup, Double[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());
 		
 		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings());
 		int numUserTags = resourceService.getCustomTags().size();

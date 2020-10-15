@@ -19,42 +19,41 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.DataFile;
 import com.netflix.ice.processor.ReadWriteData;
 import com.netflix.ice.processor.ReadWriteDataSerializer.TagGroupFilter;
-import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UserTag;
 
 public class ReportWriter extends DataFile {
 	private DateTime month;
 	boolean isCost;
 	private List<String> header;
-	private List<TagType> tagKeys;
+	private List<Rule.TagKey> tagKeys;
 	private List<String> userTagKeys;
 	private ReadWriteData data;
 	
 	public ReportWriter(String name, WorkBucketConfig config,
-			DateTime month, OperandConfig.OperandType type,
-			List<TagType> tagKeys, List<String> userTagKeys,
+			DateTime month, RuleConfig.DataType type,
+			List<Rule.TagKey> tagKeys, List<String> userTagKeys,
 			ReadWriteData data) throws Exception {
 		
 		super(name, config);
 		
 		this.month = month;
-		this.isCost = type == OperandConfig.OperandType.cost;
+		this.isCost = type == RuleConfig.DataType.cost;
 		this.tagKeys = tagKeys;
 		this.userTagKeys = userTagKeys;
 		this.data = data;
 		header = Lists.newArrayList();
 		header.add("Date");
 		header.add(isCost ? "Cost" : "Usage");
-		if (type == OperandConfig.OperandType.usage) {
+		if (type == RuleConfig.DataType.usage) {
 			header.add("Units");
 		}
-		for (TagType tt: tagKeys) {
-			if (tt == TagType.Account) {
+		for (Rule.TagKey tk: tagKeys) {
+			if (tk == Rule.TagKey.account) {
 				header.add("Account ID");
 				header.add("Account Name");
 			}
 			else
-				header.add(tt.toString());
+				header.add(tk.toString());
 		}
 		header.addAll(userTagKeys);
 	}
@@ -88,14 +87,14 @@ public class ReportWriter extends DataFile {
     			if (!isCost)
     				cols.add(tg.usageType.unit);
 
-    			for (TagType tt: tagKeys) {    				
-    				switch (tt) {
-    				case Account:	cols.add(tg.account.getId()); cols.add(tg.account.getName()); break;
-    				case Region:	cols.add(tg.region.name); break;
-    				case Zone:		cols.add(tg.zone == null ? "" : tg.zone.name); break;
-    				case Product:	cols.add(tg.product.getServiceCode()); break;
-    				case Operation:	cols.add(tg.operation.name); break;
-    				case UsageType:	cols.add(tg.usageType.name); break;
+    			for (Rule.TagKey tk: tagKeys) {    				
+    				switch (tk) {
+    				case account:	cols.add(tg.account.getId()); cols.add(tg.account.getName()); break;
+    				case region:	cols.add(tg.region.name); break;
+    				case zone:		cols.add(tg.zone == null ? "" : tg.zone.name); break;
+    				case product:	cols.add(tg.product.getServiceCode()); break;
+    				case operation:	cols.add(tg.operation.name); break;
+    				case usageType:	cols.add(tg.usageType.name); break;
     				default: break;
     				}    					
     			}

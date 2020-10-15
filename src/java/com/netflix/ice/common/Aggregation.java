@@ -22,6 +22,7 @@ import java.util.Map;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.netflix.ice.processor.postproc.Rule;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
@@ -34,10 +35,10 @@ import com.netflix.ice.tag.Zone;
 
 public class Aggregation {
     private Map<AggregationTagGroup, AggregationTagGroup> tagGroups;
-    private List<TagType> groupByTags;
+    private List<Rule.TagKey> groupByTags;
     private List<Integer> groupByUserTagIndeces; // Indices of custom tags we want to group by
 
-    public Aggregation(List<TagType> groupByTags, List<Integer> groupByUserTagIndeces) {
+    public Aggregation(List<Rule.TagKey> groupByTags, List<Integer> groupByUserTagIndeces) {
     	this.groupByTags = groupByTags;
     	this.groupByUserTagIndeces = groupByUserTagIndeces;
     	this.tagGroups = Maps.newConcurrentMap();
@@ -50,14 +51,14 @@ public class Aggregation {
     
     public AggregationTagGroup getAggregationTagGroup(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, UserTag[] userTagArray) throws Exception {
     	List<Tag> tags = Lists.newArrayListWithCapacity(groupByTags.size());
-    	for (TagType tt: groupByTags) {
-    		switch (tt) {
-    		case Account: 		tags.add(account); break;
-    		case Region: 		tags.add(region); break;
-    		case Zone: 			tags.add(zone); break;
-    		case Product: 		tags.add(product); break;
-    		case Operation: 	tags.add(operation); break;
-    		case UsageType: 	tags.add(usageType); break;
+    	for (Rule.TagKey tk: groupByTags) {
+    		switch (tk) {
+    		case account: 		tags.add(account); break;
+    		case region: 		tags.add(region); break;
+    		case zone: 			tags.add(zone); break;
+    		case product: 		tags.add(product); break;
+    		case operation: 	tags.add(operation); break;
+    		case usageType: 	tags.add(usageType); break;
 			default:
 				throw new Exception("Unsupported tag type aggregation");
     		}

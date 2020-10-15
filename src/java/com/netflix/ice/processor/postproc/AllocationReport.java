@@ -399,12 +399,12 @@ public class AllocationReport extends Report {
 
         String fileKey = prefix + AwsUtils.monthDateFormat.print(month);
 
-        logger.info("trying to list objects in kubernetes report bucket " + bucket.getName() +
+        logger.info("trying to list objects in report bucket " + bucket.getName() +
         		" using assume role \"" + bucket.getAccountId() + ":" + bucket.getAccessRole() + "\", and external id \"" + bucket.getExternalId() + "\" with key " + fileKey);
         
         List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bucket.getName(), bucket.getRegion(), fileKey,
         		bucket.getAccountId(), bucket.getAccessRole(), bucket.getExternalId());
-        logger.info("found " + objectSummaries.size() + " kubernetes report(s) in bucket " + bucket.getName());
+        logger.info("found " + objectSummaries.size() + " report(s) in bucket " + bucket.getName());
         
         if (objectSummaries.size() == 0)
             return false;
