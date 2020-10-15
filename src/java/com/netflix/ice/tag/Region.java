@@ -46,12 +46,15 @@ public class Region extends Tag {
 	};	
 	
 	public static final Region US_EAST_1 = new Region("us-east-1", "USE1", "US East (N. Virginia)");
-	public static final Region US_EAST_1_WL1_BOS = new Region("us-east-1-wl1-bos-wlz-1", "USE1WL1", "US East (Verizon) - Boston");
+	public static final Region US_EAST_1_WL1_BOS1 = new Region("us-east-1-wl1-bos-wlz-1", "USE1WL1", "US East (Verizon) - Boston");
+	public static final Region US_EAST_1_WL1_ATL1 = new Region("us-east-1-wl1-atl-wlz-1", "USE1WL1ATL1", "US East (Verizon) - Atlanta");
+	public static final Region US_EAST_1_WL1_NYC1 = new Region("us-east-1-wl1-was-wlz-1", "USE1WL1BWAS1", "US East (Verizon) - Washington DC");
+	public static final Region US_EAST_1_WL1_BWAS1 = new Region("us-east-1-wl1-nyc-wlz-1", "USE1WL1NYC1", "US East (Verizon) - New York");
     public static final Region US_EAST_2 = new Region("us-east-2", "USE2", "US East (Ohio)");
     public static final Region US_WEST_1 = new Region("us-west-1", "USW1", "US West (N. California)");
     public static final Region US_WEST_2 = new Region("us-west-2", "USW2", "US West (Oregon)");
     public static final Region US_WEST_2_LAX_1 = new Region("us-west-2-lax-1", "LAX1", "US West (Los Angeles)");
-    public static final Region US_WEST_2_WL1_SFO = new Region("us-west-2-wl1-sfo-wlz-1", "USW2WL1", "US West (Verizon) - San Francisco Bay Area");
+    public static final Region US_WEST_2_WL1_SFO1 = new Region("us-west-2-wl1-sfo-wlz-1", "USW2WL1", "US West (Verizon) - San Francisco Bay Area");
     public static final Region CA_CENTRAL_1 = new Region("ca-central-1", "CAN1", "Canada (Central)");
     public static final Region EU_WEST_1 = new Region("eu-west-1", "EU", "EU (Ireland)");
     public static final Region EU_CENTRAL_1 = new Region("eu-central-1", "EUC1", "EU (Frankfurt)");
