@@ -20,6 +20,7 @@ package com.netflix.ice.processor.postproc;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,7 +50,6 @@ public class Query {
 	private final Map<String, TagFilters> userTagFilters;
 	private final Map<String, Integer> userTagFilterIndeces;
 	private final int numUserTags;
-	private final boolean hasNoUserTags;
 	private final boolean singleTagGroup;
 	private final boolean monthly;
 	
@@ -68,13 +68,15 @@ public class Query {
 		
 		TagGroupFilterConfig tgfc = queryConfig.getFilter();
 		tagFilters = Maps.newHashMap();
-		hasNoUserTags = tgfc != null && tgfc.hasNoUserTags();
 		
-		// If the tag filters all specify single values and each
-		// TagKey is specified, then the query represents a single TagGroup.
+		// If the tag filters all specify single values, the query could represent a single TagGroup
+		// if all tags are present -or- the singleTagGroup flag is set to true in the config.
+		// Presence of an exclude indicates it's not a singleTagGruop.
 		// Get the initial state here, then we'll check for a single value in each filter as we walk through each.
-		boolean singleTagGroup = tgfc != null && tgfc.getTags() != null && tgfc.getTags().size() == Rule.TagKey.values().length &&
-				(hasNoUserTags || (tgfc.getUserTags() != null && tgfc.getUserTags().size() == userTagKeys.size()));
+		// For starters, we must have at least one tag specified, so make sure we have a list.
+		boolean singleTagGroup = tgfc != null && tgfc.getTags() != null &&
+								(tgfc.getExclude() == null || tgfc.getExclude().isEmpty()) &&
+								(tgfc.getExcludeUserTags() == null || tgfc.getExcludeUserTags().isEmpty());
 		
 		// Get tags we're not aggregating. If null, we're grouping by everything, else use
 		// the tags specified.
@@ -82,9 +84,9 @@ public class Query {
 
 		if (tgfc != null && tgfc.getTags() != null) {
 			for (Rule.TagKey key: tgfc.getTags().keySet()) {
-				boolean exclude = tgfc.getExcludeTags() != null && tgfc.getExcludeTags().contains(key);
+				boolean exclude = tgfc.getExclude() != null && tgfc.getExclude().contains(key);
 				List<String> filterValues = tgfc.getTags().get(key);
-				if (singleTagGroup && (exclude || filterValues.size() != 1))
+				if (singleTagGroup && filterValues.size() != 1)
 					singleTagGroup = false;
 				tagFilters.put(key, new TagFilters(exclude, filterValues));
 			}
@@ -99,12 +101,28 @@ public class Query {
 				
 				boolean exclude = tgfc.getExcludeUserTags() != null && tgfc.getExcludeUserTags().contains(key);
 				List<String> filterValues = tgfc.getUserTags().get(key);
-				if (singleTagGroup && (exclude || filterValues.size() != 1))
+				if (singleTagGroup && filterValues.size() != 1)
 					singleTagGroup = false;
 				userTagFilters.put(key, new TagFilters(exclude, filterValues));
 		    	userTagFilterIndeces.put(key, userTagKeys.indexOf(key));
 			}
 		}
+		if (singleTagGroup) {
+			if (tgfc.isSingleTagGroup()) {
+				// Explicit single tag group.
+				// Unspecified values will automatically be set to empty strings when processed.
+				// Check for ones that are required.
+				Set<Rule.TagKey> keys = tgfc.getTags().keySet();
+				if (!singleTagGroup || !keys.contains(Rule.TagKey.account) || !keys.contains(Rule.TagKey.region) || !keys.contains(Rule.TagKey.product))
+					throw new Exception("Query filter marked as single, but resolves to more than one tag group.");
+			}
+			else {
+				// Possible implicit singleTagGroup
+				// Make sure all tags and userTags have values before flagging as a single tag group.
+				singleTagGroup = tgfc.getTags().size() == Rule.TagKey.values().length && tgfc.getUserTags().size() == userTagKeys.size();
+			}
+		}
+		
 		this.singleTagGroup = singleTagGroup;
 		numUserTags = userTagKeys.size();
 		
@@ -201,7 +219,7 @@ public class Query {
 			List<String> tags = Lists.newArrayList();
 			tags.add(type.toString());
 			tags.add(tagFilters.toString());
-			tags.add(hasNoUserTags ? "noUserTags" : userTagFilters.toString());
+			tags.add(userTagFilters.toString());
 									
 			string = StringUtils.join(tags, ",");
 		}
@@ -236,9 +254,9 @@ public class Query {
 		Region region = Region.getRegionByName(tagFilters.get(Rule.TagKey.region).getFirst());
 		Zone zone = tagFilters.containsKey(Rule.TagKey.zone) ? region.getZone(tagFilters.get(Rule.TagKey.zone).getFirst()) : null;
 		Product product = productService.getProductByServiceCode(tagFilters.get(Rule.TagKey.product).getFirst());
-		Operation operation = Operation.getOperation(tagFilters.get(Rule.TagKey.operation).getFirst());
+		Operation operation = Operation.getOperation(tagFilters.containsKey(Rule.TagKey.operation) ? tagFilters.get(Rule.TagKey.operation).getFirst() : "");
 		// TODO: Need way to specify usage type units in the config
-		UsageType usageType = UsageType.getUsageType(tagFilters.get(Rule.TagKey.usageType).getFirst(), "");
+		UsageType usageType = UsageType.getUsageType(tagFilters.containsKey(Rule.TagKey.usageType) ? tagFilters.get(Rule.TagKey.usageType).getFirst() : "", "");
 				
 		ResourceGroup resourceGroup = null;		
 		if (!isNonResource) {

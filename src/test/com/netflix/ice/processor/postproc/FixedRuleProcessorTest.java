@@ -356,12 +356,10 @@ public class FixedRuleProcessorTest {
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
 			"      region: [global]\n" +
-			"      zone: ['']\n" +
 			"      product: [GlobalFee]\n" + 
 			"      operation: [None]\n" +
 			"      usageType: [Dollar]\n" + 
-			"      noUserTags: true\n" + 
-			"    groupByTags: []\n" +
+			"      singleTagGroup: true\n" + 
 			"in:\n" + 
 			"  type: cost\n" + 
 			"  filter:\n" + 
@@ -559,11 +557,10 @@ public class FixedRuleProcessorTest {
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
 			"      region: [global]\n" +
-			"      zone: ['']\n" +
 			"      product: [GlobalFee]\n" + 
 			"      operation: [None]\n" +
 			"      usageType: [Dollar]\n" + 
-			"      noUserTags: true\n" + 
+			"      singleTagGroup: true\n" + 
 			"in:\n" + 
 			"  type: cost\n" + 
 			"  filter:\n" + 
@@ -649,11 +646,10 @@ public class FixedRuleProcessorTest {
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
 			"      region: [global]\n" +
-			"      zone: ['']\n" +
 			"      product: [GlobalFee]\n" + 
 			"      operation: [None]\n" +
 			"      usageType: [Dollar]\n" + 
-			"      noUserTags: true\n" + 
+			"      singleTagGroup: true\n" + 
 			"in:\n" + 
 			"  type: cost\n" + 
 			"  monthly: true\n" +

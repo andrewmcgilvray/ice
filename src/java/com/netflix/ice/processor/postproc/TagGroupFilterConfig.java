@@ -40,8 +40,10 @@ import com.google.common.collect.Maps;
  * Allowed exclude values for excludeTags: account, region, zone, product, operation, usageType
  * For excludeUserTags, the allowed values are the user tag key names as defined by the ice.customTags property.
  * 
- * In the case where the target input data has no user tags, the noUserTags flag may be set to true.
- * Use of this flag eliminates the need to provide a full set of user tags with empty values.
+ * The singleTagGroup flag indicates that only a single value per hour of data is indicated by the filter.
+ * If this flag is set, then any exclude and excludeUserTags must not be present and each specified dimension
+ * and user tag must have only one value in each list.
+ * SingleTagGroup queries are much faster to process since only a lookup is required rather than a full scan.
  */
 public class TagGroupFilterConfig {
 	private List<String> account;
@@ -50,11 +52,12 @@ public class TagGroupFilterConfig {
 	private List<String> product;
 	private List<String> operation;
 	private List<String> usageType;
-	private List<Rule.TagKey> excludeTags;
+	private List<Rule.TagKey> exclude;
 	
-	private boolean noUserTags;
 	private Map<String, List<String>> userTags;	
 	private List<String> excludeUserTags;
+	
+	private boolean singleTagGroup;
 	
 	public TagGroupFilterConfig() {
 	}
@@ -66,8 +69,8 @@ public class TagGroupFilterConfig {
 		product = copyMe.product == null ? null : Lists.newArrayList(copyMe.product);
 		operation = copyMe.operation == null ? null : Lists.newArrayList(copyMe.operation);
 		usageType = copyMe.usageType == null ? null : Lists.newArrayList(copyMe.usageType);
-		excludeTags = copyMe.excludeTags == null ? null : Lists.newArrayList(copyMe.excludeTags);
-		noUserTags = copyMe.noUserTags;
+		exclude = copyMe.exclude == null ? null : Lists.newArrayList(copyMe.exclude);
+		singleTagGroup = copyMe.singleTagGroup;
 		userTags = null;
 		if (copyMe.userTags != null) {
 			userTags = Maps.newHashMap();
@@ -136,17 +139,17 @@ public class TagGroupFilterConfig {
 	public void setUsageType(List<String> usageType) {
 		this.usageType = usageType;
 	}
-	public List<Rule.TagKey> getExcludeTags() {
-		return excludeTags;
+	public List<Rule.TagKey> getExclude() {
+		return exclude;
 	}
-	public void setExcludeTags(List<Rule.TagKey> excludeTags) {
-		this.excludeTags = excludeTags;
+	public void setExclude(List<Rule.TagKey> exclude) {
+		this.exclude = exclude;
 	}
-	public boolean hasNoUserTags() {
-		return noUserTags;
+	public boolean isSingleTagGroup() {
+		return singleTagGroup;
 	}
-	public void setNoUserTags(boolean noUserTags) {
-		this.noUserTags = noUserTags;
+	public void setSingleTagGroup(boolean singleTagGroup) {
+		this.singleTagGroup = singleTagGroup;
 	}
 	public Map<String, List<String>> getUserTags() {
 		return userTags;

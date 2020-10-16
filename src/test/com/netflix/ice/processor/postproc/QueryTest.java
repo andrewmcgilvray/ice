@@ -86,7 +86,7 @@ public class QueryTest {
 		List<String> accounts = Lists.newArrayList("234567890123");
 		List<Rule.TagKey> exclude = Lists.newArrayList(Rule.TagKey.account);
 		tgfc.setAccount(accounts);
-		tgfc.setExcludeTags(exclude);
+		tgfc.setExclude(exclude);
 		q = new Query(qc, userTagKeys);
 		assertNotNull("tg should match", q.aggregateTagGroup(tg, as, ps));		
 		TagGroup tg1 = TagGroup.getTagGroup("234567890123", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);

@@ -59,7 +59,7 @@ public class RuleTest {
 			"    filter:\n" + 
 			"      account: [1,2,3]\n" +
 			"      usageType: ['Usage']\n" + 
-			"      excludeTags: [account,usageType]\n" + 
+			"      exclude: [account,usageType]\n" + 
 			"in:\n" + 
 			"  type: usage\n" + 
 			"  filter:\n" + 
