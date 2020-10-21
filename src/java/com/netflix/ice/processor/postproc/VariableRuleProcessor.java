@@ -1,5 +1,6 @@
 package com.netflix.ice.processor.postproc;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,8 +81,6 @@ public class VariableRuleProcessor extends RuleProcessor {
 
 		// Keep some statistics
 		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
-		TagGroup overAllocationTagGroup = null;
-		int firstOverAllocationHour = 0;
 
 		for (AggregationTagGroup atg: inDataGroups.keySet()) {
 			Double[] inValues = inDataGroups.get(atg);
@@ -120,18 +119,17 @@ public class VariableRuleProcessor extends RuleProcessor {
 				}
 				
 				if (allocationReport != null) {
-					if (processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups) && overAllocationTagGroup == null) {
-						overAllocationTagGroup = tagGroup;
-						firstOverAllocationHour = hour;
-					}
+					processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
 				}
 			}			
 		}
 		String info = "";
-		
-		if (overAllocationTagGroup != null) {
-			info = "Allocations exceeded 100% at hour " + Integer.toString(firstOverAllocationHour) + ". first over allocated tag group: " + overAllocationTagGroup.toString();
+		Collection<AllocationReport.Key> overAllocatedKeys = allocationReport.overAllocatedKeys();
+		if (!overAllocatedKeys.isEmpty()) {
+			info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
+			logger.error(info);
 		}
+		
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inDataGroups.size() + ", --- allocated size = " + allocatedTagGroups.size());
 		inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inDataGroups.size(), allocatedTagGroups.size(), info));
 	}
@@ -182,21 +180,20 @@ public class VariableRuleProcessor extends RuleProcessor {
 		return ar;
 	}	
 		
-	// returns true if any allocation set exceeds 100%
-	protected boolean processHourData(AllocationReport report, ReadWriteData data, int hour, TagGroup tg, Double total, Set<TagGroup> allocatedTagGroups) {
+	protected void processHourData(AllocationReport report, ReadWriteData data, int hour, TagGroup tg, Double total, Set<TagGroup> allocatedTagGroups) throws Exception {
 		if (total == null || total == 0.0)
-			return false;
+			return;
 				
-		AllocationReport.Key key = report.getKey(tg);
-		List<AllocationReport.Value> hourClusterData = report.getData(hour, key);
-		if (hourClusterData == null || hourClusterData.isEmpty())
-			return false;
+		List<AllocationReport.Value> hourData = report.getData(hour, tg);
+		if (hourData == null || hourData.isEmpty()) {
+			return;
+		}
 		
 		// Remove the source value - we'll add any unallocated back at the end
 		data.remove(hour, tg);
 
 		double unAllocated = total;
-		for (AllocationReport.Value value: hourClusterData) {
+		for (AllocationReport.Value value: hourData) {
 			double allocated = total * value.getAllocation();
 			if (allocated == 0.0)
 				continue;
@@ -217,10 +214,9 @@ public class VariableRuleProcessor extends RuleProcessor {
 			// Put the remaining cost on the original tagGroup
 			data.put(hour, tg, unAllocated);
 		}
-		boolean overAllocated = unAllocated < -threshold;
-		if (overAllocated)
-			logger.warn("Over allocation at hour " + hour + " for tag group: " + tg);
-		return overAllocated;
+		//boolean overAllocated = unAllocated < -threshold;
+		//if (overAllocated)
+		//	logger.warn("Over allocation at hour " + hour + " for tag group: " + tg + " --- amount: " + unAllocated);
 	}
 
 	protected AllocationReport generateAllocationReport(KubernetesReport report, CostAndUsageData data,

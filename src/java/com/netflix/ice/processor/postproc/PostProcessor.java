@@ -85,7 +85,7 @@ public class PostProcessor {
 		}
 		
 		Rule rule = new Rule(rc, accountService, productService, resourceService.getCustomTags());
-		if (!rc.isReport() && rule.getIn().hasAggregation()) {
+		if (rc.getAllocation() != null && !rc.isReport() && rule.getIn().hasAggregation()) {
 			// We don't currently support allocating aggregated costs because we don't track the source tagGroups that were aggregated
 			// by the getInData() method. So if the input data set is the same as the out data set, we fail.
 			String info = "In-place allocation with aggregation is currently unsupported, in: " + rule.getIn().toString();

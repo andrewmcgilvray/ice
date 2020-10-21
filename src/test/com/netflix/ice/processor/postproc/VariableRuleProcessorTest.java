@@ -67,7 +67,8 @@ public class VariableRuleProcessorTest {
     
     static private ProductService ps;
 	static private AccountService as;
-	static private String a1 = "1111111111111";
+	static private String a1 = "111111111111";
+	static private String a2 = "222222222222";
 	static final String productCode = Product.Code.CloudFront.serviceCode;
 	static final String ec2Instance = Product.Code.Ec2Instance.serviceCode;
 	static final String ebs = Product.Code.Ebs.serviceCode;
@@ -140,7 +141,7 @@ public class VariableRuleProcessorTest {
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
 				"  in:\n" +
-				"    _Product: _Product\n" +
+				"    _product: _Product\n" +
 				"    Key1: Key1\n" +
 				"  out:\n" +
 				"    Key2: Key2\n" +
@@ -274,7 +275,7 @@ public class VariableRuleProcessorTest {
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
 				"  in:\n" +
-				"    _Product: _Product\n" +
+				"    _product: _Product\n" +
 				"    Key1: Key1\n" +
 				"  out:\n" +
 				"    Key2: Key2\n" +
@@ -441,6 +442,99 @@ public class VariableRuleProcessorTest {
 		checkReport(csv, 4, expectedHeader, expectedRows);
 	}
 	
+	@Test
+	public void testMonthlyReportWithAllocationReportAndEmptyInKeys() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
+		String allocationYaml = "" +
+				"name: report-test\n" + 
+				"start: 2019-11\n" + 
+				"end: 2022-11\n" + 
+				"reports: [monthly]\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  filter:\n" + 
+				"    userTags:\n" +
+				"      Key2: [compute]\n" +
+				"  groupBy: [account]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  in:\n" +
+				"    _account: 'Account ID'\n" +
+				"    Key1: Key1\n" +
+				"  out:\n" +
+				"    Key2: Key2\n" +
+				"";
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 1000.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 10000.0),
+        		new TagGroupSpec(DataType.cost, a2, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 100000.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
+        loadData(dataSpecs, data, 0);
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
+
+		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), userTagKeys);
+		
+		// Process with a report that has both empty and non-empty Key1 values.
+		// Should apply the allocations for specific non-empty values and then use
+		// the empty allocation for all remaining values (including empty values)
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,Account ID,Key1,Key2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25," + a1 + ",clusterA,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70," + a1 + ",,seventy\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,1.0," + a2 + ",clusterB,one-hundred\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		
+		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
+		vrp.process(data);
+				
+    	Account a = as.getAccountById(a1);
+    	Account act2 = as.getAccountById(a2);
+        TagGroup[] expectedTg = new TagGroup[]{
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "compute"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "seventy"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "compute"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "seventy"})),
+        		TagGroup.getTagGroup(act2, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "one-hundred"})),
+         };
+        Double[] expectedValues = new Double[]{ 75.0, 25.0, 300.0, 700.0, 3000.0, 7000.0, 100000.0 };
+        
+        assertEquals("wrong number of output records", expectedTg.length, outData.getCost(null).getData(0).size());
+        for (int i = 0; i < expectedTg.length; i++) {
+        	TagGroup tg = expectedTg[i];
+        	Map<TagGroup, Double> costData = outData.getCost(null).getData(0);
+        	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg), 0.001);
+        }
+        
+        Query in = rule.getIn();
+		ReadWriteData rwData = outData.getCost(null);
+        
+		TestReportWriter writer = new TestReportWriter("test-report", data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
+		writer.archive();
+		
+		String csv = writer.baos.toString();
+		
+		String expectedHeader = "Date,Cost,Account ID,Account Name,Key1,Key2";
+		String[] expectedRows = new String[]{
+			"2020-08-01T00:00:00Z,100000.0,222222222222,222222222222,clusterB,one-hundred",
+			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,clusterA,twenty-five",
+			"2020-08-01T00:00:00Z,300.0,111111111111,111111111111,clusterB,compute",
+			"2020-08-01T00:00:00Z,3000.0,111111111111,111111111111,,compute",
+			"2020-08-01T00:00:00Z,700.0,111111111111,111111111111,clusterB,seventy",
+			"2020-08-01T00:00:00Z,7000.0,111111111111,111111111111,,seventy",
+			"2020-08-01T00:00:00Z,75.0,111111111111,111111111111,clusterA,compute",
+		};
+		
+		checkReport(csv, 8, expectedHeader, expectedRows);
+	}
+	
 	// Test report that has one or more output dimensions not in the source custom tags list
 	@Test
 	public void testMonthlyReportWithAllocationReportAndExtraTags() throws Exception {
@@ -603,7 +697,7 @@ public class VariableRuleProcessorTest {
 				"    region: us-east-1\n" +
 				"    accountId: 123456789012\n" +
 				"  in:\n" +
-				"    _Product: _Product\n" +
+				"    _product: _Product\n" +
 				"    Cluster: Cluster\n" +
 				"    Environment: inEnvironment\n" +
 				"  out:\n" +
@@ -687,7 +781,7 @@ public class VariableRuleProcessorTest {
 				"    region: us-east-1\n" +
 				"    accountId: 123456789012\n" +
 				"  in:\n" +
-				"    _Product: _Product\n" +
+				"    _product: _Product\n" +
 				"    Cluster: Cluster\n" +
 				"    Environment: Environment\n" +
 				"  out:\n" +
@@ -760,5 +854,4 @@ public class VariableRuleProcessorTest {
 			total += v;
 		assertEquals("Incorrect total cost when adding unused and allocated values", 120.0, total, 0.001);		
 	}
-
 }
