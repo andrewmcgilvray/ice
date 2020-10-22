@@ -68,15 +68,19 @@ public class VariableRuleProcessor extends RuleProcessor {
 		}
 		logger.info(logMsg);
 
+		boolean copy = outCauData != null;
+		AllocationReport allocationReport = getAllocationReport(inCauData);
+		
+		if (!copy && allocationReport == null) {
+			logger.warn("No allocation report to process for rule " + getConfig().getName());
+			inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, 0, 0, "No allocation report found"));
+			return;
+		}
 		
 		int maxNum = inCauData.getMaxNum();
 		Map<AggregationTagGroup, Double[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
 		
-		int numSourceUserTags = resourceService.getCustomTags().size();
-		
-		AllocationReport allocationReport = getAllocationReport(inCauData);
-		
-		boolean copy = outCauData != null;
+		int numSourceUserTags = resourceService.getCustomTags().size();		
 		int[] indeces = copy ? getIndeces(outCauData.getUserTagKeysAsStrings()) : null;
 
 		// Keep some statistics
@@ -124,10 +128,12 @@ public class VariableRuleProcessor extends RuleProcessor {
 			}			
 		}
 		String info = "";
-		Collection<AllocationReport.Key> overAllocatedKeys = allocationReport.overAllocatedKeys();
-		if (!overAllocatedKeys.isEmpty()) {
-			info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
-			logger.error(info);
+		if (allocationReport != null) {
+			Collection<AllocationReport.Key> overAllocatedKeys = allocationReport.overAllocatedKeys();
+			if (!overAllocatedKeys.isEmpty()) {
+				info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
+				logger.error(info);
+			}
 		}
 		
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inDataGroups.size() + ", --- allocated size = " + allocatedTagGroups.size());

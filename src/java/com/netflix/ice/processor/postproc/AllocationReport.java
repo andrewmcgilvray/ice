@@ -289,7 +289,7 @@ public class AllocationReport extends Report {
 				candidates.add(k);
 		}
 		key = null;
-		int maxValues = 0;
+		int maxValues = -1;
 		for (Key k: candidates) {
 			// TODO: May want to do this by precedence rather than number of values
 			if (k.numValues() > maxValues) {
@@ -394,10 +394,10 @@ public class AllocationReport extends Report {
 				if (tag.isEmpty()) {
 					// Apply any mapping rules
 					Tagger t = taggers.get(outTagKeys.get(i));
-					tag = t == null ? "" : t.get(this);
-					
-					if (tag.isEmpty())
+					if (t == null)
 						continue;
+					
+					tag = t.get(this);
 				}
 				userTags[outTagIndeces.get(i)] = UserTag.get(tag);
 			}

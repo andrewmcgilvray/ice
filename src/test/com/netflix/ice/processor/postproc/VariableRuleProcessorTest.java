@@ -69,6 +69,7 @@ public class VariableRuleProcessorTest {
 	static private AccountService as;
 	static private String a1 = "111111111111";
 	static private String a2 = "222222222222";
+	static private String a3 = "333333333333";
 	static final String productCode = Product.Code.CloudFront.serviceCode;
 	static final String ec2Instance = Product.Code.Ec2Instance.serviceCode;
 	static final String ebs = Product.Code.Ebs.serviceCode;
@@ -470,6 +471,7 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 1000.0),
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 10000.0),
         		new TagGroupSpec(DataType.cost, a2, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 100000.0),
+        		new TagGroupSpec(DataType.cost, a3, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 1000000.0),
         };
 		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
         loadData(dataSpecs, data, 0);
@@ -486,6 +488,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25," + a1 + ",clusterA,twenty-five\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70," + a1 + ",,seventy\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,1.0," + a2 + ",clusterB,one-hundred\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,1.0,,,one-hundred-no-account\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
 		
@@ -495,6 +498,7 @@ public class VariableRuleProcessorTest {
 				
     	Account a = as.getAccountById(a1);
     	Account act2 = as.getAccountById(a2);
+    	Account act3 = as.getAccountById(a3);
         TagGroup[] expectedTg = new TagGroup[]{
         		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
         		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
@@ -503,13 +507,15 @@ public class VariableRuleProcessorTest {
         		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "compute"})),
         		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "seventy"})),
         		TagGroup.getTagGroup(act2, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "one-hundred"})),
+        		TagGroup.getTagGroup(act3, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"", "one-hundred-no-account"})),
          };
-        Double[] expectedValues = new Double[]{ 75.0, 25.0, 300.0, 700.0, 3000.0, 7000.0, 100000.0 };
+        Double[] expectedValues = new Double[]{ 75.0, 25.0, 300.0, 700.0, 3000.0, 7000.0, 100000.0, 1000000.0 };
         
         assertEquals("wrong number of output records", expectedTg.length, outData.getCost(null).getData(0).size());
         for (int i = 0; i < expectedTg.length; i++) {
         	TagGroup tg = expectedTg[i];
         	Map<TagGroup, Double> costData = outData.getCost(null).getData(0);
+        	assertTrue("Tag group not in output cost data: " + tg, costData.containsKey(tg));
         	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg), 0.001);
         }
         
@@ -524,6 +530,7 @@ public class VariableRuleProcessorTest {
 		String expectedHeader = "Date,Cost,Account ID,Account Name,Key1,Key2";
 		String[] expectedRows = new String[]{
 			"2020-08-01T00:00:00Z,100000.0,222222222222,222222222222,clusterB,one-hundred",
+			"2020-08-01T00:00:00Z,1000000.0,333333333333,333333333333,,one-hundred-no-account",
 			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,clusterA,twenty-five",
 			"2020-08-01T00:00:00Z,300.0,111111111111,111111111111,clusterB,compute",
 			"2020-08-01T00:00:00Z,3000.0,111111111111,111111111111,,compute",
@@ -532,7 +539,7 @@ public class VariableRuleProcessorTest {
 			"2020-08-01T00:00:00Z,75.0,111111111111,111111111111,clusterA,compute",
 		};
 		
-		checkReport(csv, 8, expectedHeader, expectedRows);
+		checkReport(csv, 9, expectedHeader, expectedRows);
 	}
 	
 	// Test report that has one or more output dimensions not in the source custom tags list
