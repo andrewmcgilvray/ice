@@ -14,7 +14,7 @@ import com.google.common.collect.Lists;
  * out as separate values in the result. If groupBy is not provided, no merging will be performed. If
  * groupBy is provided but is an empty list, all tag types will be merged.
  * 
- * Allowed groupBy values are: Account, Region, Zone, Product, Operation, UsageType
+ * Allowed groupBy values are: account, region, zone, product, operation, usageType
  * 
  * If the groupByUserTag attribute is provided, any user tag names not listed will be merged and not
  * broken out as separate values in the result. If groupByUserTag is not provided, no merging will be performed.

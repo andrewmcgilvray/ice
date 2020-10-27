@@ -86,7 +86,7 @@ public class AggregationTest {
 		List<Rule.TagKey> groupByTags = Lists.newArrayList(new Rule.TagKey[]{Rule.TagKey.account, Rule.TagKey.product, Rule.TagKey.region});
 		List<Integer> groupByUserTagIndeces = Lists.newArrayList();
 		
-		Aggregation ag = new Aggregation(groupByTags, groupByUserTagIndeces);
+		Aggregation ag = new Aggregation(groupByTags, groupByUserTagIndeces, false);
 		
 		Map<AggregationTagGroup, Double> aggregationMap = Maps.newHashMap();
 		for (TagGroup tg: data.keySet()) {

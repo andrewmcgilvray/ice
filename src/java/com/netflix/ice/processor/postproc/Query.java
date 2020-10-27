@@ -58,12 +58,13 @@ public class Query {
 	private final List<String> groupByTags;
 	protected final Aggregation aggregation;
 	private final boolean aggregates;
+	private final boolean addedOperationForCostType;
 
 	private final String[] emptyUserTags;
 	
 	private String string = null;
 
-	public Query(QueryConfig queryConfig, List<String> userTagKeys) throws Exception {
+	public Query(QueryConfig queryConfig, List<String> userTagKeys, boolean needCostType) throws Exception {
 		this.type = queryConfig.getType();
 		
 		TagGroupFilterConfig tgfc = queryConfig.getFilter();
@@ -81,6 +82,10 @@ public class Query {
 		// Get tags we're not aggregating. If null, we're grouping by everything, else use
 		// the tags specified.
 		groupBy = queryConfig.getGroupBy() == null ? Lists.<Rule.TagKey>newArrayList(Rule.TagKey.values()) : queryConfig.getGroupBy();
+		// If we're generating a report that needs costType, make sure we group by operation
+		this.addedOperationForCostType = needCostType && !groupBy.contains(Rule.TagKey.operation);
+		if (this.addedOperationForCostType)
+			groupBy.add(Rule.TagKey.operation);
 
 		if (tgfc != null && tgfc.getTags() != null) {
 			for (Rule.TagKey key: tgfc.getTags().keySet()) {
@@ -147,7 +152,7 @@ public class Query {
 	    	aggregates |= groupByTagsIndeces.size() == userTagKeys.size();
 		}
 		
-		this.monthly = queryConfig.isMonthly();
+		this.monthly = queryConfig.isMonthly();		
 		this.aggregation = new Aggregation(groupBy, groupByTagsIndeces);
 		this.aggregates = aggregates;
 		this.emptyUserTags = new String[numUserTags];
@@ -188,6 +193,10 @@ public class Query {
 		return aggregates;
 	}
 	
+	public Aggregation getAggregation() {
+		return aggregation;
+	}
+	
 	/**
 	 * Indicates that each tag/userTag has a single explicit value that can be
 	 * used to generate one TagGroup for direct lookup in a TagGroup map.
@@ -212,6 +221,10 @@ public class Query {
 	
 	public boolean hasGroupByTags() {
 		return groupByTags.size() > 0;
+	}
+	
+	public boolean addedOperationForCostType() {
+		return addedOperationForCostType;
 	}
 	
 	public String toString() {

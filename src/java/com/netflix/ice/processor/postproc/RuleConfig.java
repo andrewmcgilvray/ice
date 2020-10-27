@@ -46,7 +46,7 @@ public class RuleConfig {
 	private String name;
 	private String start;
 	private String end;
-	private List<Aggregation> reports;
+	private ReportConfig report;
 	private Map<String, QueryConfig> operands;
 	private QueryConfig in;
 	private Map<String, String> patterns;
@@ -77,13 +77,13 @@ public class RuleConfig {
 		this.end = end;
 	}
 	public boolean isReport() {
-		return reports != null;
+		return report != null;
 	}
-	public List<Aggregation> getReports() {
-		return reports;
+	public ReportConfig getReport() {
+		return report;
 	}
-	public void setReports(List<Aggregation> reports) {
-		this.reports = reports;
+	public void setReport(ReportConfig report) {
+		this.report = report;
 	}
 	public Map<String, QueryConfig> getOperands() {
 		return operands;

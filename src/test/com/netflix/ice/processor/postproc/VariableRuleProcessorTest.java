@@ -22,8 +22,10 @@ import static org.junit.Assert.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.io.Writer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -328,7 +330,8 @@ public class VariableRuleProcessorTest {
 				"name: report-test\n" + 
 				"start: 2019-11\n" + 
 				"end: 2022-11\n" + 
-				"reports: [monthly]\n" + 
+				"report:\n" + 
+				"  aggregate: [monthly]\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
 				"  filter:\n" + 
@@ -365,7 +368,8 @@ public class VariableRuleProcessorTest {
 				"name: report-test\n" + 
 				"start: 2019-11\n" + 
 				"end: 2022-11\n" + 
-				"reports: [monthly]\n" + 
+				"report:\n" + 
+				"  aggregate: [monthly]\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
 				"  filter:\n" + 
@@ -428,16 +432,18 @@ public class VariableRuleProcessorTest {
         Query in = rule.getIn();
 		ReadWriteData rwData = outData.getCost(null);
         
-		TestReportWriter writer = new TestReportWriter("test-report", data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
-		writer.archive();
+		ReportWriter writer = new ReportWriter("test-report", rule.config.getReport(), null, data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		Writer out = new OutputStreamWriter(os);
+		writer.writeCsv(out);
 		
-		String csv = writer.baos.toString();
+		String csv = os.toString();
 		
 		String expectedHeader = "Date,Cost,Account ID,Account Name,Key1,Key2";
 		String[] expectedRows = new String[]{
-			"2020-08-01T00:00:00Z,175.0,1111111111111,1111111111111,clusterA,twenty-five",
-			"2020-08-01T00:00:00Z,35.0,1111111111111,1111111111111,clusterA,compute",
-			"2020-08-01T00:00:00Z,490.0,1111111111111,1111111111111,clusterA,seventy",
+			"2020-08-01T00:00:00Z,175.0,111111111111,111111111111,clusterA,twenty-five",
+			"2020-08-01T00:00:00Z,35.0,111111111111,111111111111,clusterA,compute",
+			"2020-08-01T00:00:00Z,490.0,111111111111,111111111111,clusterA,seventy",
 		};
 		
 		checkReport(csv, 4, expectedHeader, expectedRows);
@@ -450,7 +456,8 @@ public class VariableRuleProcessorTest {
 				"name: report-test\n" + 
 				"start: 2019-11\n" + 
 				"end: 2022-11\n" + 
-				"reports: [monthly]\n" + 
+				"report:\n" + 
+				"  aggregate: [monthly]\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
 				"  filter:\n" + 
@@ -522,10 +529,12 @@ public class VariableRuleProcessorTest {
         Query in = rule.getIn();
 		ReadWriteData rwData = outData.getCost(null);
         
-		TestReportWriter writer = new TestReportWriter("test-report", data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
-		writer.archive();
+		ReportWriter writer = new ReportWriter("test-report", rule.config.getReport(), null, data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		Writer out = new OutputStreamWriter(os);
+		writer.writeCsv(out);
 		
-		String csv = writer.baos.toString();
+		String csv = os.toString();
 		
 		String expectedHeader = "Date,Cost,Account ID,Account Name,Key1,Key2";
 		String[] expectedRows = new String[]{
@@ -550,7 +559,9 @@ public class VariableRuleProcessorTest {
 				"name: report-test\n" + 
 				"start: 2019-11\n" + 
 				"end: 2022-11\n" + 
-				"reports: [monthly]\n" + 
+				"report:\n" + 
+				"  aggregate: [monthly]\n" + 
+				"  includeCostType: true\n" + 
 				"in:\n" + 
 				"  type: cost\n" + 
 				"  filter:\n" + 
@@ -573,7 +584,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"Extra", "Key1", "Key2"});
+		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"CostType","Extra", "Key1", "Key2"});
 		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), reportUserTagKeys);
 		
 		// Process with a report
@@ -596,9 +607,9 @@ public class VariableRuleProcessorTest {
 		
     	Account a = as.getAccountById(a1);
         TagGroup[] expectedTg = new TagGroup[]{
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"", "clusterA", "compute"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"extraOne", "clusterA", "twenty-five"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"extraTwo", "clusterA", "seventy"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extraOne", "clusterA", "twenty-five"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extraTwo", "clusterA", "seventy"})),
          };
         Double[] expectedValues = new Double[]{ 5.0, 25.0, 70.0 };
         
@@ -608,19 +619,20 @@ public class VariableRuleProcessorTest {
         	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg));
         }
         
-        Query in = rule.getIn();
 		ReadWriteData rwData = outData.getCost(null);
         
-		TestReportWriter writer = new TestReportWriter("report-test", data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
-		writer.archive();
+		ReportWriter writer = new ReportWriter("report-test", rule.config.getReport(), null, data.getStart(), RuleConfig.DataType.cost, rule.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		Writer out = new OutputStreamWriter(os);
+		writer.writeCsv(out);
 		
-		String csv = writer.baos.toString();
+		String csv = os.toString();
 		
-		String expectedHeader = "Date,Cost,Account ID,Account Name,Extra,Key1,Key2";
+		String expectedHeader = "Date,Cost,Account ID,Account Name,CostType,Extra,Key1,Key2";
 		String[] expectedRows = new String[]{
-			"2020-08-01T00:00:00Z,25.0,1111111111111,1111111111111,extraOne,clusterA,twenty-five",
-			"2020-08-01T00:00:00Z,5.0,1111111111111,1111111111111,,clusterA,compute",
-			"2020-08-01T00:00:00Z,70.0,1111111111111,1111111111111,extraTwo,clusterA,seventy",
+			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,Recurring,extraOne,clusterA,twenty-five",
+			"2020-08-01T00:00:00Z,5.0,111111111111,111111111111,Recurring,,clusterA,compute",
+			"2020-08-01T00:00:00Z,70.0,111111111111,111111111111,Recurring,extraTwo,clusterA,seventy",
 		};
 		
 		checkReport(csv, 4, expectedHeader, expectedRows);
@@ -658,25 +670,6 @@ public class VariableRuleProcessorTest {
 		}
 	}
 	
-	class TestReportWriter extends ReportWriter {
-		public ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		
-		public TestReportWriter(String name, DateTime month, RuleConfig.DataType type,
-				List<Rule.TagKey> tagKeys, List<String> userTagKeys,
-				ReadWriteData data) throws Exception {
-			super(name, null, month, type, tagKeys, userTagKeys, data);
-		}
-		
-		@Override
-	    public void open() throws IOException {
-	    	os = baos;
-	    }
-		
-		@Override
-	    public void close() throws IOException {
-	    }
-	}
-
 	class TestKubernetesReport extends KubernetesReport {
 
 		public TestKubernetesReport(AllocationConfig config, ResourceService resourceService) throws Exception {

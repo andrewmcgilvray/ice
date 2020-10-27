@@ -1,10 +1,14 @@
 package com.netflix.ice.processor.postproc;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -12,16 +16,22 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.processor.DataFile;
 import com.netflix.ice.processor.ReadWriteData;
-import com.netflix.ice.processor.ReadWriteDataSerializer.TagGroupFilter;
+import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.tag.UserTag;
 
-public class ReportWriter extends DataFile {
+public class ReportWriter {
+    protected Logger logger = LoggerFactory.getLogger(getClass());
+    
+	private String filename;
+	private ReportConfig config;
+	private String localDir;
 	private DateTime month;
 	boolean isCost;
 	private List<String> header;
@@ -29,12 +39,14 @@ public class ReportWriter extends DataFile {
 	private List<String> userTagKeys;
 	private ReadWriteData data;
 	
-	public ReportWriter(String name, WorkBucketConfig config,
+	public ReportWriter(String filename, ReportConfig config, String localDir,
 			DateTime month, RuleConfig.DataType type,
 			List<Rule.TagKey> tagKeys, List<String> userTagKeys,
 			ReadWriteData data) throws Exception {
 		
-		super(name, config);
+		this.filename = filename;
+		this.config = config;
+		this.localDir = localDir;
 		
 		this.month = month;
 		this.isCost = type == RuleConfig.DataType.cost;
@@ -53,21 +65,33 @@ public class ReportWriter extends DataFile {
 				header.add("Account Name");
 			}
 			else
-				header.add(tk.toString());
+				header.add(tk.getColumnName());
 		}
 		header.addAll(userTagKeys);
 	}
-	
-	@Override
-	protected void write(TagGroupFilter filter) throws IOException {
+
+    public void archive() throws IOException {
+    	File file = new File(localDir, filename);
+    	OutputStream os = new FileOutputStream(file);
+    	os = new GZIPOutputStream(os);
+    	
 		Writer out = new OutputStreamWriter(os);
         try {
         	writeCsv(out);
         }
         finally {
         	out.close();
-        }		
-	}
+        }
+        
+    	os.close();
+    	
+    	S3BucketConfig s3 = config.getS3Bucket();
+    	String prefix = s3.getPrefix() == null ? "" : s3.getPrefix();
+        logger.info(filename + " uploading to s3...");
+        AwsUtils.upload(s3.getName(), s3.getRegion(), prefix, file, s3.getAccountId(), s3.getAccessRole(), s3.getExternalId());
+        logger.info(filename + " uploading done.");    	
+
+    }
 
     protected void writeCsv(Writer out) throws IOException {
     	String[] headerArray = new String[header.size()];
@@ -86,7 +110,7 @@ public class ReportWriter extends DataFile {
     			cols.add(Double.toString(v));
     			if (!isCost)
     				cols.add(tg.usageType.unit);
-
+    			
     			for (Rule.TagKey tk: tagKeys) {    				
     				switch (tk) {
     				case account:	cols.add(tg.account.getId()); cols.add(tg.account.getName()); break;

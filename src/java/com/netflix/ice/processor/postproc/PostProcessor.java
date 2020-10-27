@@ -123,31 +123,31 @@ public class PostProcessor {
 		ReadWriteData data = rule.config.getIn().getType() == RuleConfig.DataType.cost ? cauData.getCost(null) : cauData.getUsage(null);
 		Query in = rule.getIn();
 		
-		Collection<RuleConfig.Aggregation> reports = rule.config.getReports();
+		Collection<RuleConfig.Aggregation> aggregate = rule.config.getReport().getAggregate();
 		
-		if (reports.contains(RuleConfig.Aggregation.hourly)) {
+		if (aggregate.contains(RuleConfig.Aggregation.hourly)) {
 			String filename = reportName(cauData.getStart(), rule.config.getName(), RuleConfig.Aggregation.hourly);
-			ReportWriter writer = new ReportWriter(filename, workBucketConfig, cauData.getStart(), rule.config.getIn().getType(), in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data);		
+			ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, cauData.getStart(), rule.config.getIn().getType(), in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data);		
 			writer.archive();
 		}
-		if (reports.contains(RuleConfig.Aggregation.monthly) || reports.contains(RuleConfig.Aggregation.daily)) {
+		if (aggregate.contains(RuleConfig.Aggregation.monthly) || aggregate.contains(RuleConfig.Aggregation.daily)) {
 			List<Map<TagGroup, Double>> monthly = Lists.newArrayList();
 			List<Map<TagGroup, Double>> daily = Lists.newArrayList();
 			
 			aggregateSummaryData(data, daily, monthly);
-			if (reports.contains(RuleConfig.Aggregation.monthly)) {
+			if (aggregate.contains(RuleConfig.Aggregation.monthly)) {
 				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, monthly);
 			}
-			if (reports.contains(RuleConfig.Aggregation.daily)) {
+			if (aggregate.contains(RuleConfig.Aggregation.daily)) {
 				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, daily);
 			}
 		}
 	}
 	
 	protected String reportName(DateTime month, String ruleName, RuleConfig.Aggregation aggregation) {
-        DateTimeFormatter yearMonth = DateTimeFormat.forPattern("yyyy_MM").withZone(DateTimeZone.UTC);
+        DateTimeFormatter yearMonth = DateTimeFormat.forPattern("yyyy-MM").withZone(DateTimeZone.UTC);
 
-		return "report_" + ruleName + "_" + aggregation.toString() + "_" + month.toString(yearMonth) + ".csv";
+		return "report-" + ruleName + "-" + aggregation.toString() + "-" + month.toString(yearMonth) + ".csv.gz";
 	}
 	
 	protected void writeReport(DateTime month, List<String> userTagKeys, Rule rule, List<Map<TagGroup, Double>> data) throws Exception {
@@ -155,7 +155,7 @@ public class PostProcessor {
 		String filename = reportName(month, rule.config.getName(), RuleConfig.Aggregation.hourly);
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
         rwData.setData(data, data.size());            
-		ReportWriter writer = new ReportWriter(filename, workBucketConfig, month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData);		
+		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData);		
 		writer.archive();		
 	}
 	

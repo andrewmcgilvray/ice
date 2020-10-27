@@ -54,14 +54,25 @@ public class Rule {
 	private Query in;
 	private Map<String, Pattern> patterns;
 	private List<Result> results;
+	private List<TagKey> groupBy;
 	
 	public enum TagKey {
-		account,
-		region,
-		zone,
-		product,
-		operation,
-		usageType;
+		account("Account"),
+		region("Region"),
+		zone("Zone"),
+		product("Product"),
+		operation("Operation"),
+		usageType("UsageType");
+		
+		private String columnName;
+		
+		private TagKey(String columnName) {
+			this.columnName = columnName;
+		}
+		
+		public String getColumnName() {
+			return columnName;
+		}
 	}
 	
 	private static Map<String, TagKey> allocationKeyMap = Maps.newHashMap();
@@ -87,11 +98,12 @@ public class Rule {
 			throw new Exception(err);
 		}
 		
+		boolean needCostType = config.isReport() ? config.getReport().includeCostType() : false;
 		operands = Maps.newHashMap();
 		if (config.getOperands() != null) {
 			for (String oc: config.getOperands().keySet()) {
 				try {
-				Query io = new Query(config.getOperand(oc), userTagKeys);
+				Query io = new Query(config.getOperand(oc), userTagKeys, needCostType);
 				operands.put(oc, io);
 				logger.info("    operand " + oc + ": " + io);
 				}
@@ -101,8 +113,7 @@ public class Rule {
 				}
 			}
 		}
-		
-		in = new Query(config.getIn(), userTagKeys);
+		in = new Query(config.getIn(), userTagKeys, needCostType);
 		if (config.getResults() != null) {
 			results = Lists.newArrayList();
 			for (ResultConfig rc: config.getResults())
@@ -134,10 +145,15 @@ public class Rule {
 				
 			}
 		}
+		groupBy = Lists.newArrayList(in.getGroupBy());
+		if (in.addedOperationForCostType())
+			groupBy.remove(TagKey.operation);
 	}
 	
 	public List<String> getOutUserTagKeys() {
 		Set<String> keys = Sets.newHashSet();
+		if (config.isReport() && config.getReport().includeCostType())
+			keys.add("CostType");
 		keys.addAll(in.getGroupByTags());
 		if (config.getAllocation() != null) {
 			keys.addAll(config.getAllocation().getOut().keySet());
@@ -158,6 +174,15 @@ public class Rule {
 	
 	public Query getIn() {
 		return in;
+	}
+	
+	/*
+	 * Return the actual groupBy tag keys for the target output.
+	 * In the case of reports, the In query may have added operation
+	 * for purposes of supplying CostType.
+	 */
+	public List<Rule.TagKey> getGroupBy() {
+		return groupBy;
 	}
 	
 	public List<Result> getResults() {

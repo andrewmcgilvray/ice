@@ -131,7 +131,8 @@ public class RuleConfigTest {
 		"name: kubernetes-breakout\n" + 
 		"start: 2019-11\n" + 
 		"end: 2022-11\n" + 
-		"reports: [monthly]\n" + 
+		"report:\n" + 
+		"  aggregate: [monthly]\n" + 
 		"in:\n" + 
 		"  type: cost\n" + 
 		"  filter:\n" + 
@@ -145,7 +146,7 @@ public class RuleConfigTest {
 		rc = mapper.readValue(yaml, rc.getClass());
 		
 		assertTrue("isReport failing", rc.isReport());
-		assertEquals("wrong number of reports", 1, rc.getReports().size());
-		assertEquals("wrong report aggregation", RuleConfig.Aggregation.monthly, rc.getReports().get(0));
+		assertEquals("wrong number of aggregates", 1, rc.getReport().getAggregate().size());
+		assertEquals("wrong report aggregation", RuleConfig.Aggregation.monthly, rc.getReport().getAggregate().get(0));
 	}
 }

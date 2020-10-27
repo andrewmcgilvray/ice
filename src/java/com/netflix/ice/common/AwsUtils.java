@@ -579,6 +579,25 @@ public class AwsUtils {
             s3Client.putObject(bucketName, prefix + file.getName(), file);
     }
 
+    public static void upload(String bucketName, String bucketRegion, String bucketPrefix, File file, String accountId, String assumeRole, String externalId) {
+        AmazonS3Client s3Client = AwsUtils.s3Client;
+
+        try {
+            if (!StringUtils.isEmpty(accountId) && !StringUtils.isEmpty(assumeRole)) {
+                s3Client = (AmazonS3Client) AmazonS3ClientBuilder.standard().withRegion(bucketRegion).withCredentials(getAssumedCredentialsProvider(accountId, assumeRole, externalId)).withClientConfiguration(clientConfig).build();
+            }
+            else if (!s3Client.getRegionName().equals(bucketRegion)) {
+            	s3Client = (AmazonS3Client) AmazonS3ClientBuilder.standard().withRegion(bucketRegion).withCredentials(awsCredentialsProvider).withClientConfiguration(clientConfig).build();
+            }
+
+            s3Client.putObject(bucketName, bucketPrefix + file.getName(), file);
+        }
+        finally {
+            if (s3Client != AwsUtils.s3Client)
+                s3Client.shutdown();
+        }
+    }
+
     public static long getLastModified(String bucketName, String fileKey) {
         try {
             long result = s3Client.listObjects(bucketName, fileKey).getObjectSummaries().get(0).getLastModified().getTime();

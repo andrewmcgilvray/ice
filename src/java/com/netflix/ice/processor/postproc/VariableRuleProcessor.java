@@ -8,8 +8,10 @@ import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.AccountService;
+import com.netflix.ice.common.Aggregation;
 import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.ProductService;
@@ -23,6 +25,7 @@ import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.UserTag;
@@ -81,52 +84,19 @@ public class VariableRuleProcessor extends RuleProcessor {
 		Map<AggregationTagGroup, Double[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
 		
 		int numSourceUserTags = resourceService.getCustomTags().size();		
-		int[] indeces = copy ? getIndeces(outCauData.getUserTagKeysAsStrings()) : null;
 
+		if (copy)
+			inDataGroups = copyAndReduce(inDataGroups, maxNum, numSourceUserTags);
+		
 		// Keep some statistics
 		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
-
-		for (AggregationTagGroup atg: inDataGroups.keySet()) {
-			Double[] inValues = inDataGroups.get(atg);
-			int maxHours = inValues == null ? maxNum : inValues.length;
+		
+		if (allocationReport != null) {
 			
-			TagGroup tagGroup = atg.getTagGroup(numSourceUserTags);
-			if (tagGroup.resourceGroup == null)
-				continue;
-			
-			if (copy) {
-				// Map the input user tags to the output user tags
-				UserTag[] inUserTags = tagGroup.resourceGroup.getUserTags();
-				UserTag[] outUserTags = new UserTag[indeces.length];
-				for (int i = 0; i < indeces.length; i++) {
-					outUserTags[i] = indeces[i] < 0 ? UserTag.empty : inUserTags[indeces[i]];
-				}
-				tagGroup = tagGroup.withResourceGroup(ResourceGroup.getResourceGroup(outUserTags));
-			}
-			
-			// Get the input and output data sets. If generating a report, put all of the data on the "null" product key.
-			ReadWriteData data = null;
-			if (rule.getIn().getType() == RuleConfig.DataType.cost) {
-				data = (copy ? outCauData : inCauData).getCost(copy ? null : tagGroup.product);
-			}
-			else {
-				data = (copy ? outCauData : inCauData).getUsage(copy ? null : tagGroup.product);
-			}
-			
-			for (int hour = 0; hour < maxHours; hour++) {
-				if (inValues[hour] == null || inValues[hour] == 0.0)
-					continue;
-				
-				if (copy) {
-					// Copy the data to the output report
-					data.put(hour, tagGroup, inValues[hour]);
-				}
-				
-				if (allocationReport != null) {
-					processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
-				}
-			}			
+			CostAndUsageData cauData = copy ? outCauData : inCauData;
+			performAllocation(cauData, inDataGroups, allocationReport, allocatedTagGroups);
 		}
+		
 		String info = "";
 		if (allocationReport != null) {
 			Collection<AllocationReport.Key> overAllocatedKeys = allocationReport.overAllocatedKeys();
@@ -138,6 +108,92 @@ public class VariableRuleProcessor extends RuleProcessor {
 		
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inDataGroups.size() + ", --- allocated size = " + allocatedTagGroups.size());
 		inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inDataGroups.size(), allocatedTagGroups.size(), info));
+	}
+	
+	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, Double[]> inDataGroups, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
+		boolean copy = outCauData != null;
+		int numUserTags = cauData.getNumUserTags();
+		
+		for (AggregationTagGroup atg: inDataGroups.keySet()) {
+			Double[] inValues = inDataGroups.get(atg);
+			
+			TagGroup tagGroup = atg.getTagGroup(numUserTags);
+						
+			// Get the input and output data sets. If generating a report, put all of the data on the "null" product key.
+			Product p = copy ? null : tagGroup.product;
+			ReadWriteData data = rule.getIn().getType() == RuleConfig.DataType.cost ? cauData.getCost(p) : cauData.getUsage(p);
+			
+			for (int hour = 0; hour < inValues.length; hour++) {
+				if (inValues[hour] == null || inValues[hour] == 0.0)
+					continue;
+				
+				processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
+			}			
+		}
+	}
+	
+	/**
+	 * Copy the query data to the report data set and if requested, generate CostType from
+	 * the operation tag. If not grouping by operation, aggregate the data to remove the operation dimension.
+	 */
+	private Map<AggregationTagGroup, Double[]> copyAndReduce(Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, int numSourceUserTags) throws Exception {
+ 		Map<AggregationTagGroup, Double[]> aggregatedInDataGroups = Maps.newHashMap();
+		int costTypeIndex = outCauData.getUserTagKeysAsStrings().indexOf("CostType");
+		boolean addedOperationForCostType = rule.getIn().addedOperationForCostType();
+		int[] indeces = getIndeces(outCauData.getUserTagKeysAsStrings());
+		
+	    List<Rule.TagKey> groupByTags = rule.getGroupBy();
+	    
+	    List<Integer> groupByUserTagIndeces = Lists.newArrayList();
+	    for (int i = 0; i < outCauData.getNumUserTags(); i++)
+	    	groupByUserTagIndeces.add(i);
+
+		Aggregation outAggregation = new Aggregation(groupByTags, groupByUserTagIndeces);
+		
+		for (AggregationTagGroup atg: inDataGroups.keySet()) {
+			Double[] inValues = inDataGroups.get(atg);
+			if (inValues == null)
+				continue;
+						
+			TagGroup tagGroup = atg.getTagGroup(numSourceUserTags);
+			
+			// Map the input user tags to the output user tags
+			UserTag[] inUserTags = tagGroup.resourceGroup.getUserTags();
+			UserTag[] outUserTags = new UserTag[indeces.length];
+			for (int i = 0; i < indeces.length; i++) {
+				outUserTags[i] = indeces[i] < 0 ? UserTag.empty : inUserTags[indeces[i]];
+			}
+			if (costTypeIndex >= 0) {
+				outUserTags[costTypeIndex] = UserTag.get(CostType.getCostType(tagGroup.operation).name);
+				if (addedOperationForCostType)
+					tagGroup = tagGroup.withOperation(null);
+			}
+			tagGroup = tagGroup.withResourceGroup(ResourceGroup.getResourceGroup(outUserTags));
+			
+			// Get the new AggregationTagGroup that operates on the output data set
+			AggregationTagGroup newAtg = outAggregation.getAggregationTagGroup(tagGroup);
+			Double[] inAggregated = aggregatedInDataGroups.get(newAtg);
+			if (inAggregated == null) {
+				inAggregated = new Double[maxNum];
+				for (int i = 0; i < maxNum; i++)
+					inAggregated[i] = 0.0;
+				aggregatedInDataGroups.put(newAtg, inAggregated);
+			}
+			
+			// Generating a report so put all of the data on the "null" product key.
+			ReadWriteData data = rule.getIn().getType() == RuleConfig.DataType.cost ? outCauData.getCost(null): outCauData.getUsage(null);
+			
+			for (int hour = 0; hour < inValues.length; hour++) {
+				if (inValues[hour] == null || inValues[hour] == 0.0)
+					continue;
+				
+				inAggregated[hour] += inValues[hour];
+				
+				// Copy the data to the output report
+				data.add(hour, tagGroup, inValues[hour]);
+			}			
+		}
+		return aggregatedInDataGroups;
 	}
 
 	protected AllocationReport getAllocationReport(CostAndUsageData data) throws Exception {
@@ -240,7 +296,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		inConfig.setGroupBy(Lists.<Rule.TagKey>newArrayList(Rule.TagKey.product));
 		inConfig.setGroupByTags(groupByTags);
 		
-		Query query = new Query(inConfig, resourceService.getCustomTags());
+		Query query = new Query(inConfig, resourceService.getCustomTags(), false);
 		
 		int maxNum = data.getMaxNum();
 		Map<AggregationTagGroup, Double[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());

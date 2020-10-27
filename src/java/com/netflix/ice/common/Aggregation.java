@@ -43,6 +43,14 @@ public class Aggregation {
     	this.groupByUserTagIndeces = groupByUserTagIndeces;
     	this.tagGroups = Maps.newConcurrentMap();
     }
+    
+    public List<Rule.TagKey> getGroupByTags() {
+    	return groupByTags;
+    }
+    
+    public List<Integer> getGroupByUserTagIndeces() {
+    	return groupByUserTagIndeces;
+    }
 
     public AggregationTagGroup getAggregationTagGroup(TagGroup tagGroup) throws Exception {
     	UserTag[] userTags = tagGroup.resourceGroup == null ? null : tagGroup.resourceGroup.getUserTags();
