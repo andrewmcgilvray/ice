@@ -353,7 +353,7 @@ public class AllocationReport extends Report {
 				for (Value v: allocations.get(key)) {
 					total += v.allocation;
 				}
-				if (total > 1.0)
+				if (total > 1.000001)
 					keys.add(key);
 			}
 		}

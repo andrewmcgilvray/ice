@@ -136,10 +136,10 @@ public class PostProcessor {
 			
 			aggregateSummaryData(data, daily, monthly);
 			if (aggregate.contains(RuleConfig.Aggregation.monthly)) {
-				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, monthly);
+				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, monthly, RuleConfig.Aggregation.monthly);
 			}
 			if (aggregate.contains(RuleConfig.Aggregation.daily)) {
-				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, daily);
+				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, daily, RuleConfig.Aggregation.daily);
 			}
 		}
 	}
@@ -150,9 +150,9 @@ public class PostProcessor {
 		return "report-" + ruleName + "-" + aggregation.toString() + "-" + month.toString(yearMonth) + ".csv.gz";
 	}
 	
-	protected void writeReport(DateTime month, List<String> userTagKeys, Rule rule, List<Map<TagGroup, Double>> data) throws Exception {
+	protected void writeReport(DateTime month, List<String> userTagKeys, Rule rule, List<Map<TagGroup, Double>> data, RuleConfig.Aggregation aggregation) throws Exception {
 		Query in = rule.getIn();
-		String filename = reportName(month, rule.config.getName(), RuleConfig.Aggregation.hourly);
+		String filename = reportName(month, rule.config.getName(), aggregation);
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
         rwData.setData(data, data.size());            
 		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData);		
