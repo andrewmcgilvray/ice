@@ -138,7 +138,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 	 */
 	private Map<AggregationTagGroup, Double[]> copyAndReduce(Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, int numSourceUserTags) throws Exception {
  		Map<AggregationTagGroup, Double[]> aggregatedInDataGroups = Maps.newHashMap();
-		int costTypeIndex = outCauData.getUserTagKeysAsStrings().indexOf("CostType");
+ 		List<String> userTagKeys = outCauData.getUserTagKeysAsStrings();
+		int costTypeIndex = userTagKeys == null ? -1 : userTagKeys.indexOf("CostType");
 		boolean addedOperationForCostType = rule.getIn().addedOperationForCostType();
 		int[] indeces = getIndeces(outCauData.getUserTagKeysAsStrings());
 		

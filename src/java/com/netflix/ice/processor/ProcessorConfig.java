@@ -95,7 +95,9 @@ public class ProcessorConfig extends Config {
     // Post=processor configuration rules
     public List<RuleConfig> postProcessorRules;
     
-    private static final String billingDataConfigBasename = "ice_config";
+    private static final String tagsBasename = "ice_tags";
+    private static final String accountsBasename = "ice_accounts";
+    private static final String postProcBasename = "ice_postproc";
     private static final String debugCacheAccounts = "cacheAccounts";
 
     /**
@@ -196,7 +198,9 @@ public class ProcessorConfig extends Config {
         String[] billingAccessRoleNames = properties.getProperty(IceOptions.BILLING_ACCESS_ROLENAME, "").split(",");
         String[] billingAccessExternalIds = properties.getProperty(IceOptions.BILLING_ACCESS_EXTERNALID, "").split(",");
         String[] rootNames = properties.getProperty(IceOptions.ROOT_NAME, "").split(",");
-        String[] configBasenames = properties.getProperty(IceOptions.BILLING_ICE_CONFIG_BASENAME, "").split(",");
+        String[] configAccountsBasenames = properties.getProperty(IceOptions.BILLING_ICE_CONFIG_ACCOUNTS_BASENAME, "").split(",");
+        String[] configTagsBasenames = properties.getProperty(IceOptions.BILLING_ICE_CONFIG_TAGS_BASENAME, "").split(",");
+        String[] configPostProcBasenames = properties.getProperty(IceOptions.BILLING_ICE_CONFIG_POSTPROC_BASENAME, "").split(",");
         
         for (int i = 0; i < billingS3BucketNames.length; i++) {
         	BillingBucket bb = new BillingBucket()
@@ -207,7 +211,10 @@ public class ProcessorConfig extends Config {
         			.withAccessRole(billingAccessRoleNames.length > i ? billingAccessRoleNames[i] : "")
         			.withExternalId(billingAccessExternalIds.length > i ? billingAccessExternalIds[i] : "")
         			.withRootName(rootNames.length > i ? rootNames[i] : "")
-        			.withConfigBasename(configBasenames.length > i ? configBasenames[i] : "");
+        			.withConfigAccountsBasename(configAccountsBasenames.length > i ? configAccountsBasenames[i] : "")
+        			.withConfigTagsBasename(configTagsBasenames.length > i ? configTagsBasenames[i] : "")
+        			.withConfigPostProcBasename(configPostProcBasenames.length > i ? configPostProcBasenames[i] : "")
+        			;
         	billingBuckets.add(bb);
         }
     }
@@ -477,56 +484,58 @@ public class ProcessorConfig extends Config {
     	postProcessorRules = Lists.newArrayList();
     	
         for (BillingBucket bb: billingBuckets) {
+        	
+        	// Read account configs
+        	BillingDataConfig bdc = readBillingDataConfig(bb, bb.getConfigAccountsBasename().isEmpty() ? accountsBasename : bb.getConfigAccountsBasename());
+        	if (bdc != null) {
+            	logger.info("Billing Data Accounts Configuration: Found " + (bdc.getAccounts() == null ? "null" : bdc.getAccounts().size()) + " accounts");
+            	if (bdc.getAccounts() != null) {
+    	        	for (AccountConfig account: bdc.getAccounts()) {
+    	        		if (account.id == null || account.id.isEmpty()) {
+    	        			logger.warn("Ignoring billing data config for account with no id: " + account.name);
+    	        			continue;
+    	        		}
+    	        		
+    	        		if (accountConfigs.containsKey(account.id)) {
+    	        			logger.warn("Ignoring billing data config for account " + account.id + ": " + account.name + ". Config already defined in Organizations service or ice.properties.");
+    	        			continue;
+    	        		}
+    	        		accountConfigs.put(account.id, account);
+    	        		logger.debug("Adding billing data config account: " + account.toString());
+    	        	}
+            	}
+        	}
             
-        	BillingDataConfig bdc = readBillingDataConfig(bb);
-        	if (bdc == null)
-        		continue;
-
-        	logger.info("Billing Data Configuration: Found " +
-        			(bdc.getAccounts() == null ? "null" : bdc.getAccounts().size()) + " accounts, " +
-        			(bdc.getTags() == null ? "null" : bdc.getTags().size()) + " tags, " +
-        			(bdc.getPostprocrules() == null ? "null" : bdc.getPostprocrules().size()) + " post-proc");
-
-        	if (bdc.getAccounts() != null) {
-	        	for (AccountConfig account: bdc.getAccounts()) {
-	        		if (account.id == null || account.id.isEmpty()) {
-	        			logger.warn("Ignoring billing data config for account with no id: " + account.name);
-	        			continue;
-	        		}
-	        		
-	        		if (accountConfigs.containsKey(account.id)) {
-	        			logger.warn("Ignoring billing data config for account " + account.id + ": " + account.name + ". Config already defined in Organizations service or ice.properties.");
-	        			continue;
-	        		}
-	        		accountConfigs.put(account.id, account);
-	        		logger.debug("Adding billing data config account: " + account.toString());
-	        	}
+        	// Read tag configs
+        	bdc = readBillingDataConfig(bb, bb.getConfigTagsBasename().isEmpty() ? tagsBasename : bb.getConfigTagsBasename());
+        	if (bdc != null) {
+	        	logger.info("Billing Data Tags Configuration: Found " +
+	        			(bdc.getTags() == null ? "null" : bdc.getTags().size()) + " tags");
+	
+	        	if (resourceService != null && bdc.getTags() != null)
+	        		resourceService.setTagConfigs(bb.getAccountId(), bdc.getTags());
         	}
         	
-        	if (resourceService != null && bdc.getTags() != null)
-        		resourceService.setTagConfigs(bb.getAccountId(), bdc.getTags());
-        	
-        	List<RuleConfig> ruleConfigs = bdc.getPostprocrules();
-        	if (ruleConfigs != null)
-        		postProcessorRules.addAll(ruleConfigs);
+        	// Read post-processor rules
+        	bdc = readBillingDataConfig(bb, bb.getConfigPostProcBasename().isEmpty() ? postProcBasename : bb.getConfigPostProcBasename());
+        	if (bdc != null) {
+            	logger.info("Billing Data PostProcessor Configuration: Found " + (bdc.getPostprocrules() == null ? "null" : bdc.getPostprocrules().size()) + " post-processor rules");
+	        	List<RuleConfig> ruleConfigs = bdc.getPostprocrules();
+	        	if (ruleConfigs != null)
+	        		postProcessorRules.addAll(ruleConfigs);
+        	}
         }
     }
     
-    protected BillingDataConfig readBillingDataConfig(BillingBucket bb) {
+    protected BillingDataConfig readBillingDataConfig(BillingBucket bb, String basename) {
     	// Make sure prefix ends with /
     	String prefix = bb.getPrefix();
     	if (!prefix.endsWith("/"))
     			prefix += "/";
-    	String basename = bb.getConfigBasename().isEmpty() ? billingDataConfigBasename : bb.getConfigBasename();
     	logger.info("Look for data config: " + bb.getName() + ", " + bb.getRegion() + ", " + prefix + basename + ", " + bb.getAccountId());
     	List<S3ObjectSummary> configFiles = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), prefix + basename + ".", bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
-    	if (configFiles.size() == 0 && !basename.equals(billingDataConfigBasename)) {
-    		// Default baseName was overridden but we didn't find it. Fall back to the default config file basename
-        	logger.info("Look for data config: " + bb.getName() + ", " + bb.getRegion() + ", " + prefix + billingDataConfigBasename + ", " + bb.getAccountId());
-        	configFiles = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), prefix + billingDataConfigBasename + ".", bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
-        	if (configFiles.size() == 0) {
-        		return null;
-        	}
+    	if (configFiles.size() == 0) {
+    		return null;
     	}
     	
     	String fileKey = configFiles.get(0).getKey();

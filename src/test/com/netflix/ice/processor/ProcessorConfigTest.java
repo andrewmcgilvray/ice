@@ -80,7 +80,7 @@ public class ProcessorConfigTest {
 		}
 				
 		@Override
-		protected BillingDataConfig readBillingDataConfig(BillingBucket bb) {
+		protected BillingDataConfig readBillingDataConfig(BillingBucket bb, String basename) {
 			return billingDataConfig;
 		}
 		

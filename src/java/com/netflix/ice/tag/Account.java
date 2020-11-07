@@ -46,6 +46,7 @@ public class Account extends Tag {
 	private String status;  // status as returned by the Organizations service
 	private String joinedMethod;
 	private String joinedDate;
+	private String unlinkedDate;
 	private Map<String, String> tags;
 	private Map<String, DefaultTag> defaultTags;
 
@@ -58,11 +59,12 @@ public class Account extends Tag {
         this.status = null;
         this.joinedMethod = null;
         this.joinedDate = null;
+        this.unlinkedDate = null;
         this.tags = null;
         this.defaultTags = null;
     }
     
-    public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, String joinedMethod, String joinedDate, Map<String, String> tags) {
+    public Account(String accountId, String accountName, String awsName, String email, List<String> parents, String status, String joinedMethod, String joinedDate, String unlinkedDate, Map<String, String> tags) {
     	super(accountId);
         this.iceName = StringUtils.isEmpty(accountName) ? awsName : accountName;
         this.awsName = awsName;
@@ -71,6 +73,7 @@ public class Account extends Tag {
         this.status = status;
         this.joinedMethod = joinedMethod;
         this.joinedDate = joinedDate;
+        this.unlinkedDate = unlinkedDate;
         this.tags = tags;
 		initDefaultTags();
     }
@@ -83,6 +86,7 @@ public class Account extends Tag {
 		this.status = a.status;
         this.joinedMethod = a.joinedMethod;
         this.joinedDate = a.joinedDate;
+        this.unlinkedDate = a.unlinkedDate;
 		this.tags = a.tags;
 		initDefaultTags();
     }
@@ -137,12 +141,16 @@ public class Account extends Tag {
 		return joinedDate;
 	}
 	
+	public String getUnlinkedDate() {
+		return unlinkedDate;
+	}
+	
 	public Map<String, String> getTags() {
 		return tags;
 	}
 	
 	public static String[] header() {
-		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Status", "Joined Method", "Joined Date", "Tags"};
+		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Status", "Joined Method", "Joined Date", "Unlinked Date", "Tags"};
 	}
 	
 	public String[] values() {
@@ -161,12 +169,13 @@ public class Account extends Tag {
 			getStatus(),
 			joinedMethod,
 			joinedDate,
+			unlinkedDate,
 			String.join(",", tagSet)
 		};
 	}
 	
 	public static String[] headerWithoutTags() {
-		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Status", "Joined Method", "Joined Date"};
+		return new String[] {"ID", "ICE Name", "AWS Name", "Email", "Organization Path", "Status", "Joined Method", "Joined Date", "Unlinked Date"};
 	}
 	
 	public List<String> values(Collection<String> tagKeys, boolean onlyEffective) {
@@ -179,6 +188,7 @@ public class Account extends Tag {
 		values.add(getStatus());
 		values.add(joinedMethod);
 		values.add(joinedDate);
+		values.add(unlinkedDate);
 		if (onlyEffective) {
 			long now = DateTime.now().getMillis();
 			for (String key: tagKeys) {

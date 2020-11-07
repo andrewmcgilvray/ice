@@ -27,11 +27,15 @@ import com.google.gson.Gson;
 
 public class BillingBucket extends S3BucketConfig {
     private String rootName;
-    private String configBasename;
+    private String configAccountsBasename;
+    private String configTagsBasename;
+    private String configPostProcBasename;
     
     public BillingBucket() {
     	this.rootName = "";
-    	this.configBasename = "";
+    	this.configAccountsBasename = "";
+    	this.configTagsBasename = "";
+    	this.configPostProcBasename = "";
     }
     
     @Override
@@ -69,8 +73,18 @@ public class BillingBucket extends S3BucketConfig {
     	return this;
     }
     
-    public BillingBucket withConfigBasename(String configBasename) {
-    	this.configBasename = configBasename;
+    public BillingBucket withConfigAccountsBasename(String configBasename) {
+    	this.configAccountsBasename = configBasename;
+    	return this;
+    }
+    
+    public BillingBucket withConfigTagsBasename(String configBasename) {
+    	this.configTagsBasename = configBasename;
+    	return this;
+    }
+    
+    public BillingBucket withConfigPostProcBasename(String configBasename) {
+    	this.configPostProcBasename = configBasename;
     	return this;
     }
     
@@ -99,14 +113,22 @@ public class BillingBucket extends S3BucketConfig {
     	setAccountId(bb.getAccountId());
     	setExternalId(bb.getExternalId());
     	this.rootName = bb.rootName;
-    	this.configBasename = bb.configBasename;
+    	this.configAccountsBasename = bb.configAccountsBasename;
+    	this.configTagsBasename = bb.configTagsBasename;
+    	this.configPostProcBasename = bb.configPostProcBasename;
     }
     
     public String getRootName() {
     	return rootName;
     }
     
-    public String getConfigBasename() {
-    	return configBasename;
+    public String getConfigTagsBasename() {
+    	return configTagsBasename;
+    }
+    public String getConfigAccountsBasename() {
+    	return configAccountsBasename;
+    }
+    public String getConfigPostProcBasename() {
+    	return configPostProcBasename;
     }
 }

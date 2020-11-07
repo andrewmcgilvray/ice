@@ -162,7 +162,7 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0),
         		new TagGroupSpec(DataType.cost, a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -293,7 +293,7 @@ public class VariableRuleProcessorTest {
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 1000.0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -344,13 +344,13 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 200.0),
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 400.0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
 		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 		
-		CostAndUsageData outData = new CostAndUsageData(data, null);
+		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, null, rs);
 		vrp.process(data);
 		
@@ -389,7 +389,7 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 200.0),
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 400.0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -446,7 +446,7 @@ public class VariableRuleProcessorTest {
 			"2020-08-01T00:00:00Z,490.0,111111111111,111111111111,clusterA,seventy",
 		};
 		
-		checkReport(csv, 4, expectedHeader, expectedRows);
+		checkReport(csv, expectedHeader, expectedRows);
 	}
 	
 	@Test
@@ -480,7 +480,7 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a2, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 100000.0),
         		new TagGroupSpec(DataType.cost, a3, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 1000000.0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -548,7 +548,7 @@ public class VariableRuleProcessorTest {
 			"2020-08-01T00:00:00Z,75.0,111111111111,111111111111,clusterA,compute",
 		};
 		
-		checkReport(csv, 9, expectedHeader, expectedRows);
+		checkReport(csv, expectedHeader, expectedRows);
 	}
 	
 	// Test report that has one or more output dimensions not in the source custom tags list
@@ -575,23 +575,25 @@ public class VariableRuleProcessorTest {
 				"    Key1: Key1\n" +
 				"  out:\n" +
 				"    Key2: Key2\n" +
-				"    Extra: Extra\n" +
+				"    Extra1: Extra1\n" +
+				"    Extra2: Extra2\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"CostType","Extra", "Key1", "Key2"});
+		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"CostType","Extra1", "Key1", "Key2", "Extra2"});
 		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), reportUserTagKeys);
 		
 		// Process with a report
 		String reportData = "" +
-				"StartDate,EndDate,Allocation,Key1,Key2,Extra\n" +
-				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,clusterA,twenty-five,extraOne\n" +
-				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,clusterA,seventy,extraTwo\n" +
+				"StartDate,EndDate,Allocation,Key1,Key2,Extra1,Extra2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,clusterA,twenty-five,extra1A,extra2A\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.30,clusterA,thirty,extra1B,extra2A\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.40,clusterA,forty,extra1B,extra2B\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
 		
@@ -607,16 +609,18 @@ public class VariableRuleProcessorTest {
 		
     	Account a = as.getAccountById(a1);
         TagGroup[] expectedTg = new TagGroup[]{
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extraOne", "clusterA", "twenty-five"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extraTwo", "clusterA", "seventy"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"})),
+        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"})),
          };
-        Double[] expectedValues = new Double[]{ 5.0, 25.0, 70.0 };
+        Double[] expectedValues = new Double[]{ 5.0, 25.0, 30.0, 40.0 };
         
+    	costData = outData.getCost(null).getData(0);
         for (int i = 0; i < expectedTg.length; i++) {
         	tg = expectedTg[i];
-        	costData = outData.getCost(null).getData(0);
-        	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg));
+        	Double v = costData.get(tg);
+        	assertEquals("wrong data for spec " + tg, expectedValues[i], v);
         }
         
 		ReadWriteData rwData = outData.getCost(null);
@@ -628,19 +632,20 @@ public class VariableRuleProcessorTest {
 		
 		String csv = os.toString();
 		
-		String expectedHeader = "Date,Cost,Account ID,Account Name,CostType,Extra,Key1,Key2";
+		String expectedHeader = "Date,Cost,Account ID,Account Name,CostType,Extra1,Key1,Key2,Extra2";
 		String[] expectedRows = new String[]{
-			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,Recurring,extraOne,clusterA,twenty-five",
-			"2020-08-01T00:00:00Z,5.0,111111111111,111111111111,Recurring,,clusterA,compute",
-			"2020-08-01T00:00:00Z,70.0,111111111111,111111111111,Recurring,extraTwo,clusterA,seventy",
+			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,Recurring,extra1A,clusterA,twenty-five,extra2A",
+			"2020-08-01T00:00:00Z,5.0,111111111111,111111111111,Recurring,,clusterA,compute,",
+			"2020-08-01T00:00:00Z,30.0,111111111111,111111111111,Recurring,extra1B,clusterA,thirty,extra2A",
+			"2020-08-01T00:00:00Z,40.0,111111111111,111111111111,Recurring,extra1B,clusterA,forty,extra2B",
 		};
 		
-		checkReport(csv, 4, expectedHeader, expectedRows);
+		checkReport(csv, expectedHeader, expectedRows);
 	}
 	
-	private void checkReport(String csv, int expectedNumLines, String expectedHeader, String[] eRows) {
+	private void checkReport(String csv, String expectedHeader, String[] eRows) {
 		String[] rows = csv.split("\r\n");
-		assertEquals("wrong number of lines", expectedNumLines, rows.length);
+		assertEquals("wrong number of lines", eRows.length + 1, rows.length);
 		
 		List<String> rowsSorted = Lists.newArrayList();
 		for (int i = 1; i < rows.length; i++)
@@ -648,19 +653,20 @@ public class VariableRuleProcessorTest {
 		Collections.sort(rowsSorted);
 
 		List<String> expectedRows = Lists.newArrayList(eRows);
+		Collections.sort(expectedRows);
 		
-		int numCols = expectedHeader.split(",").length;
+		int numCols = expectedHeader.split(",", -1).length;
 				
 		// Check header
 		assertEquals("wrong header", expectedHeader, rows[0]);
 		for (int i = 0; i < rowsSorted.size(); i++) {
 			String row = rowsSorted.get(i);
 			String expected = expectedRows.get(i);
-			assertEquals("wrong number of columns on row" + Integer.toString(i + 1), numCols, row.split(",").length);
+			assertEquals("wrong number of columns on row" + Integer.toString(i + 1), numCols, row.split(",", -1).length);
 			
 			// Check for match on all but allocation number
-			String[] cols = row.split(",");
-			String[] eCols = expected.split(",");
+			String[] cols = row.split(",", -1);
+			String[] eCols = expected.split(",", -1);
 			Double v = Double.parseDouble(cols[1]);
 			cols[1] = "";
 			Double e = Double.parseDouble(eCols[1]);
@@ -713,7 +719,7 @@ public class VariableRuleProcessorTest {
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"dev-usw2a", "compute", "", "Dev", "", "", "", ""}, 40.0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, testDataHour);
 
         RuleConfig rc = getConfig(allocationYaml);
@@ -802,7 +808,7 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[1], "compute", "", "Dev", "", "", "", ""}, 40.0),
         		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, testDataHour);
 										
         RuleConfig rc = getConfig(allocationYaml);
