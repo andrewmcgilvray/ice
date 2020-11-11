@@ -19,13 +19,10 @@ package com.netflix.ice.processor.postproc;
 
 import static org.junit.Assert.*;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.io.Writer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -427,26 +424,7 @@ public class VariableRuleProcessorTest {
         	tg = expectedTg[i];
         	costData = outData.getCost(null).getData(0);
         	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg), 0.001);
-        }
-        
-        Query in = rule.getIn();
-		ReadWriteData rwData = outData.getCost(null);
-        
-		ReportWriter writer = new ReportWriter("test-report", rule.config.getReport(), null, data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
-		ByteArrayOutputStream os = new ByteArrayOutputStream();
-		Writer out = new OutputStreamWriter(os);
-		writer.writeCsv(out);
-		
-		String csv = os.toString();
-		
-		String expectedHeader = "Date,Cost,Account ID,Account Name,Key1,Key2";
-		String[] expectedRows = new String[]{
-			"2020-08-01T00:00:00Z,175.0,111111111111,111111111111,clusterA,twenty-five",
-			"2020-08-01T00:00:00Z,35.0,111111111111,111111111111,clusterA,compute",
-			"2020-08-01T00:00:00Z,490.0,111111111111,111111111111,clusterA,seventy",
-		};
-		
-		checkReport(csv, expectedHeader, expectedRows);
+        }        
 	}
 	
 	@Test
@@ -524,31 +502,7 @@ public class VariableRuleProcessorTest {
         	Map<TagGroup, Double> costData = outData.getCost(null).getData(0);
         	assertTrue("Tag group not in output cost data: " + tg, costData.containsKey(tg));
         	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg), 0.001);
-        }
-        
-        Query in = rule.getIn();
-		ReadWriteData rwData = outData.getCost(null);
-        
-		ReportWriter writer = new ReportWriter("test-report", rule.config.getReport(), null, data.getStart(), RuleConfig.DataType.cost, in.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
-		ByteArrayOutputStream os = new ByteArrayOutputStream();
-		Writer out = new OutputStreamWriter(os);
-		writer.writeCsv(out);
-		
-		String csv = os.toString();
-		
-		String expectedHeader = "Date,Cost,Account ID,Account Name,Key1,Key2";
-		String[] expectedRows = new String[]{
-			"2020-08-01T00:00:00Z,100000.0,222222222222,222222222222,clusterB,one-hundred",
-			"2020-08-01T00:00:00Z,1000000.0,333333333333,333333333333,,one-hundred-no-account",
-			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,clusterA,twenty-five",
-			"2020-08-01T00:00:00Z,300.0,111111111111,111111111111,clusterB,compute",
-			"2020-08-01T00:00:00Z,3000.0,111111111111,111111111111,,compute",
-			"2020-08-01T00:00:00Z,700.0,111111111111,111111111111,clusterB,seventy",
-			"2020-08-01T00:00:00Z,7000.0,111111111111,111111111111,,seventy",
-			"2020-08-01T00:00:00Z,75.0,111111111111,111111111111,clusterA,compute",
-		};
-		
-		checkReport(csv, expectedHeader, expectedRows);
+        }        
 	}
 	
 	// Test report that has one or more output dimensions not in the source custom tags list
@@ -621,61 +575,9 @@ public class VariableRuleProcessorTest {
         	tg = expectedTg[i];
         	Double v = costData.get(tg);
         	assertEquals("wrong data for spec " + tg, expectedValues[i], v);
-        }
-        
-		ReadWriteData rwData = outData.getCost(null);
-        
-		ReportWriter writer = new ReportWriter("report-test", rule.config.getReport(), null, data.getStart(), RuleConfig.DataType.cost, rule.getGroupBy(), outData.getUserTagKeysAsStrings(), rwData);		
-		ByteArrayOutputStream os = new ByteArrayOutputStream();
-		Writer out = new OutputStreamWriter(os);
-		writer.writeCsv(out);
-		
-		String csv = os.toString();
-		
-		String expectedHeader = "Date,Cost,Account ID,Account Name,CostType,Extra1,Key1,Key2,Extra2";
-		String[] expectedRows = new String[]{
-			"2020-08-01T00:00:00Z,25.0,111111111111,111111111111,Recurring,extra1A,clusterA,twenty-five,extra2A",
-			"2020-08-01T00:00:00Z,5.0,111111111111,111111111111,Recurring,,clusterA,compute,",
-			"2020-08-01T00:00:00Z,30.0,111111111111,111111111111,Recurring,extra1B,clusterA,thirty,extra2A",
-			"2020-08-01T00:00:00Z,40.0,111111111111,111111111111,Recurring,extra1B,clusterA,forty,extra2B",
-		};
-		
-		checkReport(csv, expectedHeader, expectedRows);
+        }        
 	}
-	
-	private void checkReport(String csv, String expectedHeader, String[] eRows) {
-		String[] rows = csv.split("\r\n");
-		assertEquals("wrong number of lines", eRows.length + 1, rows.length);
 		
-		List<String> rowsSorted = Lists.newArrayList();
-		for (int i = 1; i < rows.length; i++)
-			rowsSorted.add(rows[i]);
-		Collections.sort(rowsSorted);
-
-		List<String> expectedRows = Lists.newArrayList(eRows);
-		Collections.sort(expectedRows);
-		
-		int numCols = expectedHeader.split(",", -1).length;
-				
-		// Check header
-		assertEquals("wrong header", expectedHeader, rows[0]);
-		for (int i = 0; i < rowsSorted.size(); i++) {
-			String row = rowsSorted.get(i);
-			String expected = expectedRows.get(i);
-			assertEquals("wrong number of columns on row" + Integer.toString(i + 1), numCols, row.split(",", -1).length);
-			
-			// Check for match on all but allocation number
-			String[] cols = row.split(",", -1);
-			String[] eCols = expected.split(",", -1);
-			Double v = Double.parseDouble(cols[1]);
-			cols[1] = "";
-			Double e = Double.parseDouble(eCols[1]);
-			eCols[1] = "";
-			assertArrayEquals("wrong results for line " + Integer.toString(i), eCols, cols);
-			assertEquals("wrong value for line " + Integer.toString(i), e, v, 0.0001);
-		}
-	}
-	
 	class TestKubernetesReport extends KubernetesReport {
 
 		public TestKubernetesReport(AllocationConfig config, ResourceService resourceService) throws Exception {

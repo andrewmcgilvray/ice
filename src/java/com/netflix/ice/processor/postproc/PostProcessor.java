@@ -127,7 +127,8 @@ public class PostProcessor {
 		
 		if (aggregate.contains(RuleConfig.Aggregation.hourly)) {
 			String filename = reportName(cauData.getStart(), rule.config.getName(), RuleConfig.Aggregation.hourly);
-			ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, cauData.getStart(), rule.config.getIn().getType(), in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data);		
+			ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, cauData.getStart(), 
+										rule.config.getIn().getType(), in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data, RuleConfig.Aggregation.hourly);		
 			writer.archive();
 		}
 		if (aggregate.contains(RuleConfig.Aggregation.monthly) || aggregate.contains(RuleConfig.Aggregation.daily)) {
@@ -155,7 +156,8 @@ public class PostProcessor {
 		String filename = reportName(month, rule.config.getName(), aggregation);
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
         rwData.setData(data, data.size());            
-		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData);		
+		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, 
+									month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData, aggregation);		
 		writer.archive();		
 	}
 	

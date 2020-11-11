@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.time.StopWatch;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -111,6 +112,9 @@ public class VariableRuleProcessor extends RuleProcessor {
 	}
 	
 	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, Double[]> inDataGroups, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
+		StopWatch sw = new StopWatch();
+		sw.start();
+		
 		boolean copy = outCauData != null;
 		int numUserTags = cauData.getNumUserTags();
 		
@@ -130,6 +134,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 				processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
 			}			
 		}
+		logger.info("  -- performAllocation elapsed time: " + sw);
 	}
 	
 	/**
@@ -137,6 +142,9 @@ public class VariableRuleProcessor extends RuleProcessor {
 	 * the operation tag. If not grouping by operation, aggregate the data to remove the operation dimension.
 	 */
 	private Map<AggregationTagGroup, Double[]> copyAndReduce(Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, int numSourceUserTags) throws Exception {
+		StopWatch sw = new StopWatch();
+		sw.start();
+		
  		Map<AggregationTagGroup, Double[]> aggregatedInDataGroups = Maps.newHashMap();
  		List<String> userTagKeys = outCauData.getUserTagKeysAsStrings();
 		int costTypeIndex = userTagKeys == null ? -1 : userTagKeys.indexOf("CostType");
@@ -194,6 +202,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 				data.add(hour, tagGroup, inValues[hour]);
 			}			
 		}
+		logger.info("  -- copyAndReduce elapsed time: " + sw + ", aggregated groups: " + aggregatedInDataGroups.keySet().size());
 		return aggregatedInDataGroups;
 	}
 

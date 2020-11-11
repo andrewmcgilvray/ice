@@ -38,11 +38,12 @@ public class ReportWriter {
 	private List<Rule.TagKey> tagKeys;
 	private List<String> userTagKeys;
 	private ReadWriteData data;
+	private RuleConfig.Aggregation aggregation;
 	
 	public ReportWriter(String filename, ReportConfig config, String localDir,
 			DateTime month, RuleConfig.DataType type,
 			List<Rule.TagKey> tagKeys, List<String> userTagKeys,
-			ReadWriteData data) throws Exception {
+			ReadWriteData data, RuleConfig.Aggregation aggregation) throws Exception {
 		
 		this.filename = filename;
 		this.config = config;
@@ -53,6 +54,7 @@ public class ReportWriter {
 		this.tagKeys = tagKeys;
 		this.userTagKeys = userTagKeys;
 		this.data = data;
+		this.aggregation = aggregation;
 		header = Lists.newArrayList();
 		header.add("Date");
 		header.add(isCost ? "Cost" : "Usage");
@@ -100,13 +102,19 @@ public class ReportWriter {
     	
     	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(headerArray));
     	
-    	for (int hour = 0; hour < data.getNum(); hour++) {
-    		Map<TagGroup, Double> hourData = data.getData(hour);
+    	for (int index = 0; index < data.getNum(); index++) {
+    		Map<TagGroup, Double> hourData = data.getData(index);
     		for (TagGroup tg: hourData.keySet()) {
     			Double v = hourData.get(tg);
     			
     			List<String> cols = Lists.newArrayList();
-    			cols.add(month.plusHours(hour).toString(isoFormatter)); // StartDate
+    			DateTime date = month;
+    			switch (aggregation) {
+    			case monthly: break;
+    			case daily: date = date.plusDays(index); break;
+    			case hourly: date = date.plusHours(index); break;
+    			}
+    			cols.add(date.toString(isoFormatter)); // StartDate
     			cols.add(Double.toString(v));
     			if (!isCost)
     				cols.add(tg.usageType.unit);
