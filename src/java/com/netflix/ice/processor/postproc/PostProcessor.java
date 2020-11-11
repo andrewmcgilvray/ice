@@ -155,7 +155,7 @@ public class PostProcessor {
 		Query in = rule.getIn();
 		String filename = reportName(month, rule.config.getName(), aggregation);
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
-        rwData.setData(data, data.size());            
+        rwData.setData(data, 0);
 		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, 
 									month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData, aggregation);		
 		writer.archive();		

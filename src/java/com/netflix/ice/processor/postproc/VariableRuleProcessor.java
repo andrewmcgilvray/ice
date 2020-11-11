@@ -60,7 +60,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 	
 	@Override
 	public void process(CostAndUsageData inCauData) throws Exception {
-		String logMsg = "Post-process rule " + getConfig().getName() + " on resource data";
+		int maxNum = inCauData.getMaxNum();
+		String logMsg = "Post-process rule " + getConfig().getName() + " on " + maxNum + " hours of resource data";
 		if (getConfig().getAllocation() != null)
 			logMsg += " with allocation report";
 		if (getConfig().isReport())
@@ -81,7 +82,6 @@ public class VariableRuleProcessor extends RuleProcessor {
 			return;
 		}
 		
-		int maxNum = inCauData.getMaxNum();
 		Map<AggregationTagGroup, Double[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
 		
 		int numSourceUserTags = resourceService.getCustomTags().size();		

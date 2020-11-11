@@ -101,20 +101,24 @@ public class ReportWriter {
         DateTimeFormatter isoFormatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(DateTimeZone.UTC);
     	
     	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(headerArray));
-    	
+    	    	
     	for (int index = 0; index < data.getNum(); index++) {
+			DateTime date = month;
+			if (index > 0) {
+				switch (aggregation) {
+				case monthly: date = date.plusMonths(index); break;
+				case daily: date = date.plusDays(index); break;
+				case hourly: date = date.plusHours(index); break;
+				}
+			}
+			String dateString = date.toString(isoFormatter);
+			
     		Map<TagGroup, Double> hourData = data.getData(index);
     		for (TagGroup tg: hourData.keySet()) {
     			Double v = hourData.get(tg);
     			
     			List<String> cols = Lists.newArrayList();
-    			DateTime date = month;
-    			switch (aggregation) {
-    			case monthly: break;
-    			case daily: date = date.plusDays(index); break;
-    			case hourly: date = date.plusHours(index); break;
-    			}
-    			cols.add(date.toString(isoFormatter)); // StartDate
+    			cols.add(dateString); // StartDate
     			cols.add(Double.toString(v));
     			if (!isCost)
     				cols.add(tg.usageType.unit);
