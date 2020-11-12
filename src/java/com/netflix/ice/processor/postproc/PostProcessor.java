@@ -717,6 +717,8 @@ public class PostProcessor {
 	
 	protected void addHourClusterRecords(AllocationReport allocationReport, int hour, Product product, List<String> inTags, String clusterName, KubernetesReport report, List<String[]> hourClusterData) {
 		double remainingAllocation = 1.0;
+		boolean isByResource = report.getConfig().getKubernetes().isByResource();
+		
 		for (String[] item: hourClusterData) {
 			double allocation = report.getAllocationFactor(product, item);
 			if (allocation == 0.0)
@@ -726,9 +728,11 @@ public class PostProcessor {
 			
 			String type = report.getString(item, KubernetesColumn.Type);
 			
-			// If we have Type and Resource columns and the type is Namespace, ignore it because we
-			// process the items at a more granular level of Deployment, DaemonSet, and StatefulSet.
-			if (type.equals("Namespace"))
+			// If we have Type and Resource columns, the isByResource flag determines
+			// whether we break out by resource or just by Namespace.
+			// The Namespace data duplicates the Deployment/DaemonSet/StatefulSet set specified
+			// by Resource records, so we only want one or the other.
+			if (!type.isEmpty() && (isByResource == type.equals("Namespace")))
 				continue;
 			
 			List<String> outTags = report.getTagValues(item, allocationReport.getOutTagKeys());
