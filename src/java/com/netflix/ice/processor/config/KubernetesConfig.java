@@ -24,6 +24,7 @@ public class KubernetesConfig {
 	// Processing rules parameters
 	private List<String> clusterNameFormulae;
 	private Map<String, String> out;
+	private boolean byResource;
 	
 	public List<String> getClusterNameFormulae() {
 		return clusterNameFormulae;
@@ -36,6 +37,12 @@ public class KubernetesConfig {
 	}
 	public void setOut(Map<String, String> out) {
 		this.out = out;
+	}
+	public boolean isByResource() {
+		return byResource;
+	}
+	public void setByResource(boolean byResource) {
+		this.byResource = byResource;
 	}
 }
 
