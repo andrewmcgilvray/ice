@@ -29,6 +29,7 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 	public Collection<Report> reports;
 	public String lastProcessed;
 	public boolean reprocess;
+	public String elapsedTime; // How long it took to process the month
 	
 	public static class Report {
 		public String accountName;
@@ -60,11 +61,12 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 		}
 	}
 	
-	public ProcessorStatus(String month, Collection<Report> reports, String lastProcessed) {
+	public ProcessorStatus(String month, Collection<Report> reports, String lastProcessed, String elapsedTime) {
 		this.month = month;
 		this.reports = reports;
 		this.lastProcessed = lastProcessed;
 		this.reprocess = false;
+		this.elapsedTime = elapsedTime;
 	}
 
 	public ProcessorStatus(String json) {
@@ -74,6 +76,7 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 		this.reports = ps.reports;
 		this.lastProcessed = ps.lastProcessed;
 		this.reprocess = ps.reprocess;
+		this.elapsedTime = ps.elapsedTime;
 	}
 	
 	public String toJSON() {
@@ -95,6 +98,10 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 
 	public boolean isReprocess() {
 		return reprocess;
+	}
+	
+	public String getElapsedTime() {
+		return elapsedTime;
 	}
 
 	@Override

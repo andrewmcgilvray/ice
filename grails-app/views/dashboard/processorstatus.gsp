@@ -43,6 +43,7 @@
 	  <tr>
 		<th>Month</th>
 		<th>Last Processed</th>
+		<th>Elapsed Time</th>
 		<th>Reprocess</th>
 		<th>Account</th>
 		<th>Report</th>
@@ -53,6 +54,7 @@
 	  <tr class="{{trClass}}">
 	    <td rowspan="{{status.reports.length}}">{{status.month}}</td>
 	    <td rowspan="{{status.reports.length}}">{{status.lastProcessed}}</td>
+	    <td rowspan="{{status.reports.length}}">{{status.elapsedTime}}</td>
 	    <td rowspan="{{status.reports.length}}">
 	      <g:if test="${ReaderConfig.getInstance().enableReprocessRequests}">
 	        <input type="checkbox" ng-model="statusArray[$index].reprocess" ng-change="updateStatus($index)"/>

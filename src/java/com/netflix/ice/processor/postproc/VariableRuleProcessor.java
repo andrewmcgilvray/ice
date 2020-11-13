@@ -81,6 +81,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 			inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, 0, 0, "No allocation report found"));
 			return;
 		}
+		StopWatch sw = new StopWatch();
+		sw.start();
 		
 		Map<AggregationTagGroup, Double[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
 		
@@ -106,6 +108,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 				logger.error(info);
 			}
 		}
+		sw.stop();
+		info = "Elapsed time: " + sw.toString() + (info.isEmpty() ? ", " + info : "");
 		
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inDataGroups.size() + ", --- allocated size = " + allocatedTagGroups.size());
 		inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inDataGroups.size(), allocatedTagGroups.size(), info));

@@ -3,6 +3,8 @@ package com.netflix.ice.processor.postproc;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.time.StopWatch;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
@@ -43,6 +45,9 @@ public class FixedRuleProcessor extends RuleProcessor {
 	}
 	
 	protected void processReadWriteData(CostAndUsageData data, boolean isNonResource, Map<Query, Double[]> operandSingleValueCache) throws Exception {		
+		StopWatch sw = new StopWatch();
+		sw.start();
+		
 		// Get data maps for operands
 		int opDataSize = 0;
 						
@@ -72,7 +77,10 @@ public class FixedRuleProcessor extends RuleProcessor {
 		
 		int results = applyRule(rule, inData, opSingleValues, resultData, isNonResource, maxNum);
 		
-		data.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Fixed, isNonResource, inData.size(), results, ""));
+		sw.stop();
+		String info = "Elapsed time: " + sw.toString();
+		
+		data.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Fixed, isNonResource, inData.size(), results, info));
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inData.size() + ", --- results size = " + results);
 	}
 		
