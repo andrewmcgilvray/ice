@@ -86,7 +86,7 @@ public class VariableRuleProcessorTest {
 		private AllocationReport ar;
 		
 		public TestVariableRuleProcessor(Rule rule, CostAndUsageData outCauData, AllocationReport ar, ResourceService rs) {
-			super(rule, outCauData, as, ps, rs, null);
+			super(rule, outCauData, as, ps, rs, null, null);
 			this.ar = ar;
 		}
 		
@@ -343,7 +343,7 @@ public class VariableRuleProcessorTest {
         };
 		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0);
-		PostProcessor pp = new PostProcessor(null, as, ps, rs, null);
+		PostProcessor pp = new PostProcessor(null, as, ps, rs, null, 0);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 		

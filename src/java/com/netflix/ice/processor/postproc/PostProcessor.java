@@ -20,6 +20,9 @@ package com.netflix.ice.processor.postproc;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -49,13 +52,17 @@ public class PostProcessor {
 	private ProductService productService;
 	private ResourceService resourceService;
 	private WorkBucketConfig workBucketConfig;
+	private int numThreads;
+	private ExecutorService pool;
 		
-	public PostProcessor(List<RuleConfig> rules, AccountService accountService, ProductService productService, ResourceService resourceService, WorkBucketConfig workBucketConfig) {
+	public PostProcessor(List<RuleConfig> rules, AccountService accountService, ProductService productService, ResourceService resourceService, WorkBucketConfig workBucketConfig, int numThreads) {
 		this.rules = rules;
 		this.accountService = accountService;
 		this.productService = productService;
 		this.resourceService = resourceService;
 		this.workBucketConfig = workBucketConfig;
+		this.numThreads = numThreads;
+		this.pool = null; // lazy initialize
 	}
 	
 	public void process(CostAndUsageData data) {
@@ -68,7 +75,28 @@ public class PostProcessor {
 				e.printStackTrace();
 			}
 		}
+		if (pool != null)
+			shutdownAndAwaitTermination(pool);
 	}
+	
+    private void shutdownAndAwaitTermination(ExecutorService pool) {
+    	pool.shutdown(); // Disable new tasks from being submitted
+    	try {
+    		// Wait a while for existing tasks to terminate
+    		if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+    			pool.shutdownNow(); // Cancel currently executing tasks
+    			// Wait a while for tasks to respond to being cancelled
+    			if (!pool.awaitTermination(60, TimeUnit.SECONDS))
+    				System.err.println("Pool did not terminate");
+    		}
+    	} catch (InterruptedException ie) {
+    		// (Re-)Cancel if current thread also interrupted
+    		pool.shutdownNow();
+    		// Preserve interrupt status
+    		Thread.currentThread().interrupt();
+    	}
+	}
+	
 	
 	private boolean isActive(RuleConfig rc, long startMilli) {
 		long ruleStart = new DateTime(rc.getStart(), DateTimeZone.UTC).getMillis();
@@ -112,7 +140,11 @@ public class PostProcessor {
 				outUserTagKeys = rule.getOutUserTagKeys();
 				outData = new CostAndUsageData(data, UserTagKey.getUserTagKeys(outUserTagKeys));
 			}
-			VariableRuleProcessor rp = new VariableRuleProcessor(rule, outData, accountService, productService, resourceService, workBucketConfig);
+			
+			if (pool == null && numThreads > 0)
+	    		pool = Executors.newFixedThreadPool(numThreads);
+
+			VariableRuleProcessor rp = new VariableRuleProcessor(rule, outData, accountService, productService, resourceService, workBucketConfig, pool);
 			rp.process(data);
 			if (rc.isReport())
 				writeReports(rule, outData);

@@ -4,7 +4,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 
@@ -35,14 +37,16 @@ public class VariableRuleProcessor extends RuleProcessor {
 	private CostAndUsageData outCauData;
 	private ResourceService resourceService;
 	private WorkBucketConfig workBucketConfig;
+	private ExecutorService pool;
 
 	public VariableRuleProcessor(Rule rule, CostAndUsageData outCauData,
 			AccountService accountService, ProductService productService, 
-			ResourceService resourceService, WorkBucketConfig workBucketConfig) {
+			ResourceService resourceService, WorkBucketConfig workBucketConfig, ExecutorService pool) {
 		super(rule, accountService, productService);
 		this.outCauData = outCauData;
 		this.resourceService = resourceService;
 		this.workBucketConfig = workBucketConfig;
+		this.pool = pool;
 	}
 		
 	private int[] getIndeces(List<String> outUserTagKeys) {
@@ -92,12 +96,12 @@ public class VariableRuleProcessor extends RuleProcessor {
 			inDataGroups = copyAndReduce(inDataGroups, maxNum, numSourceUserTags);
 		
 		// Keep some statistics
-		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
+		Map<TagGroup, TagGroup> allocatedTagGroups = Maps.newConcurrentMap();
 		
 		if (allocationReport != null) {
 			
 			CostAndUsageData cauData = copy ? outCauData : inCauData;
-			performAllocation(cauData, inDataGroups, allocationReport, allocatedTagGroups);
+			performAllocation(cauData, inDataGroups, maxNum, allocationReport, allocatedTagGroups);
 		}
 		
 		String info = "";
@@ -115,30 +119,70 @@ public class VariableRuleProcessor extends RuleProcessor {
 		inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inDataGroups.size(), allocatedTagGroups.size(), info));
 	}
 	
-	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, Double[]> inDataGroups, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
+	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Map<TagGroup, TagGroup> allocatedTagGroups) throws Exception {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
+		if (pool != null) {
+	    	List<Future<Void>> futures = Lists.newArrayListWithCapacity(maxNum);
+	
+			for (int hour = 0; hour < maxNum; hour++) {
+				allocateHour(cauData, hour, inDataGroups, maxNum, allocationReport, allocatedTagGroups, pool, futures);
+				// Wait for completion
+			}
+			for (Future<Void> f: futures) {
+				f.get();
+			}
+		}
+		else {
+			for (int hour = 0; hour < maxNum; hour++) {
+				allocateHour(cauData, hour, inDataGroups, maxNum, allocationReport, allocatedTagGroups);
+			}
+		}
+		logger.info("  -- performAllocation elapsed time: " + sw);
+	}
+	
+	protected void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Map<TagGroup, TagGroup> allocatedTagGroups, ExecutorService pool, List<Future<Void>> futures) {
+		futures.add(submitAllocateHour(cauData, hour, inDataGroups, maxNum, allocationReport, allocatedTagGroups, pool));
+	}
+	
+	protected Future<Void> submitAllocateHour(final CostAndUsageData cauData, final int hour, final Map<AggregationTagGroup, Double[]> inDataGroups, final int maxNum, final AllocationReport allocationReport, final Map<TagGroup, TagGroup> allocatedTagGroups, ExecutorService pool) {
+    	return pool.submit(new Callable<Void>() {
+    		@Override
+    		public Void call() {
+    			try {
+    				allocateHour(cauData, hour, inDataGroups, maxNum, allocationReport, allocatedTagGroups);
+    			}
+    			catch (Exception e) {
+    				logger.error("allocation for hour " + hour + " failed, " + e.getMessage());
+    				e.printStackTrace();
+    				return null;
+    			}
+                return null;
+    		}
+    	});
+	}
+		
+	private void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Map<TagGroup, TagGroup> allocatedTagGroups) throws Exception {
 		boolean copy = outCauData != null;
 		int numUserTags = cauData.getNumUserTags();
-		
+
 		for (AggregationTagGroup atg: inDataGroups.keySet()) {
 			Double[] inValues = inDataGroups.get(atg);
+			if (hour >= inValues.length)
+				continue;
 			
 			TagGroup tagGroup = atg.getTagGroup(numUserTags);
 						
 			// Get the input and output data sets. If generating a report, put all of the data on the "null" product key.
 			Product p = copy ? null : tagGroup.product;
 			ReadWriteData data = rule.getIn().getType() == RuleConfig.DataType.cost ? cauData.getCost(p) : cauData.getUsage(p);
+		
+			if (inValues[hour] == null || inValues[hour] == 0.0)
+				continue;
 			
-			for (int hour = 0; hour < inValues.length; hour++) {
-				if (inValues[hour] == null || inValues[hour] == 0.0)
-					continue;
-				
-				processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
-			}			
-		}
-		logger.info("  -- performAllocation elapsed time: " + sw);
+			processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
+		}			
 	}
 	
 	/**
@@ -255,8 +299,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 		}
 		return ar;
 	}	
-		
-	protected void processHourData(AllocationReport report, ReadWriteData data, int hour, TagGroup tg, Double total, Set<TagGroup> allocatedTagGroups) throws Exception {
+	
+	protected void processHourData(AllocationReport report, ReadWriteData data, int hour, TagGroup tg, Double total, Map<TagGroup, TagGroup> allocatedTagGroups) throws Exception {
 		if (total == null || total == 0.0)
 			return;
 				
@@ -276,7 +320,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 			
 			TagGroup allocatedTagGroup = value.getOutputTagGroup(tg);
 			
-			allocatedTagGroups.add(allocatedTagGroup);
+			allocatedTagGroups.put(allocatedTagGroup, allocatedTagGroup);
 			
 			Double existing = data.get(hour, allocatedTagGroup);
 			data.put(hour, allocatedTagGroup,  allocated + (existing == null ? 0.0 : existing));
