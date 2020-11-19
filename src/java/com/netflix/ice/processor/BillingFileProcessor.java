@@ -281,7 +281,7 @@ public class BillingFileProcessor extends Poller {
     	sw.stop();
     	logger.info("Process time for month " + month + ": " + sw);
     	
-        saveProcessorStatus(monthStr, new ProcessorStatus(monthStr, statusReports, processTime.toString(), sw.toString()));
+        saveProcessorStatus(monthStr, new ProcessorStatus(monthStr, statusReports, processTime.toString(), sw.toString(), costAndUsageData.getArchiveFailures()));
         
         return true;
     }

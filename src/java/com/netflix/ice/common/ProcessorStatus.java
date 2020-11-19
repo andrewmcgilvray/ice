@@ -19,7 +19,9 @@ package com.netflix.ice.common;
 
 import java.util.Collection;
 
+import com.google.common.collect.Lists;
 import com.google.gson.Gson;
+import com.netflix.ice.processor.CostAndUsageData.Status;
 
 public class ProcessorStatus implements Comparable<ProcessorStatus> {
 	public static final String prefix = "processorStatus_";
@@ -30,6 +32,7 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 	public String lastProcessed;
 	public boolean reprocess;
 	public String elapsedTime; // How long it took to process the month
+	public Collection<String> errors;
 	
 	public static class Report {
 		public String accountName;
@@ -61,12 +64,15 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 		}
 	}
 	
-	public ProcessorStatus(String month, Collection<Report> reports, String lastProcessed, String elapsedTime) {
+	public ProcessorStatus(String month, Collection<Report> reports, String lastProcessed, String elapsedTime, Collection<Status> archiveFailures) {
 		this.month = month;
 		this.reports = reports;
 		this.lastProcessed = lastProcessed;
 		this.reprocess = false;
 		this.elapsedTime = elapsedTime;
+		this.errors = Lists.newArrayList();
+		for (Status s: archiveFailures)
+			this.errors.add(s.filename + ": " + s.exception.getMessage());
 	}
 
 	public ProcessorStatus(String json) {
@@ -77,6 +83,7 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 		this.lastProcessed = ps.lastProcessed;
 		this.reprocess = ps.reprocess;
 		this.elapsedTime = ps.elapsedTime;
+		this.errors = ps.errors;
 	}
 	
 	public String toJSON() {
@@ -102,6 +109,10 @@ public class ProcessorStatus implements Comparable<ProcessorStatus> {
 	
 	public String getElapsedTime() {
 		return elapsedTime;
+	}
+	
+	public Collection<String> getErrors() {
+		return errors;
 	}
 
 	@Override

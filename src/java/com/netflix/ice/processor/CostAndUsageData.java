@@ -84,6 +84,7 @@ public class CostAndUsageData {
     private Set<Product> savingsPlanProducts;
     private List<PostProcessorStats> postProcessorStats;
     private List<String> userTagKeysAsStrings;
+    private List<Status> archiveFailures;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -105,6 +106,7 @@ public class CostAndUsageData {
         this.savingsPlans = Maps.newHashMap();
         this.savingsPlanProducts = Sets.newHashSet();
         this.postProcessorStats = Lists.newArrayList();
+        this.archiveFailures = Lists.newArrayList();
 	}
 	
 	/*
@@ -300,7 +302,7 @@ public class CostAndUsageData {
         return product == null ? "all" : product.getServiceCode();
     }
     
-    class Status {
+    public class Status {
     	public boolean failed;
     	public String filename;
     	public Exception exception;
@@ -326,6 +328,7 @@ public class CostAndUsageData {
     public void archive(DateTime startDate, List<JsonFileType> jsonFiles, InstanceMetrics instanceMetrics, 
     		PriceListService priceListService, int numThreads, boolean archiveHourlyData) throws Exception {
     	
+    	archiveFailures = Lists.newArrayList();
     	verifyTagGroups();
     	
     	ExecutorService pool = Executors.newFixedThreadPool(numThreads);
@@ -353,11 +356,16 @@ public class CostAndUsageData {
 		for (Future<Status> f: futures) {
 			Status s = f.get();
 			if (s.failed) {
+				archiveFailures.add(s);
 				logger.error("Error archiving file: " + s);
 			}
 		}
 		
 		shutdownAndAwaitTermination(pool);
+    }
+    
+    public List<Status> getArchiveFailures() {
+    	return archiveFailures;
     }
     
     private void shutdownAndAwaitTermination(ExecutorService pool) {
