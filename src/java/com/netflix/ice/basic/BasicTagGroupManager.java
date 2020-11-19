@@ -97,6 +97,8 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     
     public Collection<TagGroup> getTagGroupsWithResourceGroups() {
     	Set<TagGroup> uniqueTagGroups = Sets.newHashSet();
+    	if (tagGroupsWithResourceGroups == null)
+    		return uniqueTagGroups;
     	for (Collection<TagGroup> tgs: tagGroupsWithResourceGroups.values()) {
     		uniqueTagGroups.addAll(tgs);
     	}
@@ -105,6 +107,8 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     
     public TreeMap<Long, Integer> getSizes() {
     	TreeMap<Long, Integer> sizes = Maps.newTreeMap();
+    	if (tagGroupsWithResourceGroups == null)
+    		return sizes;
     	
     	for (Long millis: tagGroupsWithResourceGroups.keySet())
     		sizes.put(millis, tagGroupsWithResourceGroups.get(millis).size());
@@ -114,6 +118,9 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     
     public TreeMap<Long, List<Integer>> getTagValueSizes(int numUserTags) {
     	TreeMap<Long, List<Integer>> sizes = Maps.newTreeMap();
+    	if (tagGroupsWithResourceGroups == null)
+    		return sizes;
+    	
     	for (Long millis: tagGroupsWithResourceGroups.keySet()) {
     		Collection<TagGroup> tagGroups = tagGroupsWithResourceGroups.get(millis);
     		
@@ -226,7 +233,10 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
 
     private Set<TagGroup> getTagGroupsWithResourceGroupsInRange(Collection<Long> monthMillis) {
         Set<TagGroup> tagGroupsInRange = Sets.newHashSet();
-        for (Long monthMilli: monthMillis) {
+    	if (tagGroupsWithResourceGroups == null)
+    		return tagGroupsInRange;
+    	
+    	for (Long monthMilli: monthMillis) {
             tagGroupsInRange.addAll(this.tagGroupsWithResourceGroups.get(monthMilli));
         }
         return tagGroupsInRange;
