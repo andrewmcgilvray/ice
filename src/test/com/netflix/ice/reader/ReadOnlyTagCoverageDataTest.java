@@ -62,7 +62,8 @@ public class ReadOnlyTagCoverageDataTest {
         TagCoverageMetrics.add(metrics, new boolean[]{ false, false, true, true, true });
         TagCoverageMetrics.add(metrics, new boolean[]{ false, true, true, true, true });
 
-        ReadWriteTagCoverageData data = new ReadWriteTagCoverageData(numTags);        
+        ReadWriteTagCoverageData data = new ReadWriteTagCoverageData(numTags); 
+        data.enableTagGroupCache(true);
         data.put(0, tagGroup, metrics);
 
         data.serialize(out, null);

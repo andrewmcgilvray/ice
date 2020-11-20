@@ -215,6 +215,7 @@ public class BillingFileProcessorTest {
 		//bfp.reservationProcessor.setDebugFamily("c4");
     	
 		CostAndUsageData costAndUsageData = new CostAndUsageData(startMilli, null, null, TagCoverage.none, null, productService);
+		costAndUsageData.enableTagGroupCache(true);
         Instances instances = new Instances(null, null, null);
         
 		Map<ReservationKey, CanonicalReservedInstances> reservations = ReservationCapacityPoller.readReservations(new File(resourcesReportDir, "reservation_capacity.csv"));

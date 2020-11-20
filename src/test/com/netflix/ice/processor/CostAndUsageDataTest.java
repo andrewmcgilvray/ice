@@ -85,6 +85,7 @@ public class CostAndUsageDataTest {
 	@Test
 	public void testAggregateSummaryData() {
 		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		cau.enableTagGroupCache(true);
 		ReadWriteData cost = new ReadWriteData();
 		cau.putCost(null, cost);
 		
@@ -149,6 +150,7 @@ public class CostAndUsageDataTest {
 	@Test
 	public void testGetPartialWeekFromLastMonth() throws Exception {
 		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		cau.enableTagGroupCache(true);
 		ReadWriteData cost = new ReadWriteData();
 		cau.putCost(null, cost);
 
@@ -284,6 +286,7 @@ public class CostAndUsageDataTest {
         
         // Load existing data for month we're about to process to make sure it's overwritten and not added to.
 		TestCostAndUsageData cau = new TestCostAndUsageData(startDate, monthDate, existingDataEndDay);
+		cau.enableTagGroupCache(true);
 		ReadWriteData cost = new ReadWriteData();
 		cau.putCost(null, cost);
 		// Load data for Jan 2020

@@ -108,6 +108,7 @@ public class PostProcessorTest {
         };
 
 		ReadWriteData rwData = new ReadWriteData();
+		rwData.enableTagGroupCache(true);
 	    for (int i = 0; i < data.length; i++) {
 	    	Datum d = data[i];
 	    	rwData.add(d.num, d.tg, d.value);	

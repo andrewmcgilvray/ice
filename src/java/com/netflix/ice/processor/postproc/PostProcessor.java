@@ -146,8 +146,10 @@ public class PostProcessor {
 
 			VariableRuleProcessor rp = new VariableRuleProcessor(rule, outData, accountService, productService, resourceService, workBucketConfig, pool);
 			rp.process(data);
-			if (rc.isReport())
+			if (rc.isReport()) {
+				outData.enableTagGroupCache(true);
 				writeReports(rule, outData);
+			}
 		}		
 	}
 				
@@ -187,6 +189,7 @@ public class PostProcessor {
 		Query in = rule.getIn();
 		String filename = reportName(month, rule.config.getName(), aggregation);
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
+        rwData.enableTagGroupCache(true);
         rwData.setData(data, 0);
 		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, 
 									month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData, aggregation);		

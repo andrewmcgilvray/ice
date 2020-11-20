@@ -85,6 +85,7 @@ public class CostAndUsageData {
     private List<PostProcessorStats> postProcessorStats;
     private List<String> userTagKeysAsStrings;
     private List<Status> archiveFailures;
+    private boolean cacheTagGroups;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -107,6 +108,7 @@ public class CostAndUsageData {
         this.savingsPlanProducts = Sets.newHashSet();
         this.postProcessorStats = Lists.newArrayList();
         this.archiveFailures = Lists.newArrayList();
+        this.cacheTagGroups = false;
 	}
 	
 	/*
@@ -128,6 +130,7 @@ public class CostAndUsageData {
         this.savingsPlans = null;
         this.savingsPlanProducts = null;
         this.postProcessorStats = null;
+        this.cacheTagGroups = false;
 	}
 	
 	public DateTime getStart() {
@@ -140,6 +143,22 @@ public class CostAndUsageData {
 	
 	public int getNumUserTags() {
 		return userTagKeys == null ? 0 : userTagKeys.size();
+	}
+	
+	public boolean isCacheTagGroups() {
+		return cacheTagGroups;
+	}
+	
+	public void enableTagGroupCache(boolean cacheTagGroups) {
+		this.cacheTagGroups = cacheTagGroups;
+		for (ReadWriteData rwd: usageDataByProduct.values())
+			rwd.enableTagGroupCache(cacheTagGroups);
+		for (ReadWriteData rwd: costDataByProduct.values())
+			rwd.enableTagGroupCache(cacheTagGroups);
+		if (tagCoverage != null) {
+			for (ReadWriteTagCoverageData tcd: tagCoverage.values())
+				tcd.enableTagGroupCache(true);
+		}
 	}
 	
 	public List<String> getUserTagKeysAsStrings() {
@@ -161,6 +180,7 @@ public class CostAndUsageData {
 	
 	public void putUsage(Product product, ReadWriteData data) {
 		usageDataByProduct.put(product,  data);
+		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
 	public ReadWriteData getCost(Product product) {
@@ -169,6 +189,7 @@ public class CostAndUsageData {
 	
 	public void putCost(Product product, ReadWriteData data) {
 		costDataByProduct.put(product,  data);
+		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
 	public ReadWriteTagCoverageData getTagCoverage(Product product) {
@@ -177,6 +198,7 @@ public class CostAndUsageData {
 	
 	public void putTagCoverage(Product product, ReadWriteTagCoverageData data) {
 		tagCoverage.put(product,  data);
+		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
 	
@@ -187,6 +209,7 @@ public class CostAndUsageData {
 			ReadWriteData usage = getUsage(entry.getKey());
 			if (usage == null) {
 				usageDataByProduct.put(entry.getKey(), entry.getValue());
+				entry.getValue().enableTagGroupCache(cacheTagGroups);
 			}
 			else {
 				usage.putAll(entry.getValue());
@@ -196,6 +219,7 @@ public class CostAndUsageData {
 			ReadWriteData cost = getCost(entry.getKey());
 			if (cost == null) {
 				costDataByProduct.put(entry.getKey(), entry.getValue());
+				entry.getValue().enableTagGroupCache(cacheTagGroups);
 			}
 			else {
 				cost.putAll(entry.getValue());
@@ -206,6 +230,7 @@ public class CostAndUsageData {
 				ReadWriteTagCoverageData tc = getTagCoverage(entry.getKey());
 				if (tc == null) {
 					tagCoverage.put(entry.getKey(), entry.getValue());
+					entry.getValue().enableTagGroupCache(cacheTagGroups);
 				}
 				else {
 					tc.putAll(entry.getValue());
@@ -636,6 +661,7 @@ public class CostAndUsageData {
             dailyData = new ReadWriteData(numUserTags);
             writer = getDataWriter(prefix + "daily_" + prodName + "_" + year, dailyData, true);
         }
+        dailyData.enableTagGroupCache(true);
         dailyData.setData(daily, monthDateTime.getDayOfYear() -1);
         writer.archive();
 
@@ -643,6 +669,7 @@ public class CostAndUsageData {
         ReadWriteData monthlyData = new ReadWriteData(numUserTags);
         int numMonths = Months.monthsBetween(startDate, monthDateTime).getMonths();            
         writer = getDataWriter(prefix + "monthly_" + prodName, monthlyData, true);
+        monthlyData.enableTagGroupCache(true);
         monthlyData.setData(monthly, numMonths);            
         writer.archive();
 
@@ -655,6 +682,7 @@ public class CostAndUsageData {
             index = Weeks.weeksBetween(startDate, weekStart).getWeeks() + (startDate.dayOfWeek() == weekStart.dayOfWeek() ? 0 : 1);
         ReadWriteData weeklyData = new ReadWriteData(numUserTags);
         writer = getDataWriter(prefix + "weekly_" + prodName, weeklyData, true);
+        weeklyData.enableTagGroupCache(true);
         weeklyData.setData(weekly, index);
         writer.archive();
     }

@@ -102,11 +102,10 @@ public class FixedRuleProcessorTest {
 	@Test
 	public void testRunQuery() throws Exception {
 		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
+		data.enableTagGroupCache(true);
+		ReadWriteData usageData = data.getUsage(null);
+		ReadWriteData costData = data.getCost(null);
 		loadComputedCostData(usageData, costData);
-		data.putUsage(null, usageData);
-		data.putCost(null, costData);
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
@@ -147,13 +146,11 @@ public class FixedRuleProcessorTest {
 	@Test
 	public void testProcessReadWriteData() throws Exception {
 		
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
-		loadComputedCostData(usageData, costData);
 		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-        data.putUsage(null, usageData);
-        data.putCost(null, costData);
-
+		data.enableTagGroupCache(true);
+		ReadWriteData usageData = data.getUsage(null);
+		ReadWriteData costData = data.getCost(null);
+		loadComputedCostData(usageData, costData);
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
@@ -214,6 +211,7 @@ public class FixedRuleProcessorTest {
 		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
         data.putUsage(product, usageData);
         data.putCost(product, costData);
+		data.enableTagGroupCache(true);
 
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
@@ -300,11 +298,10 @@ public class FixedRuleProcessorTest {
 	@Test
 	public void testSurchargeGetInValues() throws Exception {
 		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
+		data.enableTagGroupCache(true);
+		ReadWriteData usageData = data.getUsage(null);
+		ReadWriteData costData = data.getCost(null);
 		loadSurchargeData(usageData, costData);
-        data.putUsage(null, usageData);
-        data.putCost(null, costData);
 				
 		Rule rule = new Rule(getConfig(surchargeConfigYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
@@ -396,12 +393,11 @@ public class FixedRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 500.0),
         };
         
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
-		TagGroupSpec.loadData(dataSpecs, usageData, costData, 0, as, ps);
 		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-        data.putUsage(null, usageData);
-        data.putCost(null, costData);
+		data.enableTagGroupCache(true);
+		ReadWriteData usageData = data.getUsage(null);
+		ReadWriteData costData = data.getCost(null);
+		TagGroupSpec.loadData(dataSpecs, usageData, costData, 0, as, ps);
         
 		Map<TagGroup, Double> in = costData.getData(0);
 		for (TagGroup tg: in.keySet())
@@ -484,6 +480,7 @@ public class FixedRuleProcessorTest {
 		Product product = ps.getProduct(productCode, productCode);
         data.putUsage(product, usageData);
         data.putCost(product, costData);
+        data.enableTagGroupCache(true);
         
 		Map<TagGroup, Double> in = costData.getData(0);
 		for (TagGroup tg: in.keySet())
@@ -589,13 +586,12 @@ public class FixedRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 500.0),
         };
         
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+		data.enableTagGroupCache(true);
+		ReadWriteData usageData = data.getUsage(null);
+		ReadWriteData costData = data.getCost(null);
 		TagGroupSpec.loadData(dataSpecs0, usageData, costData, 0, as, ps);
 		TagGroupSpec.loadData(dataSpecs1, usageData, costData, 1, as, ps);
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-        data.putUsage(null, usageData);
-        data.putCost(null, costData);
         
 		Rule rule = new Rule(getConfig(splitMonthlyCostByHourYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
@@ -679,13 +675,12 @@ public class FixedRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 500.0),
         };
         
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
+		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
+		data.enableTagGroupCache(true);
+		ReadWriteData usageData = data.getUsage(null);
+		ReadWriteData costData = data.getCost(null);
 		TagGroupSpec.loadData(dataSpecs0, usageData, costData, 0, as, ps);
 		TagGroupSpec.loadData(dataSpecs1, usageData, costData, 1, as, ps);
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-        data.putUsage(null, usageData);
-        data.putCost(null, costData);
         
 		Rule rule = new Rule(getConfig(splitMonthlyCostByMonthYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);

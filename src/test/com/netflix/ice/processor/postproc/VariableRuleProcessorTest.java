@@ -97,6 +97,7 @@ public class VariableRuleProcessorTest {
 	}
 	
     private void loadData(TagGroupSpec[] dataSpecs, CostAndUsageData data, int hour) throws Exception {
+    	data.enableTagGroupCache(true);
         for (TagGroupSpec spec: dataSpecs) {
         	TagGroup tg = spec.getTagGroup(as, ps);
         	if (spec.dataType == DataType.cost) {
@@ -348,6 +349,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 		
 		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
+		outData.enableTagGroupCache(true);
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, null, rs);
 		vrp.process(data);
 		
@@ -478,6 +480,7 @@ public class VariableRuleProcessorTest {
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
 		
 		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
+		outData.enableTagGroupCache(true);
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
 		vrp.process(data);
 				
@@ -552,6 +555,7 @@ public class VariableRuleProcessorTest {
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
 		
 		CostAndUsageData outData = new CostAndUsageData(data, UserTagKey.getUserTagKeys(reportUserTagKeys));
+		outData.enableTagGroupCache(true);
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
 		vrp.process(data);
 		

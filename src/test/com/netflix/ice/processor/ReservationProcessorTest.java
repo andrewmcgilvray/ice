@@ -233,6 +233,7 @@ public class ReservationProcessorTest {
 			Product product) throws Exception {
 		
 		CostAndUsageData caud = new CostAndUsageData(startMillis, null, null, TagCoverage.none, null, null);
+		caud.enableTagGroupCache(true);
 		if (product != null) {
 			caud.putUsage(product, new ReadWriteData(0));
 			caud.putCost(product, new ReadWriteData(0));

@@ -25,13 +25,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.DataVersion;
 import com.netflix.ice.common.ProductService;
@@ -45,6 +45,9 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     // Cached set of tagGroup keys used throughout the list of data maps.
     // Post processing for reservations, savings plans, savings data, post processor, and data writing
     // all need an aggregated set of tagGroups and it's very expensive to walk the maps calling addAll().
+    // This set is only maintained for the master CostAndUsageData container since it's only needed by
+    // the post-processing steps. Individual CoatAndUsageData objects created for each separate CUR report
+    // don't require it and run much faster if we don't have to maintain this master set.
     protected Set<TagGroup> tagGroups;
 
     // number of user tags in the resourceGroups. Set to -1 when constructed for deserialization.
@@ -53,15 +56,26 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
 
 	public ReadWriteGenericData() {
         data = Lists.newArrayList();
-        tagGroups = Sets.newHashSet();
+        tagGroups = null;
 		this.numUserTags = -1;
 	}
 
 	public ReadWriteGenericData(int numUserTags) {
         data = Lists.newArrayList();
-        tagGroups = Sets.newHashSet();
+        tagGroups = null;
 		this.numUserTags = numUserTags;
     }
+	
+	public void enableTagGroupCache(boolean enabled) {
+		if (!enabled)
+			tagGroups = null;
+		else if (tagGroups == null) {
+			tagGroups = ConcurrentHashMap.newKeySet();
+	        for (int i = 0; i < data.size(); i++) {
+        		tagGroups.addAll(data.get(i).keySet());	        	
+	        }
+		}
+	}
 	
 	public String toString() {
 		StringBuffer sb = new StringBuffer();
@@ -96,14 +110,16 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
 
     public void put(int i, TagGroup tagGroup, T value) {
     	getCreateData(i).put(tagGroup, value);
-    	tagGroups.add(tagGroup);
+    	if (tagGroups != null)
+    		tagGroups.add(tagGroup);
     }
     
     public void add(int i, TagGroup tagGroup, T value) {
     	Map<TagGroup, T> map = getCreateData(i);
     	T existing = map.get(tagGroup);
     	map.put(tagGroup,  existing == null ? value : add(existing, value));
-    	tagGroups.add(tagGroup);
+    	if (tagGroups != null)
+    		tagGroups.add(tagGroup);
     }
 
     public T remove(int i, TagGroup tagGroup) {
@@ -125,7 +141,7 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     				break;
     			}
     		}
-    		if (!found)
+    		if (!found && tagGroups != null)
     			tagGroups.remove(tagGroup);
     	}
 
@@ -158,12 +174,13 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
 	            				break;
 	            			}
 	            		}
-	            		if (!found)
+	            		if (!found && tagGroups != null)
 	            			tagGroups.remove(tg);
 	            	}
             	}
             }
-            tagGroups.addAll(newData.get(i).keySet());
+        	if (tagGroups != null)
+        		tagGroups.addAll(newData.get(i).keySet());
         }
     }
 
@@ -190,7 +207,18 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
                 }
             }
         }
-        tagGroups.addAll(srcData.tagGroups);
+        // Update the tagGroups cache as appropriate
+    	if (tagGroups != null) {
+    		if (srcData.tagGroups != null) {
+    			// pull from src cache
+    			tagGroups.addAll(srcData.tagGroups);
+    		}
+    		else {
+    			// get it from each interval
+    			for (int i = 0; i < newData.size(); i++)
+    				tagGroups.addAll(newData.get(i).keySet());
+    		}
+    	}
     }
 
     Map<TagGroup, T> getCreateData(int i) {
@@ -275,7 +303,8 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
         for (int j = 0; j < numKeys; j++) {
         	TagGroup tg = TagGroup.Serializer.deserialize(accountService, productService, numUserTags, in);
             keys.add(tg);
-        	tagGroups.add(tg);
+        	if (tagGroups != null)
+        		tagGroups.add(tg);
         }
 
         List<Map<TagGroup, T>> data = Lists.newArrayList();
