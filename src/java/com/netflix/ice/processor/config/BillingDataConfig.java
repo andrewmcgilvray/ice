@@ -115,6 +115,7 @@ postprocrules:
          externalId: <external ID>
        kubernetes: # Preprocess a Kubernetes report into an Allocation report.
          clusterNameFormulae: [Cluster]
+         type: <scope> # Specify the scope type to use for allocation if the report has a Type column. One of Namespace, DaemonSet, StatefulSet, Deployment, Pod
          out:
            Namespace: <tag key to assign namespace>
        type: cost

@@ -29,7 +29,6 @@ import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
-import com.netflix.ice.processor.kubernetes.KubernetesReport.KubernetesColumn;
 import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
@@ -306,7 +305,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		if (total == null || total == 0.0)
 			return;
 				
-		List<AllocationReport.Value> hourData = report.getData(hour, tg);
+		Map<AllocationReport.Key, Double> hourData = report.getData(hour, tg);
 		if (hourData == null || hourData.isEmpty()) {
 			return;
 		}
@@ -315,12 +314,12 @@ public class VariableRuleProcessor extends RuleProcessor {
 		data.remove(hour, tg);
 
 		double unAllocated = total;
-		for (AllocationReport.Value value: hourData) {
-			double allocated = total * value.getAllocation();
+		for (AllocationReport.Key key: hourData.keySet()) {
+			double allocated = total * hourData.get(key);
 			if (allocated == 0.0)
 				continue;
 			
-			TagGroup allocatedTagGroup = value.getOutputTagGroup(tg);
+			TagGroup allocatedTagGroup = report.getOutputTagGroup(key, tg);
 			
 			allocatedTagGroups.add(allocatedTagGroup);
 			
@@ -408,25 +407,26 @@ public class VariableRuleProcessor extends RuleProcessor {
 	
 	protected void addHourClusterRecords(AllocationReport allocationReport, int hour, Product product, List<String> inTags, String clusterName, KubernetesReport report, List<String[]> hourClusterData) {
 		double remainingAllocation = 1.0;
-		boolean isByResource = report.getConfig().getKubernetes().isByResource();
+		String t = report.getConfig().getKubernetes().getType();
+		// Default to Namespace if not specified
+		KubernetesReport.Type reportItemType = (t == null || t.isEmpty()) ? KubernetesReport.Type.Namespace : KubernetesReport.Type.valueOf(report.getConfig().getKubernetes().getType());
+
 		
 		for (String[] item: hourClusterData) {
 			double allocation = report.getAllocationFactor(product, item);
 			if (allocation == 0.0)
 				continue;
 			
-			remainingAllocation -= allocation;
+			KubernetesReport.Type type = report.getType(item);
 			
-			String type = report.getString(item, KubernetesColumn.Type);
-			
-			// If we have Type and Resource columns, the isByResource flag determines
-			// whether we break out by resource or just by Namespace.
-			// The Namespace data duplicates the Deployment/DaemonSet/StatefulSet set specified
-			// by Resource records, so we only want one or the other.
-			if (!type.isEmpty() && (isByResource == type.equals("Namespace")))
+			// If we have a Type column, the config type flag determines
+			// the scope to use for breaking out the cost.
+			// Each scope duplicates the data set, so we only want to process one.
+			if (type != KubernetesReport.Type.None && type != reportItemType)
 				continue;
 			
 			List<String> outTags = report.getTagValues(item, allocationReport.getOutTagKeys());
+			remainingAllocation -= allocation;			
 			allocationReport.add(hour, allocation, inTags, outTags);			
 		}
 		// Assign any unused to the unused type, resource, and namespace

@@ -93,6 +93,15 @@ public class KubernetesReport extends Report {
     	ClusterPersistentVolumeClaimGiB,
     }
     
+    public enum Type {
+    	DaemonSet,
+    	Deployment,
+    	Namespace,
+    	Pod,
+    	StatefulSet,
+    	None;
+    }
+    
     private Map<KubernetesColumn, Integer> reportIndeces = null;
     private Map<String, Integer> userTagIndeces = null;
     // Map of clusters with hourly data for the month - index will range from 0 to 743
@@ -367,6 +376,11 @@ public class KubernetesReport extends Report {
 	public List<String[]> getData(String cluster, int i) {
 		List<List<String[]>> clusterData = data.get(cluster);
 		return clusterData == null || clusterData.size() <= i ? null : clusterData.get(i);
+	}
+	
+	public Type getType(String[] item) {
+		String t = getString(item, KubernetesColumn.Type);
+		return t.isEmpty() ? Type.None : Type.valueOf(t);
 	}
 	
 	public String getString(String[] item, KubernetesColumn col) {

@@ -62,7 +62,6 @@ public class VariableRuleProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
 	private static final String resourceDir = "src/test/resources/";
-	private static final int testDataHour = 395;
     
     static private ProductService ps;
 	static private AccountService as;
@@ -584,16 +583,16 @@ public class VariableRuleProcessorTest {
 		
 	class TestKubernetesReport extends KubernetesReport {
 
-		public TestKubernetesReport(AllocationConfig config, ResourceService resourceService) throws Exception {
-			super(config, new DateTime("2019-01", DateTimeZone.UTC), resourceService);
+		public TestKubernetesReport(AllocationConfig config, DateTime start, File file, ResourceService resourceService) throws Exception {
+			super(config, start, resourceService);
 
-			File file = new File(resourceDir, "kubernetes-2019-01.csv");
 			readFile(file);			
 		}
 	}
 	
 	@Test
 	public void testGenerateAllocationReport() throws Exception {
+		File file = new File(resourceDir, "kubernetes-2019-01.csv");
 		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Cluster","Role","K8sNamespace","Environment","K8sType","K8sResource","UserTag1","UserTag2"}, false);
 		String allocationYaml = "" +
 				"name: k8s\n" + 
@@ -626,11 +625,13 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"dev-usw2a", "compute", "", "Dev", "", "", "", ""}, 40.0),
         };
 		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		final int testDataHour = 395;
         loadData(dataSpecs, data, testDataHour);
 
         RuleConfig rc = getConfig(allocationYaml);
 		Rule rule = new Rule(rc, as, ps, rs.getCustomTags());
-		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), rs);
+		DateTime start = new DateTime("2019-01", DateTimeZone.UTC);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), start, file, rs);
 		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
 		Set<String> unprocessedAtgs = Sets.newHashSet();
 		
@@ -643,11 +644,11 @@ public class VariableRuleProcessorTest {
 		assertEquals("wrong number of keys", 1, ar.getKeySet(testDataHour).size());
 		
 		AllocationReport.Key key = ar.getKeySet(testDataHour).iterator().next();
-		List<AllocationReport.Value> values = ar.getData(testDataHour, key);
+		Map<AllocationReport.Key, Double> values = ar.getData(testDataHour, key);
 		assertEquals("wrong number of allocation items", 11, values.size());
 		
-		for (AllocationReport.Value v: values) {
-			assertFalse("Empty namespace tag", v.getOutput("K8sNamespace").isEmpty());
+		for (AllocationReport.Key k: values.keySet()) {
+			assertFalse("Empty namespace tag", ar.getTagValue(k, "K8sNamespace").isEmpty());
 		}
 		
 		StringWriter writer = new StringWriter();
@@ -665,6 +666,7 @@ public class VariableRuleProcessorTest {
 		
 	@Test
 	public void testProcessKubernetesReport() throws Exception {		
+		File file = new File(resourceDir, "kubernetes-2019-01.csv");
 		// Test with three formulae and make sure we only process each cluster once.
 		// The cluster names should match the forumlae as follows:
 		//  "dev-usw2a" --> formula 1
@@ -715,11 +717,13 @@ public class VariableRuleProcessorTest {
         		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0),
         };
 		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		final int testDataHour = 395;
         loadData(dataSpecs, data, testDataHour);
 										
         RuleConfig rc = getConfig(allocationYaml);
 		Rule rule = new Rule(rc, as, ps, rs.getCustomTags());
-		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), rs);
+		DateTime start = new DateTime("2019-01", DateTimeZone.UTC);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), start, file, rs);
 		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
 		Set<String> unprocessedAtgs = Sets.newHashSet();
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
@@ -766,4 +770,96 @@ public class VariableRuleProcessorTest {
 			total += v;
 		assertEquals("Incorrect total cost when adding unused and allocated values", 120.0, total, 0.001);		
 	}
+	
+	@Test
+	public void testProcessKubernetesReportWithType() throws Exception {
+		File file = new File(resourceDir + "private/", "kubernetes-2020-10.csv");
+		if (!file.exists())
+			return;
+		
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Application","CostCenter", "CreatedBy","Environment","K8sNamespace","K8sType","Market","Platform","Process","Product","Role"}, false);
+		String allocationYaml = "" +
+				"name: k8s\n" + 
+				"start: 2020-10\n" + 
+				"end: 2099-01\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  filter:\n" + 
+				"    account: [" + a1 + "]\n" + 
+				"    userTags:\n" +
+				"      Role: [compute]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"    region: us-east-1\n" +
+				"    accountId: 123456789012\n" +
+				"  kubernetes:\n" +
+				"    clusterNameFormulae: ['\"npd-blue-us-east-1\"']\n" +
+				"    out:\n" +
+				"      Namespace: K8sNamespace\n" +
+				"      Type: K8sType\n" +
+				"    type: Pod\n" +
+				"  in:\n" +
+				"    _product: _Product\n" +
+				"  out:\n" +
+				"    Application: Application\n" +
+				"    CostCenter: CostCenter\n" +
+				"    CreatedBy: CreatedBy\n" +
+				"    Environment: Environment\n" +
+				"    K8sNamespace: K8sNamespace\n" +
+				"    K8sType: K8sType\n" +
+				"    Market: Market\n" +
+				"    Platform: Platform\n" +
+				"    Process: Process\n" +
+				"    Product: Product\n" +
+				"";
+		
+		String clusterTag = "npd-blue-us-east-1";
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		final int testDataHour = 264; // 2020-10-12T00:00:00Z
+        loadData(dataSpecs, data, testDataHour);
+										
+        RuleConfig rc = getConfig(allocationYaml);
+		Rule rule = new Rule(rc, as, ps, rs.getCustomTags());
+		DateTime start = new DateTime("2020-10", DateTimeZone.UTC);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), start, file, rs);
+		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
+		Set<String> unprocessedAtgs = Sets.newHashSet();
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
+		AllocationReport ar = vrp.generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
+		ar.writeFile(start, file.getParent(), "ar-" + file.getName(), false);
+		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
+		vrp.process(data);
+		
+		assertEquals("have wrong number of unprocessed clusters", 0, unprocessedClusters.size());
+		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
+		
+		double expectedAllocatedCost = 0.00005598;
+		double expectedUnusedCost = 11.5679;
+		Map<TagGroup, Double> hourCostData = data.getCost(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
+		
+		TagGroup tg = dataSpecs[0].getTagGroup(as, ps);
+					
+		String[] atags = new String[]{"","","iamUser","","default","Pod","","","","", "compute"};
+		ResourceGroup arg = ResourceGroup.getResourceGroup(atags);
+		TagGroup atg = tg.withResourceGroup(arg);
+		
+		Double allocatedCost = hourCostData.get(atg);
+		assertNotNull("No allocated cost for default namespace with cluster tag " + clusterTag, allocatedCost);
+		assertEquals("Incorrect allocated cost with cluster tag " + clusterTag, expectedAllocatedCost, allocatedCost, 0.0000001);
+		String[] unusedTags = new String[]{"","","iamUser","","unused","unused","","","","", "compute"};
+		TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
+		Double unusedCost = hourCostData.get(unusedTg);
+		assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCost, unusedCost, 0.0001);
+		
+		// Add up all the cost values to see if we get back to 40.0
+		double total = 0.0;
+		for (double v: hourCostData.values())
+			total += v;
+		assertEquals("Incorrect total cost when adding unused and allocated values", 40.0, total, 0.001);		
+	}
+
 }

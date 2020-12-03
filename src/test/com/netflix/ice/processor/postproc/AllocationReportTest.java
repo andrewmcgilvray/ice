@@ -23,7 +23,6 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.processor.postproc.AllocationReport.Key;
-import com.netflix.ice.processor.postproc.AllocationReport.Value;
 
 public class AllocationReportTest {
 
@@ -167,20 +166,19 @@ public class AllocationReportTest {
 		
 		// Validate Key
 		Key key = ar.getKeySet(0).iterator().next();
-		assertEquals("wrong number of inputs", 2, key.getInputs().size());
-		assertEquals("wrong value for first input key", "in1a", key.getInputs().get(0));
-		assertEquals("wrong value for second input key", "in1b", key.getInputs().get(1));
+		assertEquals("wrong number of inputs", 2, key.getTags().size());
+		assertEquals("wrong value for first input key", "in1a", key.getTags().get(0));
+		assertEquals("wrong value for second input key", "in1b", key.getTags().get(1));
 		
 		// Validate Values
 		String[][] expected = new String[][]{
 			new String[]{"out1a", "out1b"},
 			new String[]{"out2a", "out2b"},
 		};
-		List<Value> values = ar.getData(0, key);
-		for (int i = 0; i < values.size(); i++) {
-			assertEquals("wrong number of outputs", 2, values.get(i).getOutputs().size());
-			for (int j = 0; j < values.get(i).getOutputs().size(); j++)
-				assertEquals("wrong value for output", expected[i][j], values.get(i).getOutputs().get(j));
+		Map<Key, Double> values = ar.getData(0, key);
+		for (int i = 0; i < expected.length; i++) {
+			Key outKey = new Key(Lists.newArrayList(expected[i]));
+			assertNotNull("expected key not found", values.get(outKey));
 		}
 	} 
 }

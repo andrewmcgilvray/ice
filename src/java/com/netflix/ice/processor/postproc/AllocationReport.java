@@ -75,7 +75,7 @@ public class AllocationReport extends Report {
 	private List<Integer> inTagIndeces; // ResourceGroup user tag indeces for the input tags
 	private List<Integer> outTagIndeces; // ResourceGroup user tag indeces for the output tags
 	private List<Set<String>> inTagValues; // Values used in the allocation report for each input tag key. Used to resolve empty strings for values in the report.
-	private List<Map<Key, List<Value>>> data;	
+	private List<Map<Key, Map<Key, Double>>> data;	
 	private List<String> header;
 	private Map<String, Tagger> taggers; // taggers for outTagKeys
 	private Map<Integer, Tagger> otherTaggers; // taggers for userTags not included in the report
@@ -218,10 +218,10 @@ public class AllocationReport extends Report {
 			}
 		}
 		
-		String get(Value value) {
+		String get(Key outputKey) {
 			for (String dstValue: rules.keySet()) {
 				for (String srcKey: rules.get(dstValue).keySet()) {
-					if (rules.get(dstValue).get(srcKey).matches(value.getOutputs()))
+					if (rules.get(dstValue).get(srcKey).matches(outputKey.getTags()))
 						return dstValue;
 				}
 			}
@@ -275,7 +275,7 @@ public class AllocationReport extends Report {
 	 * a non-empty input value if no other entry with that value exists.
 	 */
 	private Key findMostSpecificKey(int hour, List<String> inTags) {		
-		Map<Key, List<Value>> hourData = data.get(hour);
+		Map<Key, Map<Key, Double>> hourData = data.get(hour);
 		
 		// Check for an exact match first
 		Key key = new Key(inTags);
@@ -300,7 +300,7 @@ public class AllocationReport extends Report {
 		return key;
 	}
 	
-	public List<Value> getData(int hour, TagGroup tg) throws Exception {
+	public Map<Key, Double> getData(int hour, TagGroup tg) throws Exception {
 		if (data.size() <= hour)
 			return null;
 		
@@ -314,7 +314,7 @@ public class AllocationReport extends Report {
 	}
 	
 	// For testing
-	protected List<Value> getData(int hour, Key key) {
+	protected Map<Key, Double> getData(int hour, Key key) {
 		return data.size() > hour ? data.get(hour).get(key) : null;
 	}
 	// For testing
@@ -324,21 +324,24 @@ public class AllocationReport extends Report {
 	
 	public void add(int hour, double allocation, List<String> inTags, List<String> outTags) {
 		while (data.size() <= hour) {
-			data.add(Maps.<Key, List<Value>>newHashMap());
+			data.add(Maps.<Key, Map<Key, Double>>newHashMap());
 		}
-		Map<Key, List<Value>> hourData = data.get(hour);
+		Map<Key, Map<Key, Double>> hourData = data.get(hour);
 		
 		// Maintain sets of values for each input tag key
 		for (int i = 0; i < inTags.size(); i++)
 			inTagValues.get(i).add(inTags.get(i));
 		
 		Key k = new Key(inTags);
-		List<Value> values = hourData.get(k);
+		Map<Key, Double> values = hourData.get(k);
 		if (values == null) {
-			values = Lists.newArrayList();
+			values = Maps.newHashMap();
 			hourData.put(k, values);
 		}
-		values.add(new Value(outTags, allocation));
+		Key outKey = new Key(outTags);
+		Double existing = values.get(outKey);
+		Double value = allocation + (existing == null ? 0.0 : existing);
+		values.put(outKey, value);
 	}
 	
 	/**
@@ -347,11 +350,12 @@ public class AllocationReport extends Report {
 	public Collection<Key> overAllocatedKeys() {
 		Set<Key> keys = Sets.newHashSet();
 		for (int hour = 0; hour < data.size(); hour++) {
-			Map<Key, List<Value>> allocations = data.get(hour);
+			Map<Key, Map<Key, Double>> allocations = data.get(hour);
 			for (Key key: allocations.keySet()) {
 				Double total = 0.0;
-				for (Value v: allocations.get(key)) {
-					total += v.allocation;
+				Map<Key, Double> outMap = allocations.get(key);
+				for (Key outKey: outMap.keySet()) {
+					total += outMap.get(outKey);
 				}
 				if (total > 1.000001)
 					keys.add(key);
@@ -359,82 +363,25 @@ public class AllocationReport extends Report {
 		}
 		return keys;
 	}
-		
-	public class Value {
-		private final List<String> outputs;
-		private final double allocation;
-		
-		public Value(List<String> outputs, double allocation) {
-			this.outputs = outputs;
-			this.allocation = allocation;
-		}
-		
-		@Override
-		public String toString() {
-			return "{" + Double.toString(allocation) + ": " + outputs.toString() + "}";
-		}
-		
-		public List<String> getOutputs() {
-			return outputs;
-		}
-		
-		public String getOutput(String key) {
-			return outputs.get(outTagKeys.indexOf(key));
-		}
-		
-		public double getAllocation() {
-			return allocation;
-		}
-		
-		public TagGroup getOutputTagGroup(TagGroup tg) {
-			UserTag[] userTags = tg.resourceGroup.getUserTags().clone();
 			
-			for (int i = 0; i < outputs.size(); i++) {
-				String tag = outputs.get(i);
-				if (tag.isEmpty()) {
-					// Apply any mapping rules
-					Tagger t = taggers.get(outTagKeys.get(i));
-					if (t == null)
-						continue;
-					
-					tag = t.get(this);
-				}
-				userTags[outTagIndeces.get(i)] = UserTag.get(tag);
-			}
-			for (int i: otherTaggers.keySet()) {
-				String tag = otherTaggers.get(i).get(this);
-				if (tag.isEmpty())
-					continue;
-				userTags[i] = UserTag.get(tag);
-			}
-			try {
-				return tg.withResourceGroup(ResourceGroup.getResourceGroup(userTags));
-			} catch (ResourceException e) {
-				// should never throw because no user tags are null
-				logger.error("error creating resource group from user tags: " + e);
-			}
-			return null;
-		}
-	}
-	
 	public static class Key {
-		private List<String> inputs;
+		private List<String> tags;
 		private int hashcode;
 		private int numValues;
 		
-		protected Key(List<String> inputs) {
-			this.inputs = inputs;
+		protected Key(List<String> tags) {
+			this.tags = tags;
 			this.hashcode = genHashCode();
 			this.numValues = 0;
-			for (String input: inputs) {
-				if (!input.isEmpty())
+			for (String tag: tags) {
+				if (!tag.isEmpty())
 					numValues++;
 			}
 		}
 		
 		@Override
 		public String toString() {
-			return inputs.toString();
+			return tags.toString();
 		}
 		
 	    @Override
@@ -451,8 +398,8 @@ public class AllocationReport extends Report {
 	        
 	        Key other = (Key) o;
 	        
-	        for (int i = 0; i < inputs.size(); i++) {
-	        	if (!inputs.get(i).equals(other.inputs.get(i)))
+	        for (int i = 0; i < tags.size(); i++) {
+	        	if (!tags.get(i).equals(other.tags.get(i)))
 	        		return false;
 	        }
 	        return true;
@@ -461,14 +408,14 @@ public class AllocationReport extends Report {
 	    private int genHashCode() {
 	        final int prime = 31;
 	        int result = 1;
-	        for (String t: inputs)
+	        for (String t: tags)
 	        	result = prime * result + t.hashCode();
 
 	        return result;
 	    }
 	    
-	    public List<String> getInputs() {
-	    	return inputs;
+	    public List<String> getTags() {
+	    	return tags;
 	    }
 	    
 	    /**
@@ -476,9 +423,9 @@ public class AllocationReport extends Report {
 	     * @return
 	     */
 	    public boolean includes(Key key) {
-	    	for (int i = 0; i < inputs.size(); i++) {
-	    		String input = inputs.get(i);
-	    		if (!input.isEmpty() && !input.equals(key.inputs.get(i)))
+	    	for (int i = 0; i < tags.size(); i++) {
+	    		String tag = tags.get(i);
+	    		if (!tag.isEmpty() && !tag.equals(key.tags.get(i)))
 	    			return false;
 	    			
 	    	}
@@ -489,12 +436,57 @@ public class AllocationReport extends Report {
 	    	return numValues;
 	    }
 	}
-	
+
+	public String getTagValue(Key key, String tagKey) {
+		return key.getTags().get(outTagKeys.indexOf(tagKey));
+	}
+
+	public TagGroup getOutputTagGroup(Key outputKey, TagGroup tg) {
+		UserTag[] userTags = tg.resourceGroup.getUserTags().clone();
+		List<String> outputs = outputKey.getTags();
+		
+		for (int i = 0; i < outputs.size(); i++) {
+			String tag = outputs.get(i);
+			if (tag.isEmpty()) {
+				// Apply any mapping rules
+				Tagger t = taggers.get(outTagKeys.get(i));
+				if (t == null)
+					continue;
+				
+				tag = t.get(outputKey);
+			}
+			userTags[outTagIndeces.get(i)] = UserTag.get(tag);
+		}
+		for (int i: otherTaggers.keySet()) {
+			String tag = otherTaggers.get(i).get(outputKey);
+			if (tag.isEmpty())
+				continue;
+			userTags[i] = UserTag.get(tag);
+		}
+		try {
+			return tg.withResourceGroup(ResourceGroup.getResourceGroup(userTags));
+		} catch (ResourceException e) {
+			// should never throw because no user tags are null
+			logger.error("error creating resource group from user tags: " + e);
+		}
+		return null;
+	}
+
 	public void archiveReport(DateTime month, String filename, WorkBucketConfig workBucketConfig) throws Exception {
-        File file = new File(workBucketConfig.localDir, filename);
+        writeFile(month, workBucketConfig.localDir, filename, true);
+        
+        // archive to s3
+        logger.info("uploading " + filename + "...");
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, filename);
+        logger.info("uploaded " + filename);
+	}
+	
+	protected void writeFile(DateTime month, String dir, String filename, boolean compress) throws Exception {
+        File file = new File(dir, filename + (compress ? ".gz" : ""));
         
     	OutputStream os = new FileOutputStream(file);
-    	os = new GZIPOutputStream(os);
+    	if (compress)
+    		os = new GZIPOutputStream(os);
 		Writer out = new OutputStreamWriter(os);
         
         try {
@@ -503,11 +495,6 @@ public class AllocationReport extends Report {
         finally {
             out.close();
         }
-
-        // archive to s3
-        logger.info("uploading " + file + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, file.getName());
-        logger.info("uploaded " + file);
 	}
     
 	public boolean loadReport(DateTime month, String localDir) throws Exception {
@@ -629,16 +616,17 @@ public class AllocationReport extends Report {
     	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(headerArray));
     	
     	for (int hour = 0; hour < data.size(); hour++) {
-    		Map<Key, List<Value>> hourAllocation = data.get(hour);
+    		Map<Key, Map<Key, Double>> hourAllocation = data.get(hour);
     		for (Key key: hourAllocation.keySet()) {
-    			for (Value v: hourAllocation.get(key)) {
+    			Map<Key, Double> outMap = hourAllocation.get(key);
+    			for (Key outKey: outMap.keySet()) {
     				List<String> cols = Lists.newArrayList();
     				cols.add(month.plusHours(hour).toString(isoFormatter)); // StartDate
     				cols.add(month.plusHours(hour+1).toString(isoFormatter)); // EndDate
-    				cols.add(Double.toString(v.allocation));
-    				for (String inTag: key.getInputs())
+    				cols.add(Double.toString(outMap.get(outKey)));
+    				for (String inTag: key.getTags())
     					cols.add(inTag);
-    				for (String outTag: v.getOutputs())
+    				for (String outTag: outKey.getTags())
     					cols.add(outTag);
     	    		printer.printRecord(cols);
     			}
