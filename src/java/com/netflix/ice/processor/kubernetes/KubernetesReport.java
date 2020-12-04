@@ -296,7 +296,10 @@ public class KubernetesReport extends Report {
 					reportIndeces.put(col, i);
 				}
 				catch (IllegalArgumentException e) {
-					logger.warn("Undefined column in Kubernetes report: " + header[i]);
+					if (header[i].isEmpty())
+						logger.warn("Empty column (" + i + ") in Kubernetes report");
+					else
+						logger.info("Unreferenced column (" + i + ") in Kubernetes report: " + header[i]);
 				}
 			}
 		}

@@ -52,6 +52,7 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.ReadWriteData;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
+import com.netflix.ice.processor.postproc.AllocationReport.Key;
 import com.netflix.ice.processor.postproc.TagGroupSpec.DataType;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
@@ -72,6 +73,7 @@ public class VariableRuleProcessorTest {
 	static final String ec2Instance = Product.Code.Ec2Instance.serviceCode;
 	static final String ebs = Product.Code.Ebs.serviceCode;
 	static final String cloudWatch = Product.Code.CloudWatch.serviceCode;
+	static final String dataTransfer = Product.Code.DataTransfer.serviceCode;
 
 	@BeforeClass
 	static public void init() {
@@ -816,7 +818,7 @@ public class VariableRuleProcessorTest {
 		
 		String clusterTag = "npd-blue-us-east-1";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", "us-east-1b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
         };
 		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 264; // 2020-10-12T00:00:00Z
@@ -862,4 +864,85 @@ public class VariableRuleProcessorTest {
 		assertEquals("Incorrect total cost when adding unused and allocated values", 40.0, total, 0.001);		
 	}
 
+	@Test
+	public void testProcessKubernetesReportTestStub() throws Exception {
+		File file = new File(resourceDir + "private/", "kubernetes-2020-11.csv.gz");
+		if (!file.exists())
+			return;
+		
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Application","CostCenter", "CreatedBy","Environment","K8sNamespace","K8sType","Market","Platform","Process","Product","Role"}, false);
+		String allocationYaml = "" +
+				"name: k8s\n" + 
+				"start: 2020-10\n" + 
+				"end: 2099-01\n" + 
+				"in:\n" + 
+				"  type: cost\n" + 
+				"  filter:\n" + 
+				"    account: [" + a1 + "]\n" + 
+				"    userTags:\n" +
+				"      Role: [compute]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"    region: eu-west-1\n" +
+				"    accountId: 123456789012\n" +
+				"  kubernetes:\n" +
+				"    clusterNameFormulae: ['\"npd-red-eu-west-1\"']\n" +
+				"    out:\n" +
+				"      Namespace: K8sNamespace\n" +
+				"      Type: K8sType\n" +
+				"    type: Pod\n" +
+				"  in:\n" +
+				"    _product: _Product\n" +
+				"  out:\n" +
+				"    Application: Application\n" +
+				"    CostCenter: CostCenter\n" +
+				"    CreatedBy: CreatedBy\n" +
+				"    Environment: Environment\n" +
+				"    K8sNamespace: K8sNamespace\n" +
+				"    K8sType: K8sType\n" +
+				"    Market: Market\n" +
+				"    Platform: Platform\n" +
+				"    Process: Process\n" +
+				"    Product: Product\n" +
+				"";
+		
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", "eu-west-1a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", "eu-west-1a", ebs, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", "eu-west-1a", dataTransfer, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
+        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", "eu-west-1a", cloudWatch, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		for (int i = 0; i < 720; i++)
+			loadData(dataSpecs, data, i);
+										
+        RuleConfig rc = getConfig(allocationYaml);
+		Rule rule = new Rule(rc, as, ps, rs.getCustomTags());
+		DateTime start = new DateTime("2020-11", DateTimeZone.UTC);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), start, file, rs);
+		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
+		Set<String> unprocessedAtgs = Sets.newHashSet();
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
+		AllocationReport ar = vrp.generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
+		ar.writeFile(start, file.getParent(), "ar-" + file.getName(), false);
+		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
+		vrp.process(data);
+
+		List<Map<Key, Map<Key, Double>>> arData = ar.getData();
+		
+		for (int hour = 0; hour < arData.size(); hour++) {
+			Map<Key, Map<Key, Double>> allocations = arData.get(hour);
+			for (Key key: allocations.keySet()) {
+				Double total = 0.0;
+				Map<Key, Double> outMap = allocations.get(key);
+				for (Key outKey: outMap.keySet()) {
+					total += outMap.get(outKey);
+				}
+				if (total > 1.000001) {
+					logger.info("Over allocation for " + key + " at hour " + hour + ": " + total);
+				}
+			}
+		}		
+	}
 }

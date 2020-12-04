@@ -11,7 +11,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -151,6 +150,10 @@ public class AllocationReport extends Report {
 				}
 			}
 		}
+	}
+	
+	protected List<Map<Key, Map<Key, Double>>> getData() {
+		return data;
 	}
 	
 	public List<String> getInTagKeys() {
@@ -347,8 +350,8 @@ public class AllocationReport extends Report {
 	/**
 	 * Return the set of allocation keys that exceed 100%
 	 */
-	public Collection<Key> overAllocatedKeys() {
-		Set<Key> keys = Sets.newHashSet();
+	public Map<Key, Double> overAllocatedKeys() {
+		Map<Key, Double> keys = Maps.newHashMap();
 		for (int hour = 0; hour < data.size(); hour++) {
 			Map<Key, Map<Key, Double>> allocations = data.get(hour);
 			for (Key key: allocations.keySet()) {
@@ -357,8 +360,11 @@ public class AllocationReport extends Report {
 				for (Key outKey: outMap.keySet()) {
 					total += outMap.get(outKey);
 				}
-				if (total > 1.000001)
-					keys.add(key);
+				if (total > 1.000001) {
+					Double existing = keys.get(key);
+					if (existing == null || existing < total)
+						keys.put(key, total);
+				}
 			}
 		}
 		return keys;

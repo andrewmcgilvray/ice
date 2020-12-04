@@ -1,6 +1,5 @@
 package com.netflix.ice.processor.postproc;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -107,7 +106,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		
 		String info = "";
 		if (allocationReport != null) {
-			Collection<AllocationReport.Key> overAllocatedKeys = allocationReport.overAllocatedKeys();
+			Map<AllocationReport.Key, Double> overAllocatedKeys = allocationReport.overAllocatedKeys();
 			if (!overAllocatedKeys.isEmpty()) {
 				info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
 				logger.error(info);
@@ -280,7 +279,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 
 				ar = generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
 				
-				String reportName = rc.getName() + "-" + AwsUtils.monthDateFormat.print(data.getStart()) + ".csv.gz";
+				String reportName = rc.getName() + "-" + AwsUtils.monthDateFormat.print(data.getStart()) + ".csv";
 				ar.archiveReport(data.getStart(), reportName, workBucketConfig);
 				
 				if (!unprocessedClusters.isEmpty()) {

@@ -119,7 +119,7 @@ public class LastProcessedPoller extends Poller {
     public String getLatestMonth() {
     	String ret = null;
     	for (ProcessorStatus ps: status) {
-    		if (ret == null || ret.compareTo(ps.month) > 0)
+    		if (ret == null || ret.compareTo(ps.month) < 0)
     			ret = ps.month;
     	}
     	return ret;
