@@ -51,9 +51,10 @@
 	  </g:each>
 	</tbody>
   </table>
-  <h1>Post-Processor Statistics</h1>
-  <g:set var="postProcessorStats" value="${ReaderConfig.getInstance().managers.getPostProcessorStats()}" scope="request"/>
+  <h1>Post-Processor Statistics ${params.month == null ? ReaderConfig.getInstance().managers.getLatestProcessedMonth() : params.month}</h1>
+  <g:set var="postProcessorStats" value="${ReaderConfig.getInstance().managers.getPostProcessorStats(params.month)}" scope="request"/>
   <div class="list">
+    <g:if test="${postProcessorStats != null}">
 	  <table style="width: 100%;">
 	    <thead>
 	      <tr>
@@ -74,6 +75,7 @@
 	      </g:each>
 	    </tbody>
 	  </table>
+	</g:if>
   </div>
 
 </div>

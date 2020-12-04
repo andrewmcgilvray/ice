@@ -742,5 +742,9 @@ public class BasicManagers extends Poller implements Managers {
     		month = lastProcessedPoller.getLatestMonth();
     	return getCsvData(month, "postProcessorStats_");
     }
+    
+    public String getLatestProcessedMonth() {
+    	return lastProcessedPoller.getLatestMonth();
+    }
 
 }
