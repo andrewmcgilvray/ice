@@ -32,7 +32,7 @@ class JSONConverter {
 		
 		JSON.registerObjectMarshaller(Account) { Account it ->
 			return [name: it.getIceName(), awsName: it.getAwsName(), id: it.getId(), email: it.getEmail(), parents: it.getParents(), status: it.getStatus(),
-				joinedMethod: it.getJoinedMethod(), joinedDate: it.getJoinedDate(), tags: it.getTags()]
+				joinedMethod: it.getJoinedMethod(), joinedDate: it.getJoinedDate(), unlinkedDate: it.getUnlinkedDate(), tags: it.getTags()]
 		}
 		
 		JSON.registerObjectMarshaller(Product) { Product it ->

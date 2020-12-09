@@ -249,7 +249,7 @@ public class ProcessorConfig extends Config {
      */
     public double getDiscount(DateTime dt) {
     	SortedMap<DateTime, Double> subMap = edpDiscounts.headMap(dt.plusSeconds(1));
-    	return subMap.size() == 0 ? 0.0 : subMap.get(subMap.lastKey());
+    	return subMap.isEmpty() ? 0.0 : subMap.get(subMap.lastKey());
     }
 
     public double getDiscount(long startMillis) {
@@ -534,7 +534,7 @@ public class ProcessorConfig extends Config {
     			prefix += "/";
     	logger.info("Look for data config: " + bb.getName() + ", " + bb.getRegion() + ", " + prefix + basename + ", " + bb.getAccountId());
     	List<S3ObjectSummary> configFiles = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), prefix + basename + ".", bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
-    	if (configFiles.size() == 0) {
+    	if (configFiles.isEmpty()) {
     		return null;
     	}
     	

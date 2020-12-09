@@ -109,11 +109,11 @@ public class VariableRuleProcessor extends RuleProcessor {
 			Map<AllocationReport.Key, Double> overAllocatedKeys = allocationReport.overAllocatedKeys();
 			if (!overAllocatedKeys.isEmpty()) {
 				info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
-				logger.error(info);
+				logger.warn(info);
 			}
 		}
 		sw.stop();
-		info = "Elapsed time: " + sw.toString() + (info.isEmpty() ? ", " + info : "");
+		info = "Elapsed time: " + sw.toString() + (!info.isEmpty() ? ", " + info : "");
 		
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inDataGroups.size() + ", --- allocated size = " + allocatedTagGroups.size());
 		inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inDataGroups.size(), allocatedTagGroups.size(), info));
