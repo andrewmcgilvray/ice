@@ -117,7 +117,7 @@ public class PostProcessorTest {
         List<Map<TagGroup, Double>> daily = Lists.newArrayList();
         List<Map<TagGroup, Double>> monthly = Lists.newArrayList();
         
-        PostProcessor pp = new PostProcessor(rules, as, ps, rs, null, 0);
+        PostProcessor pp = new PostProcessor(rules, "", as, ps, rs, null, 0);
         pp.aggregateSummaryData(rwData, daily, monthly);
         
         assertEquals("wrong number of monthly entries", 1, monthly.size());

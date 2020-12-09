@@ -29,6 +29,7 @@ import com.netflix.ice.tag.UserTag;
 public class ReportWriter {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
+    private String reportSubPrefix;
 	private String filename;
 	private ReportConfig config;
 	private String localDir;
@@ -40,11 +41,12 @@ public class ReportWriter {
 	private ReadWriteData data;
 	private RuleConfig.Aggregation aggregation;
 	
-	public ReportWriter(String filename, ReportConfig config, String localDir,
+	public ReportWriter(String reportSubPrefix, String filename, ReportConfig config, String localDir,
 			DateTime month, RuleConfig.DataType type,
 			List<Rule.TagKey> tagKeys, List<String> userTagKeys,
 			ReadWriteData data, RuleConfig.Aggregation aggregation) throws Exception {
 		
+		this.reportSubPrefix = reportSubPrefix;
 		this.filename = filename;
 		this.config = config;
 		this.localDir = localDir;
@@ -88,10 +90,10 @@ public class ReportWriter {
     	os.close();
     	
     	S3BucketConfig s3 = config.getS3Bucket();
-    	String prefix = s3.getPrefix() == null ? "" : s3.getPrefix();
-        logger.info(filename + " uploading to s3...");
+    	String prefix = (s3.getPrefix() == null ? "" : s3.getPrefix()) + reportSubPrefix;
+        logger.info(prefix + filename + " uploading to s3...");
         AwsUtils.upload(s3.getName(), s3.getRegion(), prefix, file, s3.getAccountId(), s3.getAccessRole(), s3.getExternalId());
-        logger.info(filename + " uploading done.");    	
+        logger.info(prefix + filename + " uploading done.");    	
 
     }
 

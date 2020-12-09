@@ -245,7 +245,7 @@ public class BillingFileProcessor extends Poller {
                 
         // Run the post processor
         try {
-            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.accountService, config.productService, config.resourceService, config.workBucketConfig, config.numthreads);
+            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.reportSubPrefix, config.accountService, config.productService, config.resourceService, config.workBucketConfig, config.numthreads);
             pp.process(costAndUsageData);
         }
         catch (Exception e) {

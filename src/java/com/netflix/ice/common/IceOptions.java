@@ -225,4 +225,11 @@ public class IceOptions {
      * dashboard notice
      */
     public static final String DASHBOARD_NOTICE = "ice.notice";
+    
+    /**
+     * post processor report sub-prefix - all report S3 keys will have this value inserted
+     * between the bucket prefix and filename if a value is specified. 
+     * Can be used to keep separate processor instances from writing over each other.
+     */
+    public static final String REPORT_SUB_PREFIX = "ice.reportSubPrefix";
 }

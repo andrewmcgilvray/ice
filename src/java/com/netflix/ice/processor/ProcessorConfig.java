@@ -94,6 +94,7 @@ public class ProcessorConfig extends Config {
     
     // Post=processor configuration rules
     public List<RuleConfig> postProcessorRules;
+    public String reportSubPrefix;
     
     private static final String tagsBasename = "ice_tags";
     private static final String accountsBasename = "ice_accounts";
@@ -188,6 +189,7 @@ public class ProcessorConfig extends Config {
         		new DateTime(CostAndUsageReportLineItemProcessor.jan1_2018).isBefore(costAndUsageStartDate));
         
         reservationCapacityPoller = needPoller ? new ReservationCapacityPoller(this) : null;
+        reportSubPrefix = properties.getProperty(IceOptions.REPORT_SUB_PREFIX);
     }
     
     private void initBillingBuckets(Properties properties) {

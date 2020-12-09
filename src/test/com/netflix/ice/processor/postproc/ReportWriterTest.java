@@ -136,7 +136,7 @@ public class ReportWriterTest {
 		
         // Test monthly aggregation
 		
-		ReportWriter writer = new ReportWriter("report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.monthly);		
+		ReportWriter writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.monthly);		
 		ByteArrayOutputStream os = new ByteArrayOutputStream();
 		Writer out = new OutputStreamWriter(os);
 		writer.writeCsv(out);		
@@ -157,7 +157,7 @@ public class ReportWriterTest {
 			"2020-08-03T00:00:00Z,30.0,111111111111,111111111111,Recurring,extra1B,clusterA,thirty,extra2A",
 			"2020-08-04T00:00:00Z,40.0,111111111111,111111111111,Recurring,extra1B,clusterA,forty,extra2B",
 		};
-		writer = new ReportWriter("report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.daily);		
+		writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.daily);		
 		os = new ByteArrayOutputStream();
 		out = new OutputStreamWriter(os);
 		writer.writeCsv(out);		
@@ -177,7 +177,7 @@ public class ReportWriterTest {
 			"2020-08-01T02:00:00Z,30.0,111111111111,111111111111,Recurring,extra1B,clusterA,thirty,extra2A",
 			"2020-08-01T03:00:00Z,40.0,111111111111,111111111111,Recurring,extra1B,clusterA,forty,extra2B",
 		};
-		writer = new ReportWriter("report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.hourly);		
+		writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.hourly);		
 		os = new ByteArrayOutputStream();
 		out = new OutputStreamWriter(os);
 		writer.writeCsv(out);		

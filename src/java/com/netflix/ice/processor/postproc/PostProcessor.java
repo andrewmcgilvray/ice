@@ -48,6 +48,7 @@ public class PostProcessor {
     protected boolean debug = false;
 
 	private List<RuleConfig> rules;
+	private String reportSubPrefix;
 	private AccountService accountService;
 	private ProductService productService;
 	private ResourceService resourceService;
@@ -55,8 +56,9 @@ public class PostProcessor {
 	private int numThreads;
 	private ExecutorService pool;
 		
-	public PostProcessor(List<RuleConfig> rules, AccountService accountService, ProductService productService, ResourceService resourceService, WorkBucketConfig workBucketConfig, int numThreads) {
+	public PostProcessor(List<RuleConfig> rules, String reportSubPrefix, AccountService accountService, ProductService productService, ResourceService resourceService, WorkBucketConfig workBucketConfig, int numThreads) {
 		this.rules = rules;
+		this.reportSubPrefix = reportSubPrefix;
 		this.accountService = accountService;
 		this.productService = productService;
 		this.resourceService = resourceService;
@@ -161,7 +163,7 @@ public class PostProcessor {
 		
 		if (aggregate.contains(RuleConfig.Aggregation.hourly)) {
 			String filename = reportName(cauData.getStart(), rule.config.getName(), RuleConfig.Aggregation.hourly);
-			ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, cauData.getStart(), 
+			ReportWriter writer = new ReportWriter(reportSubPrefix, filename, rule.config.getReport(), workBucketConfig.localDir, cauData.getStart(), 
 										rule.config.getIn().getType(), in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data, RuleConfig.Aggregation.hourly);		
 			writer.archive();
 		}
@@ -191,7 +193,7 @@ public class PostProcessor {
         ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
         rwData.enableTagGroupCache(true);
         rwData.setData(data, 0);
-		ReportWriter writer = new ReportWriter(filename, rule.config.getReport(), workBucketConfig.localDir, 
+		ReportWriter writer = new ReportWriter(reportSubPrefix, filename, rule.config.getReport(), workBucketConfig.localDir, 
 									month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData, aggregation);		
 		writer.archive();		
 	}

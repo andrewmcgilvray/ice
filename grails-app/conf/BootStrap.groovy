@@ -155,6 +155,7 @@ class BootStrap {
 				properties.setProperty(IceOptions.COST_AND_USAGE_START_DATE, prop.getProperty(IceOptions.COST_AND_USAGE_START_DATE, ""));
 				properties.setProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, prop.getProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, ""));
 				properties.setProperty(IceOptions.EDP_DISCOUNTS, prop.getProperty(IceOptions.EDP_DISCOUNTS, ""));
+				properties.setProperty(IceOptions.REPORT_SUB_PREFIX, prop.getProperty(IceOptions.REPORT_SUB_PREFIX, ""));
 				
 				// Grab all the account properties
 				for (String name: prop.stringPropertyNames()) {
