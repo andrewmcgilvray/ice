@@ -24,24 +24,40 @@ import java.util.Map;
  * Post Processor Rule Configuration
  * 
  * The post processor provides a way to generate arbitrary cost and usage records based on existing cost and usage data processed from the reports.
- * Each rule can be given a name which is used only by the processor for logging purposes. Start and end dates inform the processor when in time
+ * Each rule can be given a name which is used only by the processor for logging purposes and report naming. Start and end dates inform the processor when in time
  * the rule is active. The rule will not be applied to data outside of the active window.
  * 
- * Inputs to the rule are specified using Operands. The 'in' operand drives the process while additional operands can be used to get values for
+ * The 'reports' property specifies that the destination for the cost and usage records will be one to three CSV report files. When the rule specifies a
+ * report, the monthly cost and usage data will remain unchanged. The report property is used to specify one, two, or three aggregation reports. Possible
+ * values are 'hourly', 'daily', and 'monthly'.
+ * reports are written to the work bucket named report-[name]-[aggregation]-yyyy-mm.csv.gz.
+ * 
+ * Inputs to the rule are specified using Queries. The 'in' query drives the process while additional query operands can be used to get values for
  * the result value expressions.
  * 
  * The 'results' list holds the expression and tag group information for the values to be computed and written to the cost and usage data sets.
- *
  */
 public class RuleConfig {
+	public enum DataType {
+		cost,
+		usage;
+	}
+	
 	private String name;
 	private String start;
 	private String end;
-	private Map<String, OperandConfig> operands;
-	private OperandConfig in;
+	private ReportConfig report;
+	private Map<String, QueryConfig> operands;
+	private QueryConfig in;
+	private Map<String, String> patterns;
 	private List<ResultConfig> results;
 	private AllocationConfig allocation;
 	
+	public enum Aggregation {
+		hourly,
+		daily,
+		monthly;
+	}
 	public String getName() {
 		return name;
 	}
@@ -60,22 +76,37 @@ public class RuleConfig {
 	public void setEnd(String end) {
 		this.end = end;
 	}
-	public Map<String, OperandConfig> getOperands() {
+	public boolean isReport() {
+		return report != null;
+	}
+	public ReportConfig getReport() {
+		return report;
+	}
+	public void setReport(ReportConfig report) {
+		this.report = report;
+	}
+	public Map<String, QueryConfig> getOperands() {
 		return operands;
 	}
-	public void setOperands(Map<String, OperandConfig> operands) {
+	public void setOperands(Map<String, QueryConfig> operands) {
 		this.operands = operands;
 	}
-	public OperandConfig getOperand(String name) {
+	public QueryConfig getOperand(String name) {
 		return this.operands.get(name);
 	}
-	public OperandConfig getIn() {
+	public QueryConfig getIn() {
 		return in;
 	}
-	public void setIn(OperandConfig in) {
+	public void setIn(QueryConfig in) {
 		this.in = in;
 	}
 	
+	public Map<String, String> getPatterns() {
+		return patterns;
+	}
+	public void setPatterns(Map<String, String> patterns) {
+		this.patterns = patterns;
+	}
 	public List<ResultConfig> getResults() {
 		return results;
 	}

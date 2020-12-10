@@ -43,8 +43,8 @@ public class UsageType extends Tag {
     private static ConcurrentMap<String, UsageType> usageTypes = Maps.newConcurrentMap();
 
     public static void serialize(DataOutput out, UsageType usageType) throws IOException {
-        out.writeUTF(usageType.name);
-        out.writeUTF(usageType.unit);
+        out.writeUTF(usageType == null ? "" : usageType.name);
+        out.writeUTF(usageType == null ? "" : usageType.unit);
     }
 
     public static void serializeCsvHeader(Writer out) throws IOException {
@@ -52,13 +52,15 @@ public class UsageType extends Tag {
     }
     
     public static void serializeCsv(Writer out, UsageType usageType) throws IOException {
-        out.write(usageType.name + ",");
-        out.write(usageType.unit);
+        out.write((usageType == null ? "" : usageType.name) + ",");
+        out.write(usageType == null ? "" : usageType.unit);
     }
 
     public static UsageType deserialize(DataInput in) throws IOException {
         String name = in.readUTF();
         String unit = in.readUTF();
+        if (name.isEmpty() && unit.isEmpty())
+        	return null;
         
         return getUsageType(name, unit);
     }

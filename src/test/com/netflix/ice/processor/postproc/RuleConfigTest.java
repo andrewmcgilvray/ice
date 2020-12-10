@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.netflix.ice.processor.config.KubernetesConfig;
-import com.netflix.ice.processor.postproc.OperandConfig.OperandType;
 
 public class RuleConfigTest {
 
@@ -41,16 +40,20 @@ public class RuleConfigTest {
 		"operands:\n" + 
 		"  data:\n" + 
 		"    type: usage\n" + 
-		"    usageType: ${group}-DataTransfer-Out-Bytes\n" + 
+		"    filter:\n" + 
+		"      usageType: ['${region}-DataTransfer-Out-Bytes']\n" + 
 		"in:\n" + 
 		"  type: usage\n" + 
-		"  product: Product\n" + 
-		"  usageType: (..)-Requests-[12].*\n" + 
+		"  filter:\n" + 
+		"    product: [Product]\n" + 
+		"    usageType: ['..-Requests-[12].*']\n" + 
+		"patterns:\n" +
+		"  region: '(..)-.*'\n" +
 		"results:\n" + 
-		"  - out:\n" + 
-		"      type: cost\n" + 
+		"  - type: cost\n" + 
+		"    out:\n" + 
 		"      product: ComputedCost\n" + 
-		"      usageType: ${group}-Requests\n" + 
+		"      usageType: ${region}-Requests\n" + 
 		"    value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
 		"";
 		
@@ -60,10 +63,10 @@ public class RuleConfigTest {
 		
 		assertEquals("Wrong rule name", "ComputedCost", rc.getName());
 		assertEquals("Wrong number of operands", 1, rc.getOperands().size());
-		assertEquals("Wrong in operand type", OperandType.usage, rc.getIn().getType());
-		OperandConfig out = rc.getResults().get(0).getOut();
+		assertEquals("Wrong in operand type", RuleConfig.DataType.usage, rc.getIn().getType());
+		TagGroupConfig out = rc.getResults().get(0).getOut();
 		assertEquals("Wrong product in result", "ComputedCost", out.getProduct());
-		assertEquals("Wrong usageType in result", "${group}-Requests", out.getUsageType());
+		assertEquals("Wrong usageType in result", "${region}-Requests", out.getUsageType());
 		assertEquals("Wrong out function", "(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000", rc.getResults().get(0).getValue());
 	}
 
@@ -75,9 +78,10 @@ public class RuleConfigTest {
 		"end: 2022-11\n" + 
 		"in:\n" + 
 		"  type: cost\n" + 
-		"  product: Product\n" + 
-		"  userTags:\n" + 
-		"    Role: compute\n" + 
+		"  filter:\n" + 
+		"    product: [Product]\n" + 
+		"    userTags:\n" + 
+		"      Role: [compute]\n" + 
 	    "allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)\n" +
 	    "  s3Bucket:\n" +
 	    "    name: k8s-report-bucket\n" +
@@ -88,7 +92,6 @@ public class RuleConfigTest {
 	    "    externalId: 234567890123\n" +
 	    "  kubernetes: # use the kubernetes precprocessor i.e. preprocess a Kubernetes report into an Allocation report.\n" +
 	    "    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex(\"k8s-(.*)\")', '\"literal-cluster\"' ]\n" +
-	    "  type: cost\n" +
 	    "  in:\n" +
 		"    Cluster: Cluster\n" +
 		"    Product: Product\n" +
@@ -112,7 +115,7 @@ public class RuleConfigTest {
 
 		assertEquals("Wrong rule name", "kubernetes-breakout", rc.getName());
 		assertNull("Should have no operands", rc.getOperands());
-		assertEquals("Wrong in operand type", OperandType.cost, rc.getIn().getType());
+		assertEquals("Wrong in operand type", RuleConfig.DataType.cost, rc.getIn().getType());
 		assertEquals("Should be no results", null, rc.getResults());
 		AllocationConfig ac = rc.getAllocation();
 		assertNotNull("Should have an allocation object", ac);
@@ -120,5 +123,30 @@ public class RuleConfigTest {
 		KubernetesConfig kc = ac.getKubernetes();
 		assertNotNull("Should have a kubernetes config object", kc);
 		assertEquals("Wrong cluster name for literal expression", "\"literal-cluster\"", kc.getClusterNameFormulae().get(2));
+	}
+	
+	@Test
+	public void testReportRuleRead() throws JsonParseException, JsonMappingException, IOException {
+		String yaml = "" +
+		"name: kubernetes-breakout\n" + 
+		"start: 2019-11\n" + 
+		"end: 2022-11\n" + 
+		"report:\n" + 
+		"  aggregate: [monthly]\n" + 
+		"in:\n" + 
+		"  type: cost\n" + 
+		"  filter:\n" + 
+		"    product: [Product]\n" + 
+		"    userTags:\n" + 
+		"      Role: [compute]\n" + 
+		"";
+		
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+		RuleConfig rc = new RuleConfig();
+		rc = mapper.readValue(yaml, rc.getClass());
+		
+		assertTrue("isReport failing", rc.isReport());
+		assertEquals("wrong number of aggregates", 1, rc.getReport().getAggregate().size());
+		assertEquals("wrong report aggregation", RuleConfig.Aggregation.monthly, rc.getReport().getAggregate().get(0));
 	}
 }

@@ -2675,6 +2675,7 @@ function resourceInfoCtrl($scope, $location, $http) {
 
 function accountsCtrl($scope, $location, $http, $window) {
   $scope.accounts = [];
+  $scope.headerFixedPart = ["ID","ICE Name", "AWS Name", "Organization Path", "Status", "Joined Method", "Joined Date", "Unlinked Date", "Email"];
   $scope.header = [];
   $scope.showSettings = false;
   $scope.showColumn = [];
@@ -2683,7 +2684,7 @@ function accountsCtrl($scope, $location, $http, $window) {
   $scope.rev = false;
   $scope.revs = [];
   $scope.predicateIndex = null;
-  var FIRST_TAG_INDEX = 8;
+  var FIRST_TAG_INDEX = $scope.headerFixedPart.length;
 
   $scope.order = function (index) {
 
@@ -2770,7 +2771,7 @@ function accountsCtrl($scope, $location, $http, $window) {
     })
     sortedTagKeys.sort();
 
-    $scope.header = ["ID","ICE Name", "AWS Name", "Organization Path", "Status", "Joined Method", "Joined Date", "Email"];
+    $scope.header = $scope.headerFixedPart.slice();
     $scope.revs = [];
     $scope.showColumn = [];
     for (var i = 0; i < $scope.header.length; i++) {
@@ -2811,6 +2812,7 @@ function accountsCtrl($scope, $location, $http, $window) {
       row.push({display: account.status === null ? "" : account.status});
       row.push({display: account.joinedMethod == null ? "" : account.joinedMethod});
       row.push({display: account.joinedDate == null ? "" : account.joinedDate});
+      row.push({display: account.unlinkedDate == null ? "" : account.unlinkedDate});
       row.push({display: account.email});
       for (var j = 0; j < sortedTagKeys.length; j++) {
         var tag = account.tags[sortedTagKeys[j]];

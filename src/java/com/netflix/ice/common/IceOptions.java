@@ -82,9 +82,12 @@ public class IceOptions {
     public static final String BILLING_ACCESS_EXTERNALID = "ice.billing_accessExternalId";
     
     /**
-     * Billing data config file basename. This optional parameter allows you to override the default basename of "ice_config". Both ".json" and ".yml" extensions are supported.
+     * Billing data config file basenames. These optional parameter allows you to override the default basenames for the billing bucket configurations files.
+     * Both ".json" and ".yml" extensions are supported.
      */
-    public static final String BILLING_ICE_CONFIG_BASENAME = "ice.billingConfigBasename";
+    public static final String BILLING_ICE_CONFIG_ACCOUNTS_BASENAME = "ice.billingConfigAccountsBasename";
+    public static final String BILLING_ICE_CONFIG_TAGS_BASENAME = "ice.billingConfigTagsBasename";
+    public static final String BILLING_ICE_CONFIG_POSTPROC_BASENAME = "ice.billingConfigPostProcBasename";
     
     /**
      * Root name to be used in parent paths for an account. The path expresses where the account is positioned in the organization hierarchy.
@@ -222,4 +225,11 @@ public class IceOptions {
      * dashboard notice
      */
     public static final String DASHBOARD_NOTICE = "ice.notice";
+    
+    /**
+     * post processor report sub-prefix - all report S3 keys will have this value inserted
+     * between the bucket prefix and filename if a value is specified. 
+     * Can be used to keep separate processor instances from writing over each other.
+     */
+    public static final String REPORT_SUB_PREFIX = "ice.reportSubPrefix";
 }

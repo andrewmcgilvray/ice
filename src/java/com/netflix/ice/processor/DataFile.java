@@ -41,7 +41,7 @@ public abstract class DataFile {
     
     protected OutputStream os;
 
-    DataFile(String name, WorkBucketConfig config) throws Exception {
+    protected DataFile(String name, WorkBucketConfig config) throws Exception {
     	this.config = config;
         dbName = name;
         os = null;
@@ -70,17 +70,17 @@ public abstract class DataFile {
         logger.info(this.dbName + " uploading done.");    	
     }
     
-    void archive() throws IOException {
+    public void archive() throws IOException {
     	archive(null);
     }
     
-    void archive(TagGroupFilter filter) throws IOException {
+    public void archive(TagGroupFilter filter) throws IOException {
     	open();
     	write(filter);
     	close();
     }
     
-    void delete() {
+    public void delete() {
     	file.delete();
     }
 

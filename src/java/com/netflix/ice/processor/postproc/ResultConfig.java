@@ -18,19 +18,39 @@
 package com.netflix.ice.processor.postproc;
 
 public class ResultConfig {
-	private OperandConfig out;
+	private RuleConfig.DataType type;	
+	private TagGroupConfig out;
 	private String value;
+	private boolean single;
 	
-	public OperandConfig getOut() {
+	public RuleConfig.DataType getType() {
+		return type;
+	}
+
+	public void setType(RuleConfig.DataType type) {
+		this.type = type;
+	}
+
+	public TagGroupConfig getOut() {
 		return out;
 	}
-	public void setOut(OperandConfig out) {
+
+	public void setOut(TagGroupConfig out) {
 		this.out = out;
 	}
+
 	public String getValue() {
 		return value;
 	}
 	public void setValue(String value) {
 		this.value = value;
+	}
+	
+	public boolean isSingle() {
+		return single;
+	}
+	
+	public void setSingle(boolean single) {
+		this.single = single;
 	}
 }

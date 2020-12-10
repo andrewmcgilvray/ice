@@ -51,6 +51,10 @@ public class ReadWriteData extends ReadWriteGenericData<Double> {
 		super(numUserTags);
 	}
 
+    public ReadWriteData(int numUserTags, boolean cacheTagGroups) {
+		super(numUserTags);
+	}
+
 	static public Map<TagGroup, Double> getCreateData(List<Map<TagGroup, Double>> data, int i) {
         if (i >= data.size()) {
             for (int j = data.size(); j <= i; j++) {

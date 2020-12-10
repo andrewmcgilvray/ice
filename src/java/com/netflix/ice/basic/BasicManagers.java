@@ -564,7 +564,7 @@ public class BasicManagers extends Poller implements Managers {
 			tagGroups.addAll(tagGroupManagers.get(p).getTagGroupsWithResourceGroups());
 		}
 		
-		// Extract the uniqe set of resource Groups
+		// Extract the unique set of resource Groups
 		Set<ResourceGroup> resourceGroups = Sets.newHashSet();
 		for (TagGroup tg: tagGroups) {
 			resourceGroups.add(tg.resourceGroup);
@@ -738,7 +738,13 @@ public class BasicManagers extends Poller implements Managers {
     }
     
     public List<List<String>> getPostProcessorStats(String month) {
+    	if (month == null)
+    		month = lastProcessedPoller.getLatestMonth();
     	return getCsvData(month, "postProcessorStats_");
+    }
+    
+    public String getLatestProcessedMonth() {
+    	return lastProcessedPoller.getLatestMonth();
     }
 
 }

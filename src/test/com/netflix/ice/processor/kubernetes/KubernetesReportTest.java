@@ -138,9 +138,10 @@ public class KubernetesReportTest {
 		"end: 2022-11\n" + 
 		"in:\n" + 
 		"  type: cost\n" + 
-		"  product: Product\n" + 
-		"  userTags:\n" + 
-		"    Role: compute\n" + 
+		"  filter:\n" + 
+		"    product: [Product]\n" + 
+		"    userTags:\n" + 
+		"      Role: [compute]\n" + 
 	    "allocation: # Perform allocations provided through an allocation report (only one of allocation or results may be present)\n" +
 	    "  s3Bucket:\n" +
 	    "    name: k8s-report-bucket\n" +
@@ -151,7 +152,6 @@ public class KubernetesReportTest {
 	    "    externalId: 234567890123\n" +
 	    "  kubernetes: # use the kubernetes precprocessor i.e. preprocess a Kubernetes report into an Allocation report.\n" +
 	    "    clusterNameFormulae: [ '\"literal-cluster\"' ]\n" +
-	    "  type: cost\n" +
 	    "  in:\n" +
 		"    Cluster: Cluster\n" +
 		"    _Product: _Product\n" +

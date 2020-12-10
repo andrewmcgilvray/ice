@@ -130,6 +130,7 @@ public class ReadWriteDataTest {
 	
 	private void testSerializeDeserialize(TagGroup tg, Double value) throws IOException, BadZone {
 		ReadWriteData data = new ReadWriteData(tg.resourceGroup == null ? 0 : tg.resourceGroup.getUserTags().length);
+		data.enableTagGroupCache(true);
 		
         List<Map<TagGroup, Double>> list = Lists.newArrayList();
         Map<TagGroup, Double> map = ReadWriteData.getCreateData(list, 0);
@@ -137,6 +138,7 @@ public class ReadWriteDataTest {
 		data.setData(list, 0);
 		
 		ReadWriteData result = serializeDeserialize(as, ps, data);
+		result.enableTagGroupCache(true);
 		
 		assertEquals("Wrong number of tag groups in tagGroups", 1, result.getTagGroups().size());
 		assertEquals("Length of data is wrong", 1, result.getNum());
@@ -147,6 +149,7 @@ public class ReadWriteDataTest {
 	@Test
 	public void testSerializeDeserializeTwice() throws IOException, BadZone {
 		ReadWriteData data = new ReadWriteData();
+		data.enableTagGroupCache(true);
 		
 		TagGroup tg = TagGroup.getTagGroup(as.getAccountByName("Account1"), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.getOperation("StandardStorage"), UsageType.getUsageType("TimedStorage-ByteHrs", "GB"), null);
         List<Map<TagGroup, Double>> list = Lists.newArrayList();
@@ -164,6 +167,7 @@ public class ReadWriteDataTest {
 		data.setData(list, 1);
 		
 		ReadWriteData result = serializeDeserialize(as, ps, data);
+		result.enableTagGroupCache(true);
 		
 		assertEquals("Wrong number of tags in in tagGroups", 1, result.getTagGroups().size());
 		assertEquals("Length of data is wrong", 2, result.getNum());
@@ -182,6 +186,7 @@ public class ReadWriteDataTest {
 		ByteArrayInputStream input = new ByteArrayInputStream(output.toByteArray());
 		DataInput in = new DataInputStream(input);
 		data = new ReadWriteData();
+		data.enableTagGroupCache(true);
 		data.deserialize(as, ps, in);
 		return data;
 	}

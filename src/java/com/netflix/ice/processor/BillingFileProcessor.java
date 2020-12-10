@@ -119,9 +119,6 @@ public class BillingFileProcessor extends Poller {
         	reportsToProcess.putAll(cauProcessor.getReportsToProcess());        
         
         for (DateTime dataTime: reportsToProcess.keySet()) {
-        	StopWatch sw = new StopWatch();
-        	sw.start();
-        	
         	try {
         		wroteConfig = processMonth(dataTime, reportsToProcess.get(dataTime), reportsToProcess.lastKey());
         	}
@@ -130,9 +127,6 @@ public class BillingFileProcessor extends Poller {
         		e.printStackTrace();
         		continue;
         	}
-        	
-        	sw.stop();
-        	logger.info("Process time for month " + dataTime + ": " + sw);
 	    }
 	    if (!wroteConfig) {
 	    	// No reports to process. We still want to update the work bucket config in case
@@ -144,6 +138,9 @@ public class BillingFileProcessor extends Poller {
     }
     
     private boolean processMonth(DateTime month, List<MonthlyReport> reports, DateTime latestMonth) throws Exception {
+    	StopWatch sw = new StopWatch();
+    	sw.start();
+    	
         startMilli = endMilli = month.getMillis();
         init(startMilli);
         
@@ -248,7 +245,7 @@ public class BillingFileProcessor extends Poller {
                 
         // Run the post processor
         try {
-            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.accountService, config.productService, config.resourceService, config.workBucketConfig);
+            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.reportSubPrefix, config.accountService, config.productService, config.resourceService, config.workBucketConfig, config.numthreads);
             pp.process(costAndUsageData);
         }
         catch (Exception e) {
@@ -280,7 +277,11 @@ public class BillingFileProcessor extends Poller {
         	statusReports.add(new ProcessorStatus.Report(accountName, accountId, report.getReportKey(), new DateTime(report.getLastModifiedMillis(), DateTimeZone.UTC).toString()));
         }
         String monthStr = AwsUtils.monthDateFormat.print(month);
-        saveProcessorStatus(monthStr, new ProcessorStatus(monthStr, statusReports, processTime.toString()));
+    	
+    	sw.stop();
+    	logger.info("Process time for month " + month + ": " + sw);
+    	
+        saveProcessorStatus(monthStr, new ProcessorStatus(monthStr, statusReports, processTime.toString(), sw.toString(), costAndUsageData.getArchiveFailures()));
         
         return true;
     }
@@ -319,6 +320,7 @@ public class BillingFileProcessor extends Poller {
     void init(long startMilli) {
     	costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(),
     			config.getTagCoverage(), config.accountService, config.productService);
+    	costAndUsageData.enableTagGroupCache(true);
         instances = new Instances(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
     }
 

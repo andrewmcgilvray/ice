@@ -693,12 +693,12 @@ public class BasicLineItemProcessorTest {
 			
 			// Check usage data
 			logger.info("Test:");
-			int gotLen = costAndUsageData.getUsage(null).getTagGroups().size();
-			for (TagGroup tg: costAndUsageData.getUsage(null).getTagGroups())
+			int gotLen = costAndUsageData.getUsage(null).getData(0).keySet().size();
+			for (TagGroup tg: costAndUsageData.getUsage(null).getData(0).keySet())
 				logger.info(" - usage: " + costAndUsageData.getUsage(null).get(0, tg) + ", " + tg);
 			assertEquals(reportName + " Incorrect number of usage tags", numExpectedUsageTags, gotLen);
 			if (gotLen > 0) {
-				TagGroup got = (TagGroup) costAndUsageData.getUsage(null).getTagGroups().toArray()[0];
+				TagGroup got = (TagGroup) costAndUsageData.getUsage(null).getData(0).keySet().toArray()[0];
 				//logger.info("Got Tag: " + got);
 				String errors = checkTag(got, expectedTag, null);
 				assertTrue(reportName + " Tag is not correct: " + errors, errors.isEmpty());
@@ -706,8 +706,8 @@ public class BasicLineItemProcessorTest {
 				assertEquals(reportName + " Usage is incorrect", usage, usage, 0.001);
 			}
 			// Check cost data
-			gotLen = costAndUsageData.getCost(null).getTagGroups().size();
-			for (TagGroup tg: costAndUsageData.getCost(null).getTagGroups())
+			gotLen = costAndUsageData.getCost(null).getData(0).keySet().size();
+			for (TagGroup tg: costAndUsageData.getCost(null).getData(0).keySet())
 				logger.info(" - cost: " + costAndUsageData.getCost(null).get(0, tg) + ", " + tg);
 			assertEquals(reportName + " Incorrect number of cost tags", numExpectedCostTags, gotLen);
 			if (gotLen > 0) {
@@ -716,7 +716,7 @@ public class BasicLineItemProcessorTest {
 			
 			// Check resource cost data
 			if (product != null && resourceCost != null) {
-				gotLen = costAndUsageData.getCost(product).getTagGroups().size();
+				gotLen = costAndUsageData.getCost(product).getData(0).keySet().size();
 				assertEquals(reportName + " Incorrect number of resource cost tags", numExpectedResourceCostTags, gotLen);
 				if (gotLen > 0) {
 					checkCostAndUsage(costAndUsageData, which, reportName, product, isCostAndUsageReport, expectedResourceGroup);
@@ -737,7 +737,7 @@ public class BasicLineItemProcessorTest {
 		
 		private void checkCostAndUsage(CostAndUsageData costAndUsageData, Which which, String reportName, Product p, boolean isCostAndUsageReport, String[] resourceGroup) {
 			ReadWriteData costData = costAndUsageData.getCost(p);
-			for (TagGroup tg: costData.getTagGroups()) {
+			for (TagGroup tg: costData.getData(0).keySet()) {
 				// check for proper TagGroup type
 				if (tg.operation.isSavingsPlan()) {
 					if (!tg.operation.isUnused() && !tg.operation.isSavings())

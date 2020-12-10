@@ -168,4 +168,5 @@ public interface Managers {
     public Collection<String> getMonths();
     
     public List<List<String>> getPostProcessorStats(String month);
+    public String getLatestProcessedMonth();
 }

@@ -43,6 +43,7 @@ public class AccountConfig {
 	public String email;
 	public String joinedMethod;
 	public String joinedDate;
+	public String unlinkedDate;
 	public String status;
 	public List<String> parents;
 	public Map<String, String> tags;
@@ -71,6 +72,7 @@ public class AccountConfig {
 		this.email = null;
 		this.joinedMethod = null;
 		this.joinedDate = null;
+		this.unlinkedDate = null;
 		this.status = status;
 		this.parents = parents;
 		this.tags = null;
@@ -87,6 +89,7 @@ public class AccountConfig {
 		this.email = account.getEmail();
 		this.joinedMethod = account.getJoinedMethod();
 		this.joinedDate = account.getJoinedTimestamp() == null ? null : new DateTime(account.getJoinedTimestamp().getTime()).toString(dayFormatter);
+		this.unlinkedDate = null;
 		this.status = account.getStatus();
 		this.parents = parents;
 		this.tags = Maps.newHashMap();
@@ -119,6 +122,7 @@ public class AccountConfig {
 		this.status = account.getStatus();
 		this.joinedMethod = account.getJoinedMethod();
 		this.joinedDate = account.getJoinedDate();
+		this.unlinkedDate = account.getUnlinkedDate();
 		this.tags = account.getTags();
 	}
 	
@@ -137,6 +141,8 @@ public class AccountConfig {
 			sb.append(", joinedMethod: " + joinedMethod);
 		if (joinedDate != null)
 			sb.append(", joinedDate: " + joinedDate);
+		if (unlinkedDate != null)
+			sb.append(", unlinkedDate: " + unlinkedDate);
 		if (riProducts != null && !riProducts.isEmpty())
 			sb.append(", riProducts: " + riProducts.toString());
 		if (role != null && !role.isEmpty())
@@ -201,6 +207,14 @@ public class AccountConfig {
 
 	public void setJoinedDate(String joinedDate) {
 		this.joinedDate = joinedDate;
+	}
+
+	public String getUnlinkedDate() {
+		return unlinkedDate;
+	}
+
+	public void setUnlinkedDate(String unlinkedDate) {
+		this.unlinkedDate = unlinkedDate;
 	}
 
 	public String getStatus() {

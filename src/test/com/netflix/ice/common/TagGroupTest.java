@@ -19,8 +19,15 @@ package com.netflix.ice.common;
 
 import static org.junit.Assert.*;
 
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringWriter;
+import java.util.Collection;
+import java.util.TreeMap;
+import java.util.zip.GZIPInputStream;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -34,6 +41,7 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
+import com.netflix.ice.tag.Zone.BadZone;
 import com.netflix.ice.tag.UsageType;
 
 public class TagGroupTest {
@@ -97,4 +105,29 @@ public class TagGroupTest {
 		got = out.toString();
 		assertEquals("resource tag group csv incorrect", expect, got);
 	}
+	
+	@Test
+	public void testDeserializeFile() throws IOException, BadZone {
+		AccountService as = new BasicAccountService();
+		ProductService ps = new BasicProductService();
+		String dataFile = "src/test/resources/private/tagdb_test.gz";
+		int numUserTags = 23;
+		File file = new File(dataFile);
+		
+		if (!file.exists())
+			return;
+		
+        logger.info("trying to read from " + file);
+        InputStream is = null;
+        DataInputStream in = null;
+        is = new FileInputStream(file);
+        is = new GZIPInputStream(is);
+        in = new DataInputStream(is);
+        
+        //TreeMap<Long, Collection<TagGroup>> tagGroupsWithResourceGroups = TagGroup.Serializer.deserializeTagGroups(as, ps, numUserTags, in);
+        TreeMap<Long, Collection<TagGroup>> tagGroupsWithResourceGroups = TagGroup.Serializer.deserializeTagGroups(as, ps, numUserTags, in);
+        logger.info("Found " + tagGroupsWithResourceGroups.size() + " months of tag groups");
+        logger.info("done reading " + file);
+	}
+	
 }

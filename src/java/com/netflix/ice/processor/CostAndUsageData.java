@@ -83,6 +83,9 @@ public class CostAndUsageData {
     private Map<SavingsPlanArn, SavingsPlan> savingsPlans;
     private Set<Product> savingsPlanProducts;
     private List<PostProcessorStats> postProcessorStats;
+    private List<String> userTagKeysAsStrings;
+    private List<Status> archiveFailures;
+    private boolean cacheTagGroups;
     
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
@@ -104,6 +107,30 @@ public class CostAndUsageData {
         this.savingsPlans = Maps.newHashMap();
         this.savingsPlanProducts = Sets.newHashSet();
         this.postProcessorStats = Lists.newArrayList();
+        this.archiveFailures = Lists.newArrayList();
+        this.cacheTagGroups = false;
+	}
+	
+	/*
+	 * Constructor that creates a new empty data set based on another data set. Used by the post processor for generating reports
+	 */
+	public CostAndUsageData(CostAndUsageData other, List<UserTagKey> userTagKeys) {
+		this.startMilli = other.startMilli;
+        this.userTagKeys = userTagKeys;
+		this.usageDataByProduct = Maps.newHashMap();
+		this.costDataByProduct = Maps.newHashMap();
+        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.workBucketConfig = other.workBucketConfig;
+        this.accountService = other.accountService;
+        this.productService = other.productService;
+        this.tagCoverage = null;
+        this.collectTagCoverageWithUserTags = false;
+        this.reservations = null;
+        this.savingsPlans = null;
+        this.savingsPlanProducts = null;
+        this.postProcessorStats = null;
+        this.cacheTagGroups = false;
 	}
 	
 	public DateTime getStart() {
@@ -118,12 +145,42 @@ public class CostAndUsageData {
 		return userTagKeys == null ? 0 : userTagKeys.size();
 	}
 	
+	public boolean isCacheTagGroups() {
+		return cacheTagGroups;
+	}
+	
+	public void enableTagGroupCache(boolean cacheTagGroups) {
+		this.cacheTagGroups = cacheTagGroups;
+		for (ReadWriteData rwd: usageDataByProduct.values())
+			rwd.enableTagGroupCache(cacheTagGroups);
+		for (ReadWriteData rwd: costDataByProduct.values())
+			rwd.enableTagGroupCache(cacheTagGroups);
+		if (tagCoverage != null) {
+			for (ReadWriteTagCoverageData tcd: tagCoverage.values())
+				tcd.enableTagGroupCache(true);
+		}
+	}
+	
+	public List<String> getUserTagKeysAsStrings() {
+        if (userTagKeys == null)
+        	return null;
+        
+        if (userTagKeysAsStrings == null) {
+        	userTagKeysAsStrings = Lists.newArrayList();
+	        for (UserTagKey utk: userTagKeys)
+	        	userTagKeysAsStrings.add(utk.name);
+        }
+        
+		return userTagKeysAsStrings;
+	}
+	
 	public ReadWriteData getUsage(Product product) {
 		return usageDataByProduct.get(product);
 	}
 	
 	public void putUsage(Product product, ReadWriteData data) {
 		usageDataByProduct.put(product,  data);
+		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
 	public ReadWriteData getCost(Product product) {
@@ -132,6 +189,7 @@ public class CostAndUsageData {
 	
 	public void putCost(Product product, ReadWriteData data) {
 		costDataByProduct.put(product,  data);
+		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
 	public ReadWriteTagCoverageData getTagCoverage(Product product) {
@@ -140,6 +198,7 @@ public class CostAndUsageData {
 	
 	public void putTagCoverage(Product product, ReadWriteTagCoverageData data) {
 		tagCoverage.put(product,  data);
+		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
 	
@@ -150,6 +209,7 @@ public class CostAndUsageData {
 			ReadWriteData usage = getUsage(entry.getKey());
 			if (usage == null) {
 				usageDataByProduct.put(entry.getKey(), entry.getValue());
+				entry.getValue().enableTagGroupCache(cacheTagGroups);
 			}
 			else {
 				usage.putAll(entry.getValue());
@@ -159,6 +219,7 @@ public class CostAndUsageData {
 			ReadWriteData cost = getCost(entry.getKey());
 			if (cost == null) {
 				costDataByProduct.put(entry.getKey(), entry.getValue());
+				entry.getValue().enableTagGroupCache(cacheTagGroups);
 			}
 			else {
 				cost.putAll(entry.getValue());
@@ -169,6 +230,7 @@ public class CostAndUsageData {
 				ReadWriteTagCoverageData tc = getTagCoverage(entry.getKey());
 				if (tc == null) {
 					tagCoverage.put(entry.getKey(), entry.getValue());
+					entry.getValue().enableTagGroupCache(cacheTagGroups);
 				}
 				else {
 					tc.putAll(entry.getValue());
@@ -254,7 +316,7 @@ public class CostAndUsageData {
     	
     	ReadWriteTagCoverageData data = tagCoverage.get(product);
     	if (data == null) {
-    		data = new ReadWriteTagCoverageData(userTagKeys == null ? 0 : getNumUserTags());
+    		data = new ReadWriteTagCoverageData(getNumUserTags());
     		tagCoverage.put(product, data);
     	}
     	
@@ -265,7 +327,7 @@ public class CostAndUsageData {
         return product == null ? "all" : product.getServiceCode();
     }
     
-    class Status {
+    public class Status {
     	public boolean failed;
     	public String filename;
     	public Exception exception;
@@ -291,6 +353,7 @@ public class CostAndUsageData {
     public void archive(DateTime startDate, List<JsonFileType> jsonFiles, InstanceMetrics instanceMetrics, 
     		PriceListService priceListService, int numThreads, boolean archiveHourlyData) throws Exception {
     	
+    	archiveFailures = Lists.newArrayList();
     	verifyTagGroups();
     	
     	ExecutorService pool = Executors.newFixedThreadPool(numThreads);
@@ -318,11 +381,16 @@ public class CostAndUsageData {
 		for (Future<Status> f: futures) {
 			Status s = f.get();
 			if (s.failed) {
+				archiveFailures.add(s);
 				logger.error("Error archiving file: " + s);
 			}
 		}
 		
 		shutdownAndAwaitTermination(pool);
+    }
+    
+    public List<Status> getArchiveFailures() {
+    	return archiveFailures;
     }
     
     private void shutdownAndAwaitTermination(ExecutorService pool) {
@@ -593,6 +661,7 @@ public class CostAndUsageData {
             dailyData = new ReadWriteData(numUserTags);
             writer = getDataWriter(prefix + "daily_" + prodName + "_" + year, dailyData, true);
         }
+        dailyData.enableTagGroupCache(true);
         dailyData.setData(daily, monthDateTime.getDayOfYear() -1);
         writer.archive();
 
@@ -600,6 +669,7 @@ public class CostAndUsageData {
         ReadWriteData monthlyData = new ReadWriteData(numUserTags);
         int numMonths = Months.monthsBetween(startDate, monthDateTime).getMonths();            
         writer = getDataWriter(prefix + "monthly_" + prodName, monthlyData, true);
+        monthlyData.enableTagGroupCache(true);
         monthlyData.setData(monthly, numMonths);            
         writer.archive();
 
@@ -612,6 +682,7 @@ public class CostAndUsageData {
             index = Weeks.weeksBetween(startDate, weekStart).getWeeks() + (startDate.dayOfWeek() == weekStart.dayOfWeek() ? 0 : 1);
         ReadWriteData weeklyData = new ReadWriteData(numUserTags);
         writer = getDataWriter(prefix + "weekly_" + prodName, weeklyData, true);
+        weeklyData.enableTagGroupCache(true);
         weeklyData.setData(weekly, index);
         writer.archive();
     }
@@ -668,7 +739,7 @@ public class CostAndUsageData {
     		@Override
     		public Status call() {
     			try {
-	    	        int numUserTags = userTagKeys == null ? 0 : getNumUserTags();
+	    	        int numUserTags = getNumUserTags();
 	                Collection<TagGroup> tagGroups = data.getTagGroups();
 	
 	                // init daily, weekly and monthly
