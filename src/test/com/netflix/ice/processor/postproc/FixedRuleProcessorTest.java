@@ -343,6 +343,7 @@ public class FixedRuleProcessorTest {
 			"operands:\n" + 
 			"  total:\n" + 
 			"    type: cost\n" +
+			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      product: ['(?!GlobalFee$)^.*$']\n" + 
 	        "      operation: ['(?!.*Savings - |.*Lent )^.*$'] # ignore lent and savings\n" +
@@ -350,6 +351,7 @@ public class FixedRuleProcessorTest {
 			"    groupByTags: []\n" +
 			"  lump-cost:\n" +
 			"    type: cost\n" + 
+			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
 			"      region: [global]\n" +
@@ -357,6 +359,8 @@ public class FixedRuleProcessorTest {
 			"      operation: [None]\n" +
 			"      usageType: [Dollar]\n" + 
 			"      singleTagGroup: true\n" + 
+			"    groupBy: []\n" +
+			"    groupByTags: []\n" +
 			"in:\n" + 
 			"  type: cost\n" + 
 			"  filter:\n" + 
@@ -378,8 +382,9 @@ public class FixedRuleProcessorTest {
 			"      product: GlobalFee\n" + 
 			"      operation: None\n" +
 			"      usageType: Dollar\n" + 
+			"      userTags: {}\n" + 
 			"    single: true\n" + 
-			"    value: 0.0\n";
+			"    value: 0\n";
 
 	@Test
 	public void testGlobalSplit() throws Exception {
@@ -414,7 +419,7 @@ public class FixedRuleProcessorTest {
 		// Check that the operands are flagged as having aggregations
 		assertTrue("in operand incorrectly indicates it has no aggregation", rule.getIn().hasAggregation());
 		assertTrue("total operand incorrectly indicates it has no aggregation", rule.getOperand("total").hasAggregation());
-		assertFalse("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
+		assertTrue("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
 
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
 		frp.processReadWriteData(data, true, operandSingleValueCache);
@@ -497,7 +502,7 @@ public class FixedRuleProcessorTest {
 		// Check that the operands are flagged as having aggregations
 		assertTrue("in operand incorrectly indicates it has no aggregation", rule.getIn().hasAggregation());
 		assertTrue("total operand incorrectly indicates it has no aggregation", rule.getOperand("total").hasAggregation());
-		assertFalse("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
+		assertTrue("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
 
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
 		frp.processReadWriteData(data, false, operandSingleValueCache);

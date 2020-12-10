@@ -22,7 +22,6 @@ import com.google.common.collect.Lists;
  * 
  * Allowed groupByUserTag values are the names specified for ice.customTags in the ice.properties configuration file.
  * 
- * The single attribute indicates that a single lookup can be performed in the TagGroup map to fetch the values.
  * The monthly attribute can be set to produce a single value for the month rather than per hour.
  */
 public class QueryConfig {

@@ -48,9 +48,6 @@ public class FixedRuleProcessor extends RuleProcessor {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
-		// Get data maps for operands
-		int opDataSize = 0;
-						
 		// Get data maps for results. Handle case where we're creating a new product
 		List<ReadWriteData> resultData = Lists.newArrayList();
 		for (Rule.Result result: rule.getResults()) {
@@ -66,7 +63,7 @@ public class FixedRuleProcessor extends RuleProcessor {
 			resultData.add(rwd);
 		}
 		
-		logger.info("  -- opData size: " + opDataSize + ", resultData size: " + resultData.size());
+		logger.info("  -- resultData size: " + resultData.size());
 			
 		int maxNum = data.getMaxNum();
 		
