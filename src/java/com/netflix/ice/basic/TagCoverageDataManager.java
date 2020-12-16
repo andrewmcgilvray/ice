@@ -44,7 +44,7 @@ import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
-public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TagCoverageMetrics> implements DataManager {
+public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TagCoverageMetrics[]> implements DataManager {
     //private final static Logger staticLogger = LoggerFactory.getLogger(TagCoverageDataManager.class);
 	
 	protected List<UserTagKey> userTagKeys;
@@ -89,8 +89,7 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 		return new TagCoverageMetrics[size];
 	}
 
-	@Override
-	protected TagCoverageMetrics aggregate(List<Integer> columns,
+	private TagCoverageMetrics aggregate(List<Integer> columns,
 			List<TagGroup> tagGroups, UsageUnit usageUnit,
 			TagCoverageMetrics[] data) {
 		
@@ -105,6 +104,18 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
         return result;
 	}
 
+	@Override
+    protected int aggregate(ReadOnlyTagCoverageData data, int from, int to, TagCoverageMetrics[] result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit) {		
+        int fromIndex = from;
+        int resultIndex = to;
+        while (resultIndex < result.length && fromIndex < data.getNum()) {
+        	TagCoverageMetrics[] fromData = data.getData(fromIndex++);
+            result[resultIndex] = aggregate(columns, tagGroups, usageUnit, fromData);
+            resultIndex++;
+        }
+        return fromIndex - from;
+	}
+	
 	@Override
 	protected boolean hasData(TagCoverageMetrics[] data) {
     	// Check for values in the data array and ignore if all zeros

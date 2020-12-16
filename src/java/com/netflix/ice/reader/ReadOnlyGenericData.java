@@ -38,7 +38,7 @@ import com.netflix.ice.tag.Zone.BadZone;
 
 public abstract class ReadOnlyGenericData<D> implements DataVersion {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-    protected D[][] data;
+    protected D[] data;
     protected List<TagGroup> tagGroups;
     private Map<TagType, Map<Tag, Map<TagGroup, Integer>>> tagGroupsByTagAndTagType;
     protected int numUserTags;
@@ -46,19 +46,19 @@ public abstract class ReadOnlyGenericData<D> implements DataVersion {
 
     final static TagType[] tagTypes = new TagType[]{ TagType.Account, TagType.Region, TagType.Zone, TagType.Product, TagType.Operation, TagType.UsageType };
 
-    public ReadOnlyGenericData(D[][] data, List<TagGroup> tagGroups, int numUserTags) {
-        this.data = data;
+    public ReadOnlyGenericData(D[] data, List<TagGroup> tagGroups, int numUserTags) {
+    	this.data = data;
         this.tagGroups = tagGroups;
         this.numUserTags = numUserTags;
         buildIndecies();
     }
-
-    public D[] getData(int i) {
-        return data[i];
-    }
-
+    
     public int getNum() {
         return data.length;
+    }
+    
+    public D getData(int i) {
+    	return data[i];
     }
 
     public List<TagGroup> getTagGroups() {
@@ -70,9 +70,8 @@ public abstract class ReadOnlyGenericData<D> implements DataVersion {
         return byTag == null ? null : byTag.get(tag);
     }
 
-    abstract protected D[][] newDataMatrix(int size);
-    abstract protected D[] newDataArray(int size);
-    abstract protected D readValue(DataInput in) throws IOException ;
+    abstract protected D[] newDataMatrix(int num);
+    abstract protected D readDataArray(DataInput in) throws IOException;
 
     public void deserialize(AccountService accountService, ProductService productService, DataInput in) throws IOException, BadZone {
     	deserialize(accountService, productService, in, true);
@@ -99,24 +98,18 @@ public abstract class ReadOnlyGenericData<D> implements DataVersion {
             keys.add(tg);
         }
 
+        this.tagGroups = keys;
         int num = in.readInt();
-        D[][] data = newDataMatrix(num);
+        
+        this.data = newDataMatrix(num);
         for (int i = 0; i < num; i++)  {
         	data[i] = null;
             boolean hasData = in.readBoolean();
             if (hasData) {
-                data[i] = newDataArray(keys.size());
-                for (int j = 0; j < keys.size(); j++) {
-                    D v = readValue(in);
-                    if (v != null) {
-                        data[i][j] = v;
-                    }
-                }
+                data[i] = readDataArray(in);
             }
         }
 
-        this.data = data;
-        this.tagGroups = keys;
         this.numUserTags = numUserTags;
         if (buildIndecies)
         	buildIndecies();

@@ -130,7 +130,7 @@ public class BasicDataManagerTest {
 	    for (int i = 0; i < rod.getNum(); i++) {
 	    	List<TagGroup> tagGroups = (List<TagGroup>) rod.getTagGroups();
 	    	double total = 0;
-	    	Double[] values = rod.getData(i);
+	    	double[] values = rod.getData(i);
 	    	if (values == null) {
 	    		logger.info("No data for month " + i);
 	    		continue;
@@ -138,7 +138,7 @@ public class BasicDataManagerTest {
 	    	
 	    	for (int j = 0; j < tagGroups.size(); j++) {
 	    		if (tagGroups.get(j).product.isEc2Instance()) {
-	    			total += values[j] == null ? 0.0 : values[j];
+	    			total += values[j];
 	    		}
 	    	}
 	    	logger.info("EC2 Instance total for month " + i + ": " + total);
@@ -162,8 +162,8 @@ public class BasicDataManagerTest {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
-		Double[][] rawData = new Double[][]{
-				new Double[]{ 1.0, 2.0 },
+		double[][] rawData = new double[][]{
+				new double[]{ 1.0, 2.0 },
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
@@ -204,8 +204,8 @@ public class BasicDataManagerTest {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
-		Double[][] rawData = new Double[][]{
-				new Double[]{ 1.0, 2.0 },
+		double[][] rawData = new double[][]{
+				new double[]{ 1.0, 2.0 },
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
@@ -243,8 +243,8 @@ public class BasicDataManagerTest {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
-		Double[][] rawData = new Double[][]{
-				new Double[]{ 1.0, 2.0 },
+		double[][] rawData = new double[][]{
+				new double[]{ 1.0, 2.0 },
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));

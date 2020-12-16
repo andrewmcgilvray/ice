@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.joda.time.DateTime;
 
 import com.google.common.collect.Maps;
@@ -47,7 +46,7 @@ import com.netflix.ice.tag.Zone.BadZone;
 /**
  * This class reads data from s3 bucket and feeds the data to UI
  */
-public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> implements DataManager {
+public class BasicDataManager extends CommonDataManager<ReadOnlyData, double[]> implements DataManager {
 
     protected InstanceMetricsService instanceMetricsService;
     protected int numUserTags;
@@ -108,39 +107,32 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> im
     }
 
 	@Override
-    protected void addData(Double[] from, Double[] to) {
-        for (int i = 0; i < from.length; i++) {
-        	if (from[i] == null)
-        		continue;
-        	else if (to[i] == null)
-        		to[i] = from[i];
-        	else
-        		to[i] += from[i];
-        }
+    protected void addData(double[] from, double[] to) {
+        for (int i = 0; i < from.length; i++)
+        	to[i] += from[i];
     }
 	
     @Override
-    protected boolean hasData(Double[] data) {
+    protected boolean hasData(double[] data) {
     	// Check for values in the data array and ignore if all zeros
-    	for (Double d: data) {
-    		if (d != null && d != 0.0)
+    	for (double d: data) {
+    		if (d != 0.0)
     			return true;
     	}
     	return false;
     }
 
 	@Override
-	protected Double[] getResultArray(int size) {
-        return new Double[size];
+	protected double[] getResultArray(int size) {
+        return new double[size];
 	}
 
-	@Override
-    protected Double aggregate(List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit, Double[] data) {
-		Double result = 0.0;
+    private double aggregate(List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit, double[] data) {
+		double result = 0.0;
 		if (data != null) {
 	        for (int i = 0; i < columns.size(); i++) {
-	        	Double d = data[columns.get(i)];
-	        	if (d != null && d != 0.0)
+	        	double d = data[columns.get(i)];
+	        	if (d != 0.0)
 	        		result += adjustForUsageUnit(usageUnit, tagGroups.get(i).usageType, d);
 	        }
 		}
@@ -148,10 +140,22 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> im
 	}
 
 	@Override
-	protected Map<Tag, double[]> processResult(Map<Tag, Double[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
+    protected int aggregate(ReadOnlyData data, int from, int to, double[] result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit) {		
+        int fromIndex = from;
+        int resultIndex = to;
+        while (resultIndex < result.length && fromIndex < data.getNum()) {
+        	double[] fromData = data.getData(fromIndex++);
+            result[resultIndex] = aggregate(columns, tagGroups, usageUnit, fromData);
+            resultIndex++;
+        }
+        return fromIndex - from;
+	}
+	
+	@Override
+	protected Map<Tag, double[]> processResult(Map<Tag, double[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
 		Map<Tag, double[]> result = Maps.newTreeMap();
 		for (Tag t: data.keySet()) {
-			result.put(t, ArrayUtils.toPrimitive(data.get(t), 0.0));
+			result.put(t, data.get(t));
 		}
 		
 		if (aggregate != AggregateType.none && result.values().size() > 0) {

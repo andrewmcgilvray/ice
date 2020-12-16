@@ -58,33 +58,25 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
         this.tagGroupManager = tagGroupManager;
 	}
 	
-	abstract protected D[] getResultArray(int size);
+	abstract protected D getResultArray(int size);
 	
 	/*
-	 * Aggregate the columns of data for a single instance in time
+	 * Aggregate the columns of data
 	 */
-    abstract protected D aggregate(List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit, D[] data);
+    abstract protected int aggregate(T data, int from, int to, D result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit);
         
     /*
-     * Aggregate all the data matching the tags in tagLists starting at time start for the specified to and from indecies.
+     * Aggregate all the data matching the tags in tagLists at requested time for the specified to and from indices.
      */
-    protected int aggregateData(DateTime start, TagLists tagLists, int from, int to, D[] result, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
-        T data = getReadOnlyData(start);
+    protected int aggregateData(DateTime time, TagLists tagLists, int from, int to, D result, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+        T data = getReadOnlyData(time);
 
         // Figure out which columns we're going to aggregate
         List<Integer> columnIndecies = Lists.newArrayList();
         List<TagGroup> tagGroups = Lists.newArrayList();
         
     	getColumns(groupBy, tag, userTagGroupByIndex, data, tagLists, columnIndecies, tagGroups);
-        
-        int fromIndex = from;
-        int resultIndex = to;
-        while (resultIndex < result.length && fromIndex < data.getNum()) {
-            D[] fromData = data.getData(fromIndex++);
-            result[resultIndex] = aggregate(columnIndecies, tagGroups, usageUnit, fromData);
-            resultIndex++;
-        }
-        return fromIndex - from;
+    	return aggregate(data, from, to, result, columnIndecies, tagGroups, usageUnit);
     }
         
     private void getColumns(TagType groupBy, Tag tag, int userTagGroupByIndex, T data, TagLists tagLists, List<Integer> columnIndecies, List<TagGroup> tagGroups) {    	
@@ -152,12 +144,12 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
     	return resultIndex;
     }
     
-    public D[] getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+    public D getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
     	Interval adjusted = getAdjustedInterval(interval);
         DateTime start = adjusted.getStart();
         DateTime end = adjusted.getEnd();
 
-        D[] result = getResultArray(getSize(interval));
+        D result = getResultArray(getSize(interval));
 
         do {
             int resultIndex = getResultIndex(start, interval);
@@ -189,18 +181,18 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
         }
     }
 
-    abstract protected void addData(D[] from, D[] to);
-    abstract protected boolean hasData(D[] data);
-    abstract protected Map<Tag, double[]> processResult(Map<Tag, D[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys);
+    abstract protected void addData(D from, D to);
+    abstract protected boolean hasData(D data);
+    abstract protected Map<Tag, double[]> processResult(Map<Tag, D> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys);
 
-    protected Map<Tag, D[]> getRawData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex) {
+    protected Map<Tag, D> getRawData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex) {
     	//logger.info("Entered with groupBy: " + groupBy + ", userTagGroupByIndex: " + userTagGroupByIndex + ", tagLists: " + tagLists);
     	Map<Tag, TagLists> tagListsMap = tagGroupManager.getTagListsMap(interval, tagLists, groupBy, exclude, userTagGroupByIndex);
     	return getGroupedData(interval, tagListsMap, usageUnit, groupBy, userTagGroupByIndex);
     }
     
-    private Map<Tag, D[]> getGroupedData(Interval interval, Map<Tag, TagLists> tagListsMap, UsageUnit usageUnit, TagType groupBy, int userTagGroupByIndex) {
-        Map<Tag, D[]> rawResult = Maps.newTreeMap();
+    private Map<Tag, D> getGroupedData(Interval interval, Map<Tag, TagLists> tagListsMap, UsageUnit usageUnit, TagType groupBy, int userTagGroupByIndex) {
+        Map<Tag, D> rawResult = Maps.newTreeMap();
 //        StopWatch sw = new StopWatch();
 //        sw.start();
         
@@ -208,7 +200,7 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
         for (Tag tag: tagListsMap.keySet()) {
             try {
                 //logger.info("Tag: " + tag + ", TagLists: " + tagListsMap.get(tag));
-                D[] data = getData(interval, tagListsMap.get(tag), usageUnit, groupBy, tag, userTagGroupByIndex);
+                D data = getData(interval, tagListsMap.get(tag), usageUnit, groupBy, tag, userTagGroupByIndex);
                 
             	// Check for values in the data array and ignore if all zeros
                 if (hasData(data)) {
@@ -241,7 +233,7 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
     private Map<Tag, double[]> getData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex, List<UserTagKey> tagKeys) {
     	StopWatch sw = new StopWatch();
     	sw.start();
-    	Map<Tag, D[]> rawResult = getRawData(interval, tagLists, groupBy, aggregate, exclude, usageUnit, userTagGroupByIndex);
+    	Map<Tag, D> rawResult = getRawData(interval, tagLists, groupBy, aggregate, exclude, usageUnit, userTagGroupByIndex);
         Map<Tag, double[]> result = processResult(rawResult, groupBy, aggregate, tagKeys);
         logger.debug("getData elapsed time: " + sw);
         return result;

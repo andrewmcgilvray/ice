@@ -32,31 +32,32 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReadOnlyData extends ReadOnlyGenericData<Double> {
+public class ReadOnlyData extends ReadOnlyGenericData<double[]> {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-    
+
     public ReadOnlyData(int numUserTags) {
-        super(new Double[][]{}, Lists.<TagGroup>newArrayList(), numUserTags);
+        super(new double[][]{}, Lists.<TagGroup>newArrayList(), numUserTags);
     }
     
-    public ReadOnlyData(Double[][] data, List<TagGroup> tagGroups, int numUserTags) {
+    public ReadOnlyData(double[][] data, List<TagGroup> tagGroups, int numUserTags) {
         super(data, tagGroups, numUserTags);
     }
-
+    
 	@Override
-	protected Double[][] newDataMatrix(int size) {
-		return new Double[size][];
+	protected double[][] newDataMatrix(int size) {
+		return new double[size][];
 	}
-
+	
 	@Override
-	protected Double[] newDataArray(int size) {
-		return new Double[size];
-	}
-
-	@Override
-	protected Double readValue(DataInput in) throws IOException {
-		Double v = in.readDouble();
-		return v == null || v == 0 ? null : v;
+	protected double[] readDataArray(DataInput in) throws IOException {
+        double[] data = new double[tagGroups.size()];
+        for (int j = 0; j < tagGroups.size(); j++) {
+            double v = in.readDouble();
+            if (v != 0) {
+                data[j] = v;
+            }
+        }
+        return data;
 	}
 	
 	@Override
@@ -81,10 +82,10 @@ public class ReadOnlyData extends ReadOnlyGenericData<Double> {
             
     		// Copy the data
             for (int i = 0; i < data.length; i++)  {
-            	Double[] oldData = data[i];
-            	Double[] newData = null;
+            	double[] oldData = data[i];
+            	double[] newData = null;
             	if (oldData != null) {            		
-            		newData = newDataArray(columnMap.size());
+            		newData = new double[columnMap.size()];
 	            	for (int j = 0; j < columnMap.size(); j++)
 	            		newData[j] = oldData[columnMap.get(j)];
             	}
