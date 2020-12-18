@@ -358,6 +358,8 @@ public class FixedRuleProcessorTest {
 			"      product: [GlobalFee]\n" + 
 			"      operation: [None]\n" +
 			"      usageType: [Dollar]\n" + 
+			"      userTags:\n" + 
+			"        Key1: [TagA]\n" + 
 			"      singleTagGroup: true\n" + 
 			"    groupBy: []\n" +
 			"    groupByTags: []\n" +
@@ -382,7 +384,8 @@ public class FixedRuleProcessorTest {
 			"      product: GlobalFee\n" + 
 			"      operation: None\n" +
 			"      usageType: Dollar\n" + 
-			"      userTags: {}\n" + 
+			"      userTags:\n" + 
+			"        Key1: TagA\n" + 
 			"    single: true\n" + 
 			"    value: 0\n";
 
@@ -462,8 +465,8 @@ public class FixedRuleProcessorTest {
 	public void testGlobalSplitWithUserTags() throws Exception {
 		// Split $300 (3% of $10,000) of spend across three accounts based on individual account spend
         TagGroupSpec[] globalFeeSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"", ""}, 300.0),
-        		new TagGroupSpec(DataType.usage, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"", ""}, 10000.0),
+        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, 300.0),
+        		new TagGroupSpec(DataType.usage, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, 10000.0),
         };
         TagGroupSpec[] productSpecs = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag1", ""}, 5000.0),
@@ -515,7 +518,7 @@ public class FixedRuleProcessorTest {
 		assertEquals("Wrong number of entries in the single value cache", 2, operandSingleValueCache.size());
 
 		// Should have zeroed out the GlobalFee cost
-		TagGroup globalFeeTag = new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"", ""}, null).getTagGroup(as, ps);
+		TagGroup globalFeeTag = new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, null).getTagGroup(as, ps);
 		Double value = outCostData.get(0, globalFeeTag);
 		assertNotNull("No value for global fee", value);
 		assertEquals("Wrong value for global fee", 0.0, value, .001);
