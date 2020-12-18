@@ -75,21 +75,25 @@ public class ReadOnlyDataTest {
 	}
 	
     private void serialize(OutputStreamWriter out, ReadOnlyData data) throws IOException {
-    	out.write("num,data,account,region,zone,product,operation,usageType,usageUnits,resource\n");
+    	out.write("num,cost,usage,account,region,zone,product,operation,usageType,usageUnits,resource\n");
 
         for (Integer i = 0; i < data.getNum(); i++) {
-            double[] values = data.getData(i);
+            ReadOnlyData.Data values = data.getData(i);
             if (values == null)
             	continue;
-        	for (int j = 0; j < values.length; j++) {
+            double[] cost = values.getCost();
+            double[] usage = values.getUsage();
+        	for (int j = 0; j < values.size(); j++) {
 	            TagGroup tg = data.tagGroups.get(j);
 	            
-	            double v = values[j];
-	            if (v == 0.0)
+	            double c = cost[j];
+	            double u = usage[j];
+	            if (c == 0.0 && u == 0.0)
 	            	continue;
 	            
 	            out.write(i.toString() + ",");
-	            out.write(Double.toString(v) + ",");
+	            out.write(Double.toString(c) + ",");
+	            out.write(Double.toString(u) + ",");
 	            TagGroup.Serializer.serializeCsv(out, tg);
 	            out.write("\n");
         	}
@@ -98,9 +102,9 @@ public class ReadOnlyDataTest {
     
     private void dump(ReadOnlyData data) {
     	for (int i = 0; i < data.getNum(); i++) {
-    		double[] ds = data.getData(i);
-    		if (ds != null) {
-    			Double[] doubleArray = ArrayUtils.toObject(ds);
+    		ReadOnlyData.Data ds = data.getData(i);
+    		if (ds != null && ds.getCost() != null) {
+    			Double[] doubleArray = ArrayUtils.toObject(ds.getCost());
 	    		List<Double> d = Arrays.asList(doubleArray);
 	    		logger.info("  " + i + ": " + d);    		
     		}

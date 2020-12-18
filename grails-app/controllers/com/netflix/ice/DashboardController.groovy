@@ -742,8 +742,9 @@ class DashboardController {
         else {
 			logger.debug("doGetData: " + operations + ", forReservation: " + (forReservation || forSavingsPlans));
 			
-            DataManager dataManager = isCost ? getManagers().getCostManager(null, consolidateType) : getManagers().getUsageManager(null, consolidateType);
+            DataManager dataManager = getManagers().getDataManager(null, consolidateType);
             data = dataManager.getData(
+				isCost,
                 interval,
                 new TagLists(accounts, regions, zones, products, operations, usageTypes),
                 groupBy,
@@ -807,10 +808,10 @@ class DashboardController {
 	                    DateTime month = period.withMillisOfDay(0).withDayOfMonth(1);
 	                    int dataHours;
 						if (getConfig().hourlyData) {
-							dataHours = getManagers().getCostManager(null, ConsolidateType.hourly).getDataLength(month);
+							dataHours = getManagers().getDataManager(null, ConsolidateType.hourly).getDataLength(month);
 						}
 						else {
-							int daysInYear = getManagers().getCostManager(null, ConsolidateType.daily).getDataLength(month.withDayOfYear(1));
+							int daysInYear = getManagers().getDataManager(null, ConsolidateType.daily).getDataLength(month.withDayOfYear(1));
 							dataHours = (daysInYear - month.getDayOfYear()-1) * 24;
 						}
 	                    DateTime dataEnd = month.plusHours(dataHours);
@@ -1126,14 +1127,14 @@ class DashboardController {
 		
 		// Reader may not have hourly data enabled so handle hourly separate from others
         if (consolidateType == ConsolidateType.hourly) {
-			int hoursOfData = getManagers().getUsageManager(null, ConsolidateType.hourly).getDataLength(curMonth);
+			int hoursOfData = getManagers().getDataManager(null, ConsolidateType.hourly).getDataLength(curMonth);
 			if (interval.getEnd().getHourOfDay() + (interval.getEnd().getDayOfMonth()-1) * 24 > hoursOfData) {
 				interval = new Interval(interval.getStart(), curMonth.plusHours(hoursOfData));
 			}
         }
 		else {
 			DateTime curYear = curMonth.withDayOfYear(1);
-			int daysOfData = getManagers().getUsageManager(null, ConsolidateType.daily).getDataLength(curYear);
+			int daysOfData = getManagers().getDataManager(null, ConsolidateType.daily).getDataLength(curYear);
 			if (interval.getEnd().getDayOfYear() > daysOfData) {
 				DateTime start = interval.getStart();
 				DateTime dataEndDay = curMonth.withDayOfYear(1).plusDays(daysOfData);

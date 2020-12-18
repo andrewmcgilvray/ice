@@ -84,8 +84,7 @@ public class BasicManagers extends Poller implements Managers {
     private Set<Product> products = Sets.newHashSet();
     private LastProcessedPoller lastProcessedPoller = null;
     private Map<Product, BasicTagGroupManager> tagGroupManagers = Maps.newHashMap();
-    private TreeMap<Key, BasicDataManager> costManagers = Maps.newTreeMap();
-    private TreeMap<Key, BasicDataManager> usageManagers = Maps.newTreeMap();
+    private TreeMap<Key, BasicDataManager> dataManagers = Maps.newTreeMap();
     private TreeMap<Key, TagCoverageDataManager> tagCoverageManagers = Maps.newTreeMap();
     private InstanceMetricsService instanceMetricsService = null;
     private InstancesService instancesService = null;
@@ -119,14 +118,10 @@ public class BasicManagers extends Poller implements Managers {
         return tagGroupManagers.get(product);
     }
 
-    public DataManager getCostManager(Product product, ConsolidateType consolidateType) {
-        return costManagers.get(new Key(product, consolidateType));
+    public DataManager getDataManager(Product product, ConsolidateType consolidateType) {
+        return dataManagers.get(new Key(product, consolidateType));
     }
 
-    public DataManager getUsageManager(Product product, ConsolidateType consolidateType) {
-        return usageManagers.get(new Key(product, consolidateType));
-    }
-    
     public DataManager getTagCoverageManager(Product product, ConsolidateType consolidateType) {
         return tagCoverageManagers.get(new Key(product, consolidateType));
     }
@@ -162,8 +157,7 @@ public class BasicManagers extends Poller implements Managers {
         logger.info("trying to find new tag group and data managers...");
         Set<Product> products = Sets.newHashSet(this.products);
         Map<Product, BasicTagGroupManager> tagGroupManagers = Maps.newHashMap(this.tagGroupManagers);
-        TreeMap<Key, BasicDataManager> costManagers = Maps.newTreeMap(this.costManagers);
-        TreeMap<Key, BasicDataManager> usageManagers = Maps.newTreeMap(this.usageManagers);
+        TreeMap<Key, BasicDataManager> dataManagers = Maps.newTreeMap(this.dataManagers);
 
         Set<Product> newProducts = Sets.newHashSet();
         AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
@@ -204,9 +198,7 @@ public class BasicManagers extends Poller implements Managers {
             	int numUserTags = product == null ? 0 : config.userTagKeys.size();
             		
 	               
-                costManagers.put(key, new BasicDataManager(config.startDate, "cost_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
-                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, null, forReservations));
-                usageManagers.put(key, new BasicDataManager(config.startDate, "usage_" + partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
+                dataManagers.put(key, new BasicDataManager(config.startDate, partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
                 		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, forReservations));
                 if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
     	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
@@ -216,8 +208,7 @@ public class BasicManagers extends Poller implements Managers {
         }
 
         if (newProducts.size() > 0) {
-            this.costManagers = costManagers;
-            this.usageManagers = usageManagers;
+            this.dataManagers = dataManagers;
             this.tagGroupManagers = tagGroupManagers;
             this.products = products;
         }
@@ -227,10 +218,7 @@ public class BasicManagers extends Poller implements Managers {
     	for (DataCache d: tagGroupManagers.values()) {
     		refresh(d);
     	}
-    	for (DataCache d: costManagers.values()) {
-    		refresh(d);
-    	}
-    	for (DataCache d: usageManagers.values()) {
+    	for (DataCache d: dataManagers.values()) {
     		refresh(d);
     	}
     	for (DataCache d: tagCoverageManagers.values()) {
@@ -371,7 +359,7 @@ public class BasicManagers extends Poller implements Managers {
             if (product == null)
                 continue;
 
-            DataManager dataManager = isCost ? getCostManager(product, consolidateType) : getUsageManager(product, consolidateType);
+            DataManager dataManager = getDataManager(product, consolidateType);
 			if (dataManager == null) {
 				//logger.error("No DataManager for product " + product);
 				continue;
@@ -379,6 +367,7 @@ public class BasicManagers extends Poller implements Managers {
 			TagLists tagLists = new TagListsWithUserTags(accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists);
 			logger.debug("-------------- Process product ----------------" + product);
             futures.add(getDataForProduct(
+            		isCost,
                     interval,
                     tagLists,
                     groupBy,
@@ -417,6 +406,7 @@ public class BasicManagers extends Poller implements Managers {
     }
 
     private Future<Map<Tag, double[]>> getDataForProduct(
+    		final boolean isCost,
     		final Interval interval,
     		final TagLists tagLists,
     		final TagType groupBy,
@@ -430,6 +420,7 @@ public class BasicManagers extends Poller implements Managers {
     		@Override
     		public Map<Tag, double[]> call() throws Exception {
     			Map<Tag, double[]> data = dataManager.getData(
+    					isCost,
                         interval,
                         tagLists,
                         groupBy,
@@ -469,14 +460,14 @@ public class BasicManagers extends Poller implements Managers {
 		int totalResourceTagGroups = 0;
     	
 		if (csv) {
-	    	sb.append("Product,TagGroups,Daily Cost TagGroups,Daily Usage TagGroups,Accounts,Regions,Zones,Products,Operations,UsageTypes");
+	    	sb.append("Product,TagGroups,Daily TagGroups,Accounts,Regions,Zones,Products,Operations,UsageTypes");
 	    	for (UserTagKey utk: config.userTagKeys) {
 	    		sb.append("," + utk.name);
 	    	}
 	    	sb.append("\n");
 		}
 		else {
-	    	sb.append("<table><tr><td>Product</td><td>TagGroups</td><td>Daily Cost TagGroups</td><td>Daily Usage TagGroups</td><td>Accounts</td><td>Regions</td><td>Zones</td><td>Products</td><td>Operations</td><td>UsageTypes</td>");
+	    	sb.append("<table><tr><td>Product</td><td>TagGroups</td><td>Daily TagGroups</td><td>Accounts</td><td>Regions</td><td>Zones</td><td>Products</td><td>Operations</td><td>UsageTypes</td>");
 	    	for (UserTagKey utk: config.userTagKeys) {
 	    		sb.append("<td>" + utk.name + "</td>");
 	    	}
@@ -486,17 +477,16 @@ public class BasicManagers extends Poller implements Managers {
     		TagGroupManager tgm = tagGroupManagers.get(p);
     		TreeMap<Long, Integer> sizes = tgm.getSizes();
     		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTagKeys.size());
-    		BasicDataManager bdm_cost = costManagers.get(new Key(p, ConsolidateType.daily));
-    		BasicDataManager bdm_usage = usageManagers.get(new Key(p, ConsolidateType.daily));
+    		BasicDataManager bdm = dataManagers.get(new Key(p, ConsolidateType.daily));
     		
     		if (csv) {
-    			sb.append(p + "," + sizes.lastEntry().getValue() + "," + bdm_cost.size(year) + "," + bdm_usage.size(year));
+    			sb.append(p + "," + sizes.lastEntry().getValue() + "," + bdm.size(year));
     			for (Integer i: tagValuesSizes.lastEntry().getValue())
     				sb.append("," + i);
     	    	sb.append("\n");
     		}
     		else {
-    			sb.append("<tr><td>" + p + "</td><td>" + sizes.lastEntry().getValue() + "</td><td>" + bdm_cost.size(year) + "</td><td>" + bdm_usage.size(year) + "</td>");
+    			sb.append("<tr><td>" + p + "</td><td>" + sizes.lastEntry().getValue() + "</td><td>" + bdm.size(year) + "</td>");
     			for (Integer i: tagValuesSizes.lastEntry().getValue())
     				sb.append("<td>" + i + "</td>");
     	    	sb.append("</tr>");

@@ -68,15 +68,7 @@ public interface Managers {
      * @param consolidateType
      * @return cost DataManager instance for specified product and consolidateType
      */
-    DataManager getCostManager(Product product, ConsolidateType consolidateType);
-
-    /**
-     *
-     * @param product
-     * @param consolidateType
-     * @return usage DataManager instance for specified product and consolidateType
-     */
-    DataManager getUsageManager(Product product, ConsolidateType consolidateType);
+    DataManager getDataManager(Product product, ConsolidateType consolidateType);
 
     /**
      * 

@@ -130,19 +130,33 @@ public class BasicDataManagerTest {
 	    for (int i = 0; i < rod.getNum(); i++) {
 	    	List<TagGroup> tagGroups = (List<TagGroup>) rod.getTagGroups();
 	    	double total = 0;
-	    	double[] values = rod.getData(i);
+	    	double[] values = rod.getData(i).getCost();
 	    	if (values == null) {
-	    		logger.info("No data for month " + i);
-	    		continue;
+	    		logger.info("No cost data for month " + i);
 	    	}
-	    	
-	    	for (int j = 0; j < tagGroups.size(); j++) {
-	    		if (tagGroups.get(j).product.isEc2Instance()) {
-	    			total += values[j];
-	    		}
+	    	else {
+		    	for (int j = 0; j < tagGroups.size(); j++) {
+		    		if (tagGroups.get(j).product.isEc2Instance()) {
+		    			total += values[j];
+		    		}
+		    	}
+		    	logger.info("EC2 Instance cost total for month " + i + ": " + total);
+		    	assertTrue("No cost data for month " + i, total > 0.0);
 	    	}
-	    	logger.info("EC2 Instance total for month " + i + ": " + total);
-	    	assertTrue("No data for month " + i, total > 0.0);
+	    	total = 0;
+	    	values = rod.getData(i).getUsage();
+	    	if (values == null) {
+	    		logger.info("No usage data for month " + i);
+	    	}
+	    	else {
+		    	for (int j = 0; j < tagGroups.size(); j++) {
+		    		if (tagGroups.get(j).product.isEc2Instance()) {
+		    			total += values[j];
+		    		}
+		    	}
+		    	logger.info("EC2 Instance usage total for month " + i + ": " + total);
+		    	assertTrue("No usage data for month " + i, total > 0.0);
+	    	}
 	    }
 	    		
 	}
@@ -162,8 +176,8 @@ public class BasicDataManagerTest {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
-		double[][] rawData = new double[][]{
-				new double[]{ 1.0, 2.0 },
+		ReadOnlyData.Data[] rawData = new ReadOnlyData.Data[]{
+				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
@@ -187,7 +201,7 @@ public class BasicDataManagerTest {
 		
 		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
 		
-		Map<Tag, double[]> data = dataManager.getData(interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
+		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
 		
 		for (Tag t: data.keySet()) {
 			logger.info("Tag: " + t + ": " + data.get(t)[0]);
@@ -204,8 +218,8 @@ public class BasicDataManagerTest {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
-		double[][] rawData = new double[][]{
-				new double[]{ 1.0, 2.0 },
+		ReadOnlyData.Data[] rawData = new ReadOnlyData.Data[]{
+				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
@@ -228,7 +242,7 @@ public class BasicDataManagerTest {
 		
 		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
 		
-		Map<Tag, double[]> data = dataManager.getData(interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
+		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
 		
 		for (Tag t: data.keySet()) {
 			logger.info("Tag: " + t + ": " + data.get(t)[0]);
@@ -243,8 +257,8 @@ public class BasicDataManagerTest {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
 		
-		double[][] rawData = new double[][]{
-				new double[]{ 1.0, 2.0 },
+		ReadOnlyData.Data[] rawData = new ReadOnlyData.Data[]{
+				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
@@ -270,7 +284,7 @@ public class BasicDataManagerTest {
 		List<Operation> operations = Lists.newArrayList((Operation) Operation.ondemandInstances);
 		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, operations, null, userTagLists);
 		
-		Map<Tag, double[]> data = dataManager.getData(interval, tagLists, null, AggregateType.data, null, UsageUnit.Instances, 1);
+		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, null, AggregateType.data, null, UsageUnit.Instances, 1);
 		
 		for (Tag t: data.keySet()) {
 			logger.info("Tag: " + t + ": " + data.get(t)[0]);
@@ -282,7 +296,7 @@ public class BasicDataManagerTest {
 		// Now test without operations specified
 		tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
 		
-		data = dataManager.getData(interval, tagLists, null, AggregateType.data, null, UsageUnit.Instances, 1);
+		data = dataManager.getData(true, interval, tagLists, null, AggregateType.data, null, UsageUnit.Instances, 1);
 		
 		for (Tag t: data.keySet()) {
 			logger.info("Tag: " + t + ": " + data.get(t)[0]);
@@ -306,7 +320,7 @@ public class BasicDataManagerTest {
 	    
 	    ReadOnlyData rod = data.loadDataFromFile(f);
 	    
-	    for (int i = 0; i < rod.getData(0).length; i++) {
+	    for (int i = 0; i < rod.getData(0).size(); i++) {
 	    	//TagGroup tg = rod.getTagGroups().get(i);
 	    }
 	    
@@ -324,7 +338,7 @@ public class BasicDataManagerTest {
 		List<UsageType> usageTypes = Lists.newArrayList(UsageType.getUsageType("r4.2xlarge", "hours"));
 		TagLists tagLists = new TagLists(null, null, null, null, operations, usageTypes, null);
 		
-		Map<Tag, double[]> results = dataManager.getData(interval, tagLists, TagType.Account, AggregateType.data, null, UsageUnit.Instances, 1);
+		Map<Tag, double[]> results = dataManager.getData(true, interval, tagLists, TagType.Account, AggregateType.data, null, UsageUnit.Instances, 1);
 		
 		for (Tag t: results.keySet())
 			logger.info(t + ", " + results.get(t)[0]);
