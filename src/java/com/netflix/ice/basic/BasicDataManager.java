@@ -128,7 +128,8 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
         int fromIndex = from;
         for (int resultIndex = to; resultIndex < result.length && fromIndex < data.getNum(); resultIndex++) {
         	ReadOnlyData.Data fromData = data.getData(fromIndex++);
-            result[resultIndex] = aggregate(columns, tagGroups, usageUnit, isCost ? fromData.getCost() : fromData.getUsage());
+        	if (fromData != null)
+        		result[resultIndex] = aggregate(columns, tagGroups, usageUnit, isCost ? fromData.getCost() : fromData.getUsage());
         }
         return fromIndex - from;
 	}
