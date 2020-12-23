@@ -70,6 +70,7 @@ public class Region extends Tag {
     public static final Region EU_SOUTH_1 = new Region("eu-south-1", "EUS1", "EU (Milan)");
     public static final Region AP_EAST_1 = new Region("ap-east-1", "APE1", "Asia Pacific (Hong Kong)");
     public static final Region AP_NORTHEAST_1 = new Region("ap-northeast-1","APN1", "Asia Pacific (Tokyo)");
+    public static final Region AP_NORTHEAST_1_WL1_NRT1 = new Region("ap-northeast-1-wl1-nrt-wlz-1","APNE1WL1NRT1", "Asia Pacific (KDDI) - Tokyo");
     public static final Region AP_NORTHEAST_2 = new Region("ap-northeast-2","APN2", "Asia Pacific (Seoul)");
     public static final Region AP_NORTHEAST_3 = new Region("ap-northeast-3","APN3", "Asia Pacific (Osaka-Local)");
     public static final Region AP_SOUTHEAST_1 = new Region("ap-southeast-1", "APS1", "Asia Pacific (Singapore)");
