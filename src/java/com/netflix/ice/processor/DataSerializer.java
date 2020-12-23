@@ -7,7 +7,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -47,33 +46,31 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     // This set is only maintained for the master CostAndUsageData container since it's only needed by
     // the post-processing steps. Individual CoatAndUsageData objects created for each separate CUR report
     // don't require it and run much faster if we don't have to maintain this master set.
-    protected Set<TagGroup> tagGroups;
+    protected Collection<TagGroup> tagGroups;
     
     // number of user tags in the resourceGroups. Set to -1 when constructed for deserialization.
     // will be initialized when read in.
     protected int numUserTags;
 	
-	public DataSerializer(ReadWriteData costData, ReadWriteData usageData) {
+	public DataSerializer(ReadWriteData costData, ReadWriteData usageData, Collection<TagGroup> tagGroups) {
 		this.numUserTags = costData.numUserTags;
-		this.tagGroups = ConcurrentHashMap.newKeySet();
-		this.tagGroups.addAll(costData.getTagGroups());
-		this.tagGroups.addAll(usageData.getTagGroups());
+		this.tagGroups = tagGroups;
 		this.data = Lists.newArrayList();
 		
-		int max = Math.max(costData.getNum(), usageData.getNum());
+		int max = Math.max(costData == null ? 0 : costData.getNum(), usageData == null ? 0 : usageData.getNum());
 		
         for (int i = 0; i < max; i++) {
-            Map<TagGroup, Double> costMap = costData.getData(i);
-            Map<TagGroup, Double> usageMap = usageData.getData(i);
+            Map<TagGroup, Double> costMap = costData == null ? null : costData.getData(i);
+            Map<TagGroup, Double> usageMap = usageData == null ? null : usageData.getData(i);
             Map<TagGroup, CostAndUsage> cauMap = Maps.newHashMap();
             data.add(cauMap);
             
-            if (costMap.isEmpty() && usageMap.isEmpty())
+            if ((costMap == null || costMap.isEmpty()) && (usageMap == null || usageMap.isEmpty()))
             	continue;
             
             for (TagGroup tagGroup: this.tagGroups) {
-            	Double cost = costMap.get(tagGroup);
-            	Double usage = usageMap.get(tagGroup);
+            	Double cost = costMap == null ? 0.0 : costMap.get(tagGroup);
+            	Double usage = usageMap == null ? 0.0 : usageMap.get(tagGroup);
             	if (cost == null && usage == null)
             		continue;
             	cauMap.put(tagGroup, new CostAndUsage(cost == null ? 0 : cost, usage == null ? 0 : usage));
@@ -94,6 +91,10 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
             }
         }
         return data.get(i);
+    }
+
+    public Collection<TagGroup> getTagGroups() {
+        return tagGroups;
     }
 
     public int getNum() {

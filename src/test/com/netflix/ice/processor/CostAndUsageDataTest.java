@@ -130,7 +130,7 @@ public class CostAndUsageDataTest {
 	        
 	        cau.addValue(weekly, 0, tg, new DataSerializer.CostAndUsage(24.0 * tc.daysFromLastMonth, 0));
 	
-	        cau.aggregateSummaryData(new DataSerializer(cost, usage), tagGroups, tc.daysFromLastMonth, daily, weekly, monthly);
+	        cau.aggregateSummaryData(new DataSerializer(cost, usage, tagGroups), tc.daysFromLastMonth, daily, weekly, monthly);
 		
 	        assertEquals("wrong number of days", tc.daysInMonth, daily.size());
 	        assertEquals("wrong number of weeks", tc.numberOfWeeks, weekly.size());
@@ -172,7 +172,7 @@ public class CostAndUsageDataTest {
         int lastMonthDayOfYear = monthDateTime.minusMonths(1).getDayOfYear();
         int startDay = lastMonthDayOfYear + lastMonthNumDays - daysFromLastMonth - 1;
 
-        cau.getPartialWeek(new DataSerializer(cost, usage), startDay, daysFromLastMonth, 0, tagGroups, weekly);
+        cau.getPartialWeek(new DataSerializer(cost, usage, tagGroups), startDay, daysFromLastMonth, 0, tagGroups, weekly);
         
         assertEquals("wrong number of weeks", 1, weekly.size());
         assertEquals("wrong value for days from last month", 1.0 * daysFromLastMonth, weekly.get(0).get(tg).cost, 0.001);

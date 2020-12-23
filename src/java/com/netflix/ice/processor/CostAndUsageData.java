@@ -495,7 +495,17 @@ public class CostAndUsageData {
         		continue;
         	
             String name = "hourly_" + getProdName(product) + "_" + AwsUtils.monthDateFormat.print(monthDateTime);
-            futures.add(archiveHourlyFile(name, new DataSerializer(costDataByProduct.get(product), usageDataByProduct.get(product)), archiveHourlyData, pool));
+            ReadWriteData costData = costDataByProduct.get(product);
+            ReadWriteData usageData = usageDataByProduct.get(product);
+            
+        	// Generate the full set of tag groups across both cost and usage
+        	Set<TagGroup> tagGroups = Sets.newHashSet();
+        	if (costData != null)
+        		tagGroups.addAll(costData.getTagGroups());
+        	if (usageData != null)
+        		tagGroups.addAll(usageData.getTagGroups());
+            
+            futures.add(archiveHourlyFile(name, new DataSerializer(costData, usageData, tagGroups), archiveHourlyData, pool));
         }
     }
     
@@ -556,7 +566,6 @@ public class CostAndUsageData {
     
     protected void aggregateSummaryData(
     		DataSerializer data,
-    		Collection<TagGroup> tagGroups,
     		int daysFromLastMonth,
             List<Map<TagGroup, DataSerializer.CostAndUsage>> daily,
             List<Map<TagGroup, DataSerializer.CostAndUsage>> weekly,
@@ -567,7 +576,7 @@ public class CostAndUsageData {
             // this month, add to weekly, monthly and daily
             Map<TagGroup, DataSerializer.CostAndUsage> map = data.getData(hour);
 
-            for (TagGroup tagGroup: tagGroups) {
+            for (TagGroup tagGroup: data.getTagGroups()) {
             	DataSerializer.CostAndUsage v = map.get(tagGroup);
                 if (v != null) {
                     addValue(monthly, 0, tagGroup, v);
@@ -603,8 +612,11 @@ public class CostAndUsageData {
     
     protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, Product product, ReadWriteData costData, ReadWriteData usageData) throws Exception {
     	// Generate the full set of tag groups across both cost and usage
-    	Set<TagGroup> tagGroups = Sets.newHashSet(costData.getTagGroups());
-    	tagGroups.addAll(usageData.getTagGroups());
+    	Set<TagGroup> tagGroups = Sets.newHashSet();
+    	if (costData != null)
+    		tagGroups.addAll(costData.getTagGroups());
+    	if (usageData != null)
+    		tagGroups.addAll(usageData.getTagGroups());
     	
         // init daily, weekly and monthly
         List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
@@ -638,8 +650,8 @@ public class CostAndUsageData {
         if (daysInNextMonth == 7)
         	daysInNextMonth = 0;
         
-        DataSerializer data = new DataSerializer(costData, usageData);
-        aggregateSummaryData(data, tagGroups, daysFromLastMonth, daily, weekly, monthly);
+        DataSerializer data = new DataSerializer(costData, usageData, tagGroups);
+        aggregateSummaryData(data, daysFromLastMonth, daily, weekly, monthly);
         
         if (daysInNextMonth > 0) {
         	// See if we have data processed for the following month that needs to be added to the last week of this month
