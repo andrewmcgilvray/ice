@@ -58,9 +58,7 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
 		this.data = Lists.newArrayList();
 		
 		int max = Math.max(costData.getNum(), usageData == null ? 0 : usageData.getNum());
-		
-		logger.info("costData: " + costData + ", usageData: " + usageData + ", tagGroups: " + tagGroups);
-		
+				
         for (int i = 0; i < max; i++) {
             Map<TagGroup, Double> costMap = costData.getData(i);
             Map<TagGroup, Double> usageMap = usageData == null ? null : usageData.getData(i);
