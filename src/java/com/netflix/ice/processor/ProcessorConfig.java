@@ -71,7 +71,6 @@ public class ProcessorConfig extends Config {
     public final AccountService accountService;
     public final ResourceService resourceService;
     public final List<BillingBucket> billingBuckets;
-    public final DateTime costAndUsageStartDate;
     public final DateTime costAndUsageNetUnblendedStartDate;
     public final SortedMap<DateTime,Double> edpDiscounts;
 
@@ -147,13 +146,7 @@ public class ProcessorConfig extends Config {
         this.startMonth = properties.getProperty(IceOptions.START_MONTH);        
         this.startDate = new DateTime(startMonth, DateTimeZone.UTC);
         
-        String[] yearMonth = properties.getProperty(IceOptions.COST_AND_USAGE_START_DATE, "").split("-");
-        if (yearMonth.length < 2)
-            costAndUsageStartDate = new DateTime(3000, 1, 1, 0, 0, DateTimeZone.UTC); // Arbitrary year in the future
-        else
-        	costAndUsageStartDate = new DateTime(Integer.parseInt(yearMonth[0]), Integer.parseInt(yearMonth[1]), 1, 0, 0, DateTimeZone.UTC);
-        
-        yearMonth = properties.getProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, "").split("-");
+        String[] yearMonth = properties.getProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, "").split("-");
         costAndUsageNetUnblendedStartDate = yearMonth.length < 2 ? null : new DateTime(Integer.parseInt(yearMonth[0]), Integer.parseInt(yearMonth[1]), 1, 0, 0, DateTimeZone.UTC);
         
         edpDiscounts = Maps.newTreeMap();
@@ -185,8 +178,7 @@ public class ProcessorConfig extends Config {
         billingFileProcessor = new BillingFileProcessor(this);
         
         boolean needPoller = Boolean.parseBoolean(properties.getProperty(IceOptions.RESERVATION_CAPACITY_POLLER)) &&
-        		(startDate.isBefore(CostAndUsageReportLineItemProcessor.jan1_2018) ||
-        		new DateTime(CostAndUsageReportLineItemProcessor.jan1_2018).isBefore(costAndUsageStartDate));
+        		(startDate.isBefore(CostAndUsageReportLineItemProcessor.jan1_2018));
         
         reservationCapacityPoller = needPoller ? new ReservationCapacityPoller(this) : null;
         reportSubPrefix = properties.getProperty(IceOptions.REPORT_SUB_PREFIX);

@@ -131,10 +131,6 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
             for (DateTime month = config.startDate; month.isBefore(DateTime.now(DateTimeZone.UTC)); month = month.plusMonths(1)) {
             	String manifestKey = getManifestKey(bb.getPrefix(), reportName, month);
             	
-            	if (month.isBefore(config.costAndUsageStartDate)) {
-                    logger.info("ignoring file " + manifestKey);
-            		continue;
-            	}
                 List<S3ObjectSummary> objectSummaries = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), manifestKey,
                         bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
                 

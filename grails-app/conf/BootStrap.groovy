@@ -152,7 +152,6 @@ class BootStrap {
 				properties.setProperty(IceOptions.BILLING_ICE_CONFIG_TAGS_BASENAME, prop.getProperty(IceOptions.BILLING_ICE_CONFIG_TAGS_BASENAME, ""));
 				properties.setProperty(IceOptions.BILLING_ICE_CONFIG_POSTPROC_BASENAME, prop.getProperty(IceOptions.BILLING_ICE_CONFIG_POSTPROC_BASENAME, ""));
                 properties.setProperty(IceOptions.ROOT_NAME, prop.getProperty(IceOptions.ROOT_NAME, ""));
-				properties.setProperty(IceOptions.COST_AND_USAGE_START_DATE, prop.getProperty(IceOptions.COST_AND_USAGE_START_DATE, ""));
 				properties.setProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, prop.getProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, ""));
 				properties.setProperty(IceOptions.EDP_DISCOUNTS, prop.getProperty(IceOptions.EDP_DISCOUNTS, ""));
 				properties.setProperty(IceOptions.REPORT_SUB_PREFIX, prop.getProperty(IceOptions.REPORT_SUB_PREFIX, ""));

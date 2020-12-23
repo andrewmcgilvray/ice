@@ -40,7 +40,7 @@ import java.util.Map;
  * All reservation usage starts out tagged as BonusReservedInstances and is later reassigned proper tags
  * based on it's usage by the ReservationProcessor.
  */
-public class BasicLineItemProcessor implements LineItemProcessor {
+public abstract class BasicLineItemProcessor implements LineItemProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
     protected AccountService accountService;
@@ -60,11 +60,6 @@ public class BasicLineItemProcessor implements LineItemProcessor {
     	this.reservationService = reservationService;
     	this.resourceService = resourceService;
     	this.numUserTags = resourceService == null ? 0 : resourceService.getCustomTags().size();
-    }
-    
-    protected Product getProduct(LineItem lineItem) {
-    	// DBR version
-    	return productService.getProductByServiceName(lineItem.getProduct());
     }
     
     protected boolean ignore(String fileName, DateTime reportStart, DateTime reportModTime, String root, Interval usageInterval, LineItem lineItem) {
@@ -119,13 +114,7 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         return region == null ? usageTypeStr : usageTypeStr.substring(index+1);
     }
     
-    protected Region getRegion(LineItem lineItem) {
-    	String usageTypeStr = lineItem.getUsageType();
-        int index = usageTypeStr.indexOf("-");
-        String regionShortName = index > 0 ? usageTypeStr.substring(0, index) : "";
-        Region region = regionShortName.isEmpty() ? null : Region.getRegionByShortName(regionShortName);
-        return region == null ? Region.US_EAST_1 : region;
-    }
+    protected abstract Region getRegion(LineItem lineItem);
     
     protected Zone getZone(String fileName, Region region, LineItem lineItem) {
     	String zoneStr = lineItem.getZone();
@@ -340,48 +329,8 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         return result;
     }
 
-    protected void addData(String fileName, LineItem lineItem, TagGroup tagGroup, TagGroup resourceTagGroup,
-    		CostAndUsageData costAndUsageData, double usageValue, double costValue, boolean monthly, int[] indexes, double edpDiscount, long startMilli) {
-        final ReadWriteData usageData = costAndUsageData.getUsage(null);
-        final ReadWriteData costData = costAndUsageData.getCost(null);
-        ReadWriteData usageDataOfProduct = costAndUsageData.getUsage(tagGroup.product);
-        ReadWriteData costDataOfProduct = costAndUsageData.getCost(tagGroup.product);
-        final Product product = tagGroup.product;
-
-        if (resourceService != null) {
-            if (usageDataOfProduct == null) {            	
-                usageDataOfProduct = new ReadWriteData(numUserTags);
-                costDataOfProduct = new ReadWriteData(numUserTags);
-                costAndUsageData.putUsage(tagGroup.product, usageDataOfProduct);
-                costAndUsageData.putCost(tagGroup.product, costDataOfProduct);
-            }
-        }
-        
-        for (int i : indexes) {
-            //
-            // For DBR reports, Redshift and RDS have cost as a monthly charge, but usage appears hourly.
-            //		EC2 has cost reported in each usage lineitem.
-            // The reservation processor handles determination on what's unused.
-            if (!monthly || !(product.isRedshift() || product.isRdsInstance())) {
-            	addValue(usageData, i, tagGroup, usageValue);                	
-            }
-
-            addValue(costData, i, tagGroup, costValue);
-            
-            if (resourceService != null) {
-                if (!((product.isRedshift() || product.isRds()) && monthly)) {
-                	addValue(usageDataOfProduct, i, resourceTagGroup, usageValue);
-                }
-                
-                addValue(costDataOfProduct, i, resourceTagGroup, costValue);
-                
-                // Collect statistics on tag coverage
-            	boolean[] userTagCoverage = resourceService.getUserTagCoverage(lineItem);
-            	costAndUsageData.addTagCoverage(null, i, tagGroup, userTagCoverage);
-            	costAndUsageData.addTagCoverage(product, i, resourceTagGroup, userTagCoverage);
-            }
-        }
-    }
+    protected abstract void addData(String fileName, LineItem lineItem, TagGroup tagGroup, TagGroup resourceTagGroup,
+    		CostAndUsageData costAndUsageData, double usageValue, double costValue, boolean monthly, int[] indexes, double edpDiscount, long startMilli);
 
     protected void addValue(ReadWriteData rwd, int i, TagGroup tagGroup, double value) {
         Double oldV = rwd.get(i, tagGroup);
@@ -392,72 +341,14 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         rwd.put(i, tagGroup, value);
     }
     
-    protected void addReservation(
+    protected abstract void addReservation(
     		String fileName,
     		LineItem lineItem,
     		CostAndUsageData costAndUsageData,
-    		TagGroupRI tg, long startMilli) {    	
-        return;        
-    }
+    		TagGroupRI tg, long startMilli);
     
-    protected void addSavingsPlan(LineItem lineItem, CostAndUsageData costAndUsageData) {
-    	return;
-    }
-
-    protected Result getResult(LineItem lineItem, DateTime reportStart, DateTime reportModTime, TagGroup tg, boolean processDelayed, boolean reservationUsage, double costValue) {
-        Result result = Result.hourly;
-        if (tg.product.isEc2Instance()) {
-            result = processEc2Instance(processDelayed, reservationUsage, tg.operation, tg.zone);
-        }
-        else if (tg.product.isRedshift()) {
-            result = processRedshift(processDelayed, reservationUsage, tg.operation, costValue);
-            //logger.info("Process Redshift " + operation + " " + costValue + " returned: " + result);
-        }
-        else if (tg.product.isDataTransfer()) {
-            result = processDataTranfer(processDelayed, tg.usageType, costValue);
-        }
-        else if (tg.product.isCloudHsm()) {
-            result = processCloudhsm(processDelayed, tg.usageType);
-        }
-        else if (tg.product.isEbs()) {
-            result = processEbs(tg.usageType);
-        }
-        else if (tg.product.isRds() || tg.product.isRdsInstance()) {
-            result = processRds(tg.usageType, processDelayed, reservationUsage, tg.operation, costValue);
-//            if (startIndex == 0 && reservationUsage) {
-//            	logger.info(" ----- RDS usage=" + usageType + ", delayed=" + processDelayed + ", operation=" + operation + ", cost=" + costValue + ", result=" + result);
-//            }
-        }
-        else if (tg.product.isElastiCache()) {
-        	result = processElastiCache(processDelayed, reservationUsage, tg.operation, costValue);
-        }
-        
-        if (tg.product.isS3() && (tg.usageType.name.startsWith("TimedStorage-") || tg.usageType.name.startsWith("IATimedStorage-")))
-            result = Result.daily;
-
-        return result;
-    }
+    protected abstract Result getResult(LineItem lineItem, DateTime reportStart, DateTime reportModTime, TagGroup tg, boolean processDelayed, boolean reservationUsage, double costValue);
     
-    private Result processEc2Instance(boolean processDelayed, boolean reservationUsage, Operation operation, Zone zone) {
-        if (!processDelayed && zone == null && operation.isBonus() && reservationUsage)
-            return Result.delay; // Delay monthly cost on no upfront and partial upfront reservations
-        else if (processDelayed && zone == null && operation.isBonus() && reservationUsage)
-            return Result.ignore; // Ignore monthly cost on no upfront and partial upfront reservations - We'll process the unused rates now if CUR
-        else
-            return Result.hourly;
-    }
-
-    private Result processRedshift(boolean processDelayed, boolean reservationUsage, Operation operation, double costValue) {
-        if (!processDelayed && costValue != 0 && operation.isBonus() && reservationUsage)
-            return Result.delay;
-        else if (!processDelayed && costValue == 0 && operation.isBonus() && reservationUsage)
-            return Result.hourly;
-        else if (processDelayed && costValue != 0 && operation.isBonus() && reservationUsage)
-            return Result.monthly;
-        else
-            return Result.hourly;
-    }
-
     protected Result processDataTranfer(boolean processDelayed, UsageType usageType, double costValue) {
     	// Data Transfer accounts for the vast majority of TagGroup variations when user tags are used.
     	// To minimize the impact, ignore the zero-cost data-in usage types.
@@ -486,31 +377,6 @@ public class BasicLineItemProcessor implements LineItemProcessor {
         else
             return Result.hourly;
     }
-
-    private Result processRds(UsageType usageType, boolean processDelayed, boolean reservationUsage, Operation operation, double costValue) {
-        if (usageType.name.startsWith("RDS:ChargedBackupUsage"))
-            return Result.daily;
-        else if (!processDelayed && costValue != 0 && operation.isBonus() && reservationUsage)
-            return Result.delay; // Must be a monthly charge for all the hourly usage
-        else if (!processDelayed && costValue == 0 && operation.isBonus() && reservationUsage)
-            return Result.hourly; // Must be the hourly usage
-        else if (processDelayed && costValue != 0 && operation.isBonus() && reservationUsage)
-            return Result.monthly; // This is the post processing of the monthly charge for all the hourly usage
-        else
-            return Result.hourly;
-    }
-    
-    private Result processElastiCache(boolean processDelayed, boolean reservationUsage, Operation operation, double costValue) {
-    	if (!processDelayed && costValue != 0 && operation.isBonus() && reservationUsage)
-            return Result.delay; // Must be a monthly charge for all the hourly usage
-        else if (!processDelayed && costValue == 0 && operation.isBonus() && reservationUsage)
-            return Result.hourly; // Must be the hourly usage
-        else if (processDelayed && costValue != 0 && operation.isBonus() && reservationUsage)
-            return Result.monthly; // This is the post processing of the monthly charge for all the hourly usage
-        else
-            return Result.hourly;
-    }
-
 
     private Operation getReservationOperation(LineItem lineItem, Product product, PurchaseOption defaultReservationPurchaseOption) {    	
     	String purchaseOption = lineItem.getPurchaseOption();

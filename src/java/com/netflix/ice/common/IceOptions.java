@@ -96,11 +96,6 @@ public class IceOptions {
     public static final String ROOT_NAME = "ice.rootName";
 
     /**
-     * Start date for transition to Cost and Usage Reports in YYYY-MM format.
-     */
-    public static final String COST_AND_USAGE_START_DATE = "ice.costAndUsageStartDate";
-    
-    /**
      * Start date for use of Enterprise Discount Program NetUnblended rates and costs.
      */
     public static final String COST_AND_USAGE_NET_UNBLENDED_START_DATE = "ice.costAndUsageNetUnblendedStartDate";

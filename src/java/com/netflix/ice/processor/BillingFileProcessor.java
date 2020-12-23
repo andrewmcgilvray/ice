@@ -64,7 +64,6 @@ public class BillingFileProcessor extends Poller {
     private CostAndUsageData costAndUsageData;
     private Instances instances;
     
-    private MonthlyReportProcessor dbrProcessor;
     private MonthlyReportProcessor cauProcessor;
     
 
@@ -72,7 +71,6 @@ public class BillingFileProcessor extends Poller {
     	this.config = config;
     	this.workBucketConfig = config.workBucketConfig;
         
-        dbrProcessor = new DetailedBillingReportProcessor(config);
         cauProcessor = new CostAndUsageReportProcessor(config);
     }
 
@@ -108,15 +106,7 @@ public class BillingFileProcessor extends Poller {
     
     private void processReports() throws Exception {
         boolean wroteConfig = false;
-        TreeMap<DateTime, List<MonthlyReport>> reportsToProcess = null;
-        
-        if (config.startDate.isEqual(config.costAndUsageStartDate) || config.startDate.isAfter(config.costAndUsageStartDate))
-        	reportsToProcess = Maps.newTreeMap();
-        else
-        	reportsToProcess = dbrProcessor.getReportsToProcess();
-        
-        if (config.costAndUsageStartDate.isBefore(DateTime.now(DateTimeZone.UTC)))
-        	reportsToProcess.putAll(cauProcessor.getReportsToProcess());        
+        TreeMap<DateTime, List<MonthlyReport>> reportsToProcess = cauProcessor.getReportsToProcess();        
         
         for (DateTime dataTime: reportsToProcess.keySet()) {
         	try {

@@ -141,29 +141,6 @@ public class BillingFileProcessorTest {
 			return reservationProcessor;
 		}
 	}
-	class DetailedBillingReportTest implements ReportTest {
-		private ReservationProcessor reservationProcessor = null;
-
-		public long Process(ProcessorConfig config, DateTime start,
-				CostAndUsageData costAndUsageData,
-				Instances instances) throws Exception {
-			
-			DetailedBillingReportProcessor dbrProcessor = new DetailedBillingReportProcessor(config);
-			reservationProcessor = dbrProcessor.getReservationProcessor();
-			File dbr = new File(resourcesReportDir, "aws-billing-detailed-line-items-with-resources-and-tags-2017-08.csv.zip");
-			S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
-			s3ObjectSummary.setKey("/aws-billing-detailed-line-items-with-resources-and-tags-2017-08.csv.zip");
-			s3ObjectSummary.setLastModified(new Date());
-			DetailedBillingReportProcessor.BillingFile report = dbrProcessor.new BillingFile(s3ObjectSummary, dbrProcessor, "");
-			
-	        return dbrProcessor.processReport(start, report, dbr,
-	        		costAndUsageData, instances);
-		}
-		
-		public ReservationProcessor getReservationProcessor() {
-			return reservationProcessor;
-		}
-	}
 	
 	public void testFileData(ReportTest reportTest, String prefix, ProductService productService) throws Exception {
         ReservationPeriod reservationPeriod = ReservationPeriod.valueOf(properties.getProperty(IceOptions.RESERVATION_PERIOD, "oneyear"));
@@ -434,51 +411,5 @@ public class BillingFileProcessorTest {
 		testFileData(new CostAndUsageTest(), "cau-", productService);
 	}
 	
-	@Test
-	public void testDetailedBillingReport() throws Exception {
-		init(resourcesReportDir + "ice.properties");
-		ProductService productService = new BasicProductService();
-		// Load products since DBRs don't have product codes (we normally pull them from the pricing service)
-		productService.getProduct(Product.Code.Ec2Instance);
-		productService.getProduct(Product.Code.RdsInstance);
-		productService.getProduct("AWS Support (Developer)", "AWSDeveloperSupport");
-		productService.getProduct("AWS CloudTrail", "AWSCloudTrail");
-		productService.getProduct("AWS Config", "AWSConfig");
-		productService.getProduct("AWS Lambda", "AWSLambda");
-		productService.getProduct(Product.Code.DataTransfer);
-		productService.getProduct("Amazon Simple Queue Service", "AWSQueueService");
-		productService.getProduct(Product.Code.ApiGateway);
-		productService.getProduct(Product.Code.CloudWatch);
-		productService.getProduct("Amazon DynamoDB", "AmazonDynamoDB");
-		productService.getProduct(Product.Code.Ec2);
-		productService.getProduct(Product.Code.Ebs);
-		productService.getProduct(Product.Code.Eip);
-		productService.getProduct(Product.Code.ElastiCache);
-		productService.getProduct(Product.Code.Rds);
-		productService.getProduct(Product.Code.S3);
-		productService.getProduct("Amazon Simple Notification Service", "AmazonSNS");
-		productService.getProduct("Amazon Virtual Private Cloud", "AmazonVPC");
-		productService.getProduct("AWS Key Management Service", "awskms");
-		productService.getProduct("Amazon SimpleDB", "AmazonSimpleDB");
-		productService.getProduct("AWS Direct Connect", "AWSDirectConnect");
-		productService.getProduct("Amazon Route 53", "AmazonRoute53");
-		productService.getProduct("Amazon Simple Email Service", "AmazonSES");
-		productService.getProduct("Amazon Glacier", "AmazonGlacier");
-		productService.getProduct(Product.Code.CloudFront);
-		productService.getProduct("Amazon EC2 Container Registry (ECR)", "AmazonECR");
-		productService.getProduct(Product.Code.Elasticsearch);
-		productService.getProduct("AWS Service Catalog", "AWSServiceCatalog");
-		productService.getProduct("Amazon WorkSpaces", "AmazonWorkSpaces");
-		productService.getProduct("AWS Data Pipeline", "datapipeline");
-		productService.getProduct("Amazon WorkDocs", "AmazonWorkDocs");
-		productService.getProduct(Product.Code.Emr);
-		productService.getProduct("Amazon Mobile Analytics", "mobileanalytics");
-		productService.getProduct("AWS Directory Service", "AWSDirectoryService");
-		productService.getProduct("Amazon Elastic File System", "AmazonEFS");
-		productService.getProduct("Amazon Kinesis", "AmazonKinesis");
-		productService.getProduct(Product.Code.Redshift);
-				
-		testFileData(new DetailedBillingReportTest(), "dbr-", productService);
-	}
 	
 }
