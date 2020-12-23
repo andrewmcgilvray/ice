@@ -57,10 +57,12 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
 		this.tagGroups = tagGroups;
 		this.data = Lists.newArrayList();
 		
-		int max = Math.max(costData == null ? 0 : costData.getNum(), usageData == null ? 0 : usageData.getNum());
+		int max = Math.max(costData.getNum(), usageData == null ? 0 : usageData.getNum());
+		
+		logger.info("costData: " + costData + ", usageData: " + usageData + ", tagGroups: " + tagGroups);
 		
         for (int i = 0; i < max; i++) {
-            Map<TagGroup, Double> costMap = costData == null ? null : costData.getData(i);
+            Map<TagGroup, Double> costMap = costData.getData(i);
             Map<TagGroup, Double> usageMap = usageData == null ? null : usageData.getData(i);
             Map<TagGroup, CostAndUsage> cauMap = Maps.newHashMap();
             data.add(cauMap);
@@ -69,8 +71,12 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
             	continue;
             
             for (TagGroup tagGroup: this.tagGroups) {
-            	Double cost = costMap == null ? 0.0 : costMap.get(tagGroup);
-            	Double usage = usageMap == null ? 0.0 : usageMap.get(tagGroup);
+            	Double cost = null;
+            	if (costMap != null)
+            		cost = costMap.get(tagGroup);
+            	Double usage = null;
+            	if (usageMap != null)
+            		usage = usageMap.get(tagGroup);
             	if (cost == null && usage == null)
             		continue;
             	cauMap.put(tagGroup, new CostAndUsage(cost == null ? 0 : cost, usage == null ? 0 : usage));
