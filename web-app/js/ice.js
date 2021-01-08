@@ -1290,7 +1290,7 @@ $scope.addUserTagParams = function ($scope, params) {
           parts[0] = parts[0].replace('-', '_');
         if (parts.length == 2 && parts[0] in paramDefs) {
           var def = paramDefs[parts[0]];
-          var result = def.fn($scope, parts[0], parts[1]);
+          var result = def.fn($scope, def.name, parts[1]);
           continue;
         }
              
