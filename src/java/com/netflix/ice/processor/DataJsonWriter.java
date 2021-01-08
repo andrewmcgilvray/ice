@@ -64,24 +64,21 @@ public class DataJsonWriter extends DataFile {
 	protected OutputStreamWriter writer;
 	private List<UserTagKey> tagKeys;
 	private JsonFileType fileType;
-    private final Map<Product, ReadWriteData> costDataByProduct;
-    private final Map<Product, ReadWriteData> usageDataByProduct;
+    private final Map<Product, DataSerializer> dataByProduct;
     protected boolean addNormalizedRates;
     protected InstanceMetrics instanceMetrics;
     protected InstancePrices ec2Prices;
     protected InstancePrices rdsPrices;
     
 	public DataJsonWriter(String name, DateTime monthDateTime, List<UserTagKey> tagKeys, JsonFileType fileType,
-			Map<Product, ReadWriteData> costDataByProduct,
-			Map<Product, ReadWriteData> usageDataByProduct,
+			Map<Product, DataSerializer> dataByProduct,
 			InstanceMetrics instanceMetrics, PriceListService priceListService, WorkBucketConfig workBucketConfig)
 			throws Exception {
 		super(name, workBucketConfig);
 		this.monthDateTime = monthDateTime;
 		this.tagKeys = tagKeys;
 		this.fileType = fileType;
-		this.costDataByProduct = costDataByProduct;
-		this.usageDataByProduct = usageDataByProduct;
+		this.dataByProduct = dataByProduct;
 	    this.instanceMetrics = instanceMetrics;
 	    if (fileType == JsonFileType.hourlyRI) {
 		    this.ec2Prices = priceListService.getPrices(monthDateTime, ServiceCode.AmazonEC2);
@@ -91,13 +88,11 @@ public class DataJsonWriter extends DataFile {
 	
 	// For unit testing
 	protected DataJsonWriter(DateTime monthDateTime, List<UserTagKey> tagKeys,
-			Map<Product, ReadWriteData> costDataByProduct,
-			Map<Product, ReadWriteData> usageDataByProduct) {
+			Map<Product, DataSerializer> dataByProduct) {
 		super();
 		this.monthDateTime = monthDateTime;
 		this.tagKeys = tagKeys;
-		this.costDataByProduct = costDataByProduct;
-		this.usageDataByProduct = usageDataByProduct;
+		this.dataByProduct = dataByProduct;
 	}
 	
 	@Override
@@ -115,29 +110,28 @@ public class DataJsonWriter extends DataFile {
 
 	@Override
 	protected void write(TagGroupFilter filter) throws IOException {
-        for (Product product: costDataByProduct.keySet()) {
+        for (Product product: dataByProduct.keySet()) {
         	// Skip the "null" product map that doesn't have resource tags
         	if (product == null)
         		continue;
         	
         	if (fileType == JsonFileType.daily)
-            	writeDaily(costDataByProduct.get(product), usageDataByProduct.get(product));
+            	writeDaily(dataByProduct.get(product));
         	else
-        		write(costDataByProduct.get(product), usageDataByProduct.get(product));
+        		write(dataByProduct.get(product));
         }
 	}
 	
-	private void write(ReadWriteData cost, ReadWriteData usage) throws IOException {
+	private void write(DataSerializer data) throws IOException {
 		Gson gson = new GsonBuilder().registerTypeAdapter(ResourceGroup.class, new ResourceGroupSerializer()).create();
 		DateTimeFormatter dtf = ISODateTimeFormat.dateTimeNoMillis();
-        for (int i = 0; i < cost.getNum(); i++) {
-            Map<TagGroup, Double> costMap = cost.getData(i);
-            if (costMap.size() == 0)
+        for (int i = 0; i < data.getNum(); i++) {
+            Map<TagGroup, DataSerializer.CostAndUsage> costAndUsageMap = data.getData(i);
+            if (costAndUsageMap.isEmpty())
             	continue;
             
-            Map<TagGroup, Double> usageMap = usage == null ? null : usage.getData(i);
-            for (Entry<TagGroup, Double> costEntry: costMap.entrySet()) {
-            	TagGroup tg = costEntry.getKey();
+            for (Entry<TagGroup, DataSerializer.CostAndUsage> cauEntry: costAndUsageMap.entrySet()) {
+            	TagGroup tg = cauEntry.getKey();
             	boolean rates = false;
             	if (fileType == JsonFileType.hourlyRI) {
             		rates = tg.product.isEc2Instance() || tg.product.isRdsInstance();
@@ -145,58 +139,52 @@ public class DataJsonWriter extends DataFile {
             			continue;
             	}
 
-            	Double usageValue = usageMap == null ? null : usageMap.get(costEntry.getKey());
-            	Item item = new Item(dtf.print(monthDateTime.plusHours(i)), costEntry.getKey(), costEntry.getValue(), usageValue, rates);
+            	DataSerializer.CostAndUsage cau = cauEntry.getValue();
+            	Item item = new Item(dtf.print(monthDateTime.plusHours(i)), cauEntry.getKey(), cau.cost, cau.usage, rates);
             	String json = gson.toJson(item);
             	writer.write(json + "\n");
             }
         }
 	}
 	
-	private void writeDaily(ReadWriteData cost, ReadWriteData usage) throws IOException {
+	private void writeDaily(DataSerializer data) throws IOException {
 		Gson gson = new GsonBuilder().registerTypeAdapter(ResourceGroup.class, new ResourceGroupSerializer()).create();
 		DateTimeFormatter dtf = ISODateTimeFormat.dateTimeNoMillis();
 		
-        List<Map<TagGroup, Double>> dailyCost = Lists.newArrayList();
-        List<Map<TagGroup, Double>> dailyUsage = Lists.newArrayList();
+        List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
         
-        Collection<TagGroup> tagGroups = cost.getTagGroups();
+        Collection<TagGroup> tagGroups = data.getTagGroups();
 
         // Aggregate
-        for (int hour = 0; hour < cost.getNum(); hour++) {
-            Map<TagGroup, Double> costMap = cost.getData(hour);
-            Map<TagGroup, Double> usageMap = usage == null ? null : usage.getData(hour);
+        for (int hour = 0; hour < data.getNum(); hour++) {
+            Map<TagGroup, DataSerializer.CostAndUsage> cauMap = data.getData(hour);
 
             for (TagGroup tagGroup: tagGroups) {
-                Double v = costMap.get(tagGroup);
-                if (v != null && v != 0)
-                    addValue(dailyCost, hour/24, tagGroup, v);
-                v = usageMap == null ? null : usageMap.get(tagGroup);
-                if (v != null && v != 0)
-                    addValue(dailyUsage, hour/24, tagGroup, v);
+            	DataSerializer.CostAndUsage cau = cauMap.get(tagGroup);
+            	if (cau != null && !cau.isZero())            	
+            		addValue(daily, hour/24, tagGroup, cau);
             }
         }
         
         // Write it out
-        for (int day = 0; day < dailyCost.size(); day++) {
-            Map<TagGroup, Double> costMap = dailyCost.get(day);
-            if (costMap.size() == 0)
+        for (int day = 0; day < daily.size(); day++) {
+            Map<TagGroup, DataSerializer.CostAndUsage> cauMap = daily.get(day);
+            if (cauMap.isEmpty())
             	continue;
         	
-            Map<TagGroup, Double> usageMap = dailyUsage.size() > day ? dailyUsage.get(day) : null;
-            for (Entry<TagGroup, Double> costEntry: costMap.entrySet()) {
-            	Double usageValue = usageMap == null ? null : usageMap.get(costEntry.getKey());
-            	Item item = new Item(dtf.print(monthDateTime.plusDays(day)), costEntry.getKey(), costEntry.getValue(), usageValue, false);
+            for (Entry<TagGroup, DataSerializer.CostAndUsage> cauEntry: cauMap.entrySet()) {
+            	DataSerializer.CostAndUsage cau = cauEntry.getValue();
+            	Item item = new Item(dtf.print(monthDateTime.plusDays(day)), cauEntry.getKey(), cau.cost, cau.usage, false);
             	String json = gson.toJson(item);
             	writer.write(json + "\n");
             }
         }
 	}
 	
-    private void addValue(List<Map<TagGroup, Double>> list, int index, TagGroup tagGroup, double v) {
-        Map<TagGroup, Double> map = ReadWriteData.getCreateData(list, index);
-        Double existedV = map.get(tagGroup);
-        map.put(tagGroup, existedV == null ? v : existedV + v);
+    private void addValue(List<Map<TagGroup, DataSerializer.CostAndUsage>> list, int index, TagGroup tagGroup, DataSerializer.CostAndUsage v) {
+        Map<TagGroup, DataSerializer.CostAndUsage> map = DataSerializer.getCreateData(list, index);
+        DataSerializer.CostAndUsage existedV = map.get(tagGroup);
+        map.put(tagGroup, existedV == null ? v : existedV.add(v));
     }
 
 	

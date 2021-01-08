@@ -203,14 +203,14 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         // The reservation processor handles determination on what's unused.
 		return lineItemType != LineItemType.Credit && (!monthly || !(product.isRedshift() || product.isRdsInstance() || product.isEc2Instance() || product.isElasticsearch() || product.isElastiCache()));
 	}
-	
+	    
 	private void addHourData(
 			String fileName,
 			LineItem lineItem,
 			LineItemType lineItemType, boolean monthly, TagGroup tagGroup,
 			boolean isReservationUsage, ReservationArn reservationArn,
 			double usage, double cost, double edpDiscount,
-			ReadWriteData usageData, ReadWriteData costData,
+			CostAndUsageData data, Product product,
 			int hour, String amort, String publicOnDemandCost, long startMilli) {
 		
 		boolean isFirstHour = hour == 0;
@@ -219,7 +219,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 			return;
 			
 		case SavingsPlanCoveredUsage:
-			addSavingsPlanSavings(fileName, lineItem, lineItemType, tagGroup, costData, hour, cost, edpDiscount, publicOnDemandCost);
+			addSavingsPlanSavings(fileName, lineItem, lineItemType, tagGroup, data, product, hour, cost, edpDiscount, publicOnDemandCost);
 			break;
 			
 		default:
@@ -229,7 +229,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 		boolean debug = isReservationUsage && ReservationArn.debugReservationArn != null && isFirstHour && reservationArn == ReservationArn.debugReservationArn;
 		
         if (applyMonthlyUsage(lineItemType, monthly, tagGroup.product)) {
-        	addValue(usageData, hour, tagGroup, usage);                	
+        	data.add(product, hour, tagGroup, 0, usage);
             if (debug) {
             	logger.info(fileName + " " + lineItemType + " usage=" + usage + ", tg=" + tagGroup);
             }
@@ -238,22 +238,22 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         // Additional entries for reservations
         if (isReservationUsage && !tagGroup.product.isDynamoDB()) {
         	if (lineItemType != LineItemType.Credit)
-        		addAmortizationAndSavings(fileName, tagGroup, reservationArn, costData, hour, tagGroup.product, cost, edpDiscount, amort, publicOnDemandCost, debug, lineItemType, startMilli);
+        		addAmortizationAndSavings(fileName, tagGroup, reservationArn, data, hour, product, cost, edpDiscount, amort, publicOnDemandCost, debug, lineItemType, startMilli);
         	// Reservation costs are handled through the ReservationService (see addReservation() above) except
         	// after Jan 1, 2019 when they added net costs to DiscountedUsage records.
         	if (cost != 0 && (lineItemType == LineItemType.Credit || lineItemType == LineItemType.DiscountedUsage)) {
-                addValue(costData, hour, tagGroup, cost);           		
+        		data.add(product, hour, tagGroup, cost, 0);
                 if (debug) {
                 	logger.info(fileName + " " + lineItemType + " cost=" + cost + ", tg=" + tagGroup);
                 }
         	}
         }
         else {
-            addValue(costData, hour, tagGroup, cost);
+    		data.add(product, hour, tagGroup, cost, 0);
         }
 	}
 	
-	private void addSavingsPlanSavings(String fileName, LineItem lineItem, LineItemType lineItemType, TagGroup tagGroup, ReadWriteData costData, int hour,
+	private void addSavingsPlanSavings(String fileName, LineItem lineItem, LineItemType lineItemType, TagGroup tagGroup, CostAndUsageData data, Product product, int hour,
 			double costValue, double edpDiscount, String publicOnDemandCost) {
     	// Don't include the EDP discount in the savings - we track that separately
 		// costValue is the effectiveCost which includes amortization
@@ -267,7 +267,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 		double publicCost = Double.parseDouble(publicOnDemandCost);
 		double edpCost = publicCost * (1 - edpDiscount);
 		double savings = edpCost - costValue;
-		addValue(costData, hour, tg, savings);
+		data.add(product, hour, tg, savings, 0);
 	}
 	
 	private void addUnusedSavingsPlanData(LineItem lineItem, TagGroup tagGroup, TagGroup resourceTagGroup, Product product, CostAndUsageData costAndUsageData, int hour) {
@@ -279,27 +279,25 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 		double recurring = Double.parseDouble(lineItem.getSavingsPlanRecurringCommitmentForBillingPeriod());
 		double unusedAmort = amortization * (1.0 - normalizedUsage);
 		double unusedRecurring = recurring * (1.0 - normalizedUsage);
-
-        ReadWriteData costData = costAndUsageData.getCost(null);
         
         PurchaseOption paymentOption = PurchaseOption.get(lineItem.getSavingsPlanPaymentOption());
 
         if (unusedAmort > 0.0) {
     		SavingsPlanOperation amortOp = Operation.getSavingsPlanUnusedAmortized(paymentOption);
     		TagGroup tgAmort = TagGroup.getTagGroup(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, amortOp, tagGroup.usageType, tagGroup.resourceGroup);
-    		addValue(costData, hour, tgAmort, unusedAmort);
+    		costAndUsageData.add(null, hour, tgAmort, unusedAmort, 0);
     		if (resourceService != null) {
         		tgAmort = TagGroup.getTagGroup(resourceTagGroup.account, resourceTagGroup.region, resourceTagGroup.zone, resourceTagGroup.product, amortOp, resourceTagGroup.usageType, resourceTagGroup.resourceGroup);
-    	        addValue(costAndUsageData.getCost(product), hour, tgAmort, unusedAmort);
+    	        costAndUsageData.add(product, hour, tgAmort, unusedAmort, 0);
     		}
         }
         if (unusedRecurring > 0.0) {
         	SavingsPlanOperation unusedOp = Operation.getSavingsPlanUnused(paymentOption);
     		TagGroup tgRecurring = TagGroup.getTagGroup(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, unusedOp, tagGroup.usageType, tagGroup.resourceGroup);
-    		addValue(costData, hour, tgRecurring, unusedRecurring);
+    		costAndUsageData.add(null, hour, tgRecurring, unusedRecurring, 0);
     		if (resourceService != null) {
     			tgRecurring = TagGroup.getTagGroup(resourceTagGroup.account, resourceTagGroup.region, resourceTagGroup.zone, resourceTagGroup.product, unusedOp, resourceTagGroup.usageType, resourceTagGroup.resourceGroup);
-    	        addValue(costAndUsageData.getCost(product), hour, tgRecurring, unusedRecurring);
+    	        costAndUsageData.add(product, hour, tgRecurring, unusedRecurring, 0);
     		}
         }
 	}
@@ -310,18 +308,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 		
         final Product product = tagGroup.product;
         final LineItemType lineItemType = lineItem.getLineItemType();
-        ReadWriteData usageDataOfProduct = costAndUsageData.getUsage(product);
-        ReadWriteData costDataOfProduct = costAndUsageData.getCost(product);
-        
-        if (resourceService != null) {
-            if (usageDataOfProduct == null) {
-                usageDataOfProduct = new ReadWriteData(numUserTags);
-                costDataOfProduct = new ReadWriteData(numUserTags);
-                costAndUsageData.putUsage(product, usageDataOfProduct);
-                costAndUsageData.putCost(product, costDataOfProduct);
-            }
-        }
-                
+                        
         if (lineItemType == LineItemType.SavingsPlanRecurringFee) {
         	if (indexes.length > 1) {
         		logger.error(fileName + " SavingsPlanRecurringFee with more than one hour of data");
@@ -333,8 +320,6 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         	costAndUsageData.addSavingsPlanProduct(tagGroup.product);
         }
         
-        final ReadWriteData usageData = costAndUsageData.getUsage(null);
-        final ReadWriteData costData = costAndUsageData.getCost(null);
         boolean reservationUsage = lineItem.isReserved();
         ReservationArn reservationArn = ReservationArn.get(lineItem.getReservationArn());
     	String amort = lineItem.getAmortizedUpfrontCostForUsage();
@@ -344,10 +329,10 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         	logger.info(fileName + " Credit: " + lineItem);
         
         for (int i : indexes) {
-            addHourData(fileName, lineItem, lineItemType, monthly, tagGroup, reservationUsage, reservationArn, usageValue, costValue, edpDiscount, usageData, costData, i, amort, publicOnDemandCost, startMilli);
+            addHourData(fileName, lineItem, lineItemType, monthly, tagGroup, reservationUsage, reservationArn, usageValue, costValue, edpDiscount, costAndUsageData, null, i, amort, publicOnDemandCost, startMilli);
 
             if (resourceService != null) {
-                addHourData(fileName, lineItem, lineItemType, monthly, resourceTagGroup, reservationUsage, reservationArn, usageValue, costValue, edpDiscount, usageDataOfProduct, costDataOfProduct, i, amort, publicOnDemandCost, startMilli);
+                addHourData(fileName, lineItem, lineItemType, monthly, resourceTagGroup, reservationUsage, reservationArn, usageValue, costValue, edpDiscount, costAndUsageData, product, i, amort, publicOnDemandCost, startMilli);
                 
                 // Collect statistics on tag coverage
             	boolean[] userTagCoverage = resourceService.getUserTagCoverage(lineItem);
@@ -357,7 +342,7 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
         }
     }
 	
-	private void addAmortizationAndSavings(String fileName, TagGroup tagGroup, ReservationArn reservationArn, ReadWriteData costData, int hour, Product product,
+	private void addAmortizationAndSavings(String fileName, TagGroup tagGroup, ReservationArn reservationArn, CostAndUsageData data, int hour, Product product,
 			double costValue, double edpDiscount, String amort, String publicOnDemandCost, boolean debug, LineItemType lineItemType, long startMilli) {
         // If we have an amortization cost from a DiscountedUsage line item, save it as amortization
     	double amortCost = 0.0;
@@ -369,8 +354,8 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
 		amortCost = Double.parseDouble(amort);
 		if (amortCost > 0.0) {
     		ReservationOperation amortOp = ReservationOperation.getAmortized(((ReservationOperation) tagGroup.operation).getPurchaseOption());
-    		TagGroupRI tg = TagGroupRI.get(tagGroup.account, tagGroup.region, tagGroup.zone, product, amortOp, tagGroup.usageType, tagGroup.resourceGroup, reservationArn);
-    		addValue(costData, hour, tg, amortCost);
+    		TagGroupRI tg = TagGroupRI.get(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, amortOp, tagGroup.usageType, tagGroup.resourceGroup, reservationArn);
+    		data.add(product, hour, tg, amortCost, 0);
             if (debug) {
             	logger.info(fileName + " " + lineItemType + " amort=" + amortCost + ", tg=" + tg);
             }
@@ -384,11 +369,11 @@ public class CostAndUsageReportLineItemProcessor extends BasicLineItemProcessor 
     		return;
     	}
 		ReservationOperation savingsOp = ReservationOperation.getSavings(((ReservationOperation) tagGroup.operation).getPurchaseOption());
-		TagGroupRI tg = TagGroupRI.get(tagGroup.account,  tagGroup.region, tagGroup.zone, product, savingsOp, tagGroup.usageType, tagGroup.resourceGroup, reservationArn);
+		TagGroupRI tg = TagGroupRI.get(tagGroup.account,  tagGroup.region, tagGroup.zone, tagGroup.product, savingsOp, tagGroup.usageType, tagGroup.resourceGroup, reservationArn);
 		double publicCost = Double.parseDouble(publicOnDemandCost);
 		double edpCost = publicCost * (1 - edpDiscount);
 		double savings = edpCost - costValue - amortCost;
-		addValue(costData, hour, tg, savings);
+		data.add(product, hour, tg, savings, 0);
         if (debug) {
         	logger.info(fileName + " " + lineItemType + " savings=" + savings + ", tg=" + tg);
         }

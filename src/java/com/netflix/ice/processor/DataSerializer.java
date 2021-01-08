@@ -1,12 +1,15 @@
 package com.netflix.ice.processor;
 
+import java.io.BufferedReader;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -18,6 +21,7 @@ import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.DataVersion;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.Zone.BadZone;
 
 public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
@@ -33,12 +37,30 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     	}
     	
     	public String toString() {
-    		return "[" + Double.toString(cost) + "," + Double.toString(usage) + "]";
+    		return "{cost: " + Double.toString(cost) + ", usage: " + Double.toString(usage) + "}";
+    	}
+    	
+    	public boolean isZero() {
+    		return cost == 0.0 && usage == 0.0;
+    	}
+    	
+    	public CostAndUsage add(CostAndUsage value) {
+    		if (value == null)
+    			return this;
+    		
+    		return new CostAndUsage(cost + value.cost, usage + value.usage);
+    	}
+    	
+    	public CostAndUsage add(double otherCost, double otherUsage) {
+    		if (otherCost == 0 && otherUsage == 0)
+    			return this;
+    		
+    		return new CostAndUsage(cost + otherCost, usage + otherUsage);
     	}
     }
     
     
-	private List<Map<TagGroup, CostAndUsage>> data;
+	protected List<Map<TagGroup, CostAndUsage>> data;
 	
     // Cached set of tagGroup keys used throughout the list of data maps.
     // Post processing for reservations, savings plans, savings data, post processor, and data writing
@@ -51,37 +73,7 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     // number of user tags in the resourceGroups. Set to -1 when constructed for deserialization.
     // will be initialized when read in.
     protected int numUserTags;
-	
-	public DataSerializer(ReadWriteData costData, ReadWriteData usageData, Collection<TagGroup> tagGroups) {
-		this.numUserTags = costData.numUserTags;
-		this.tagGroups = tagGroups;
-		this.data = Lists.newArrayList();
 		
-		int max = Math.max(costData.getNum(), usageData == null ? 0 : usageData.getNum());
-				
-        for (int i = 0; i < max; i++) {
-            Map<TagGroup, Double> costMap = costData.getData(i);
-            Map<TagGroup, Double> usageMap = usageData == null ? null : usageData.getData(i);
-            Map<TagGroup, CostAndUsage> cauMap = Maps.newHashMap();
-            data.add(cauMap);
-            
-            if ((costMap == null || costMap.isEmpty()) && (usageMap == null || usageMap.isEmpty()))
-            	continue;
-            
-            for (TagGroup tagGroup: this.tagGroups) {
-            	Double cost = null;
-            	if (costMap != null)
-            		cost = costMap.get(tagGroup);
-            	Double usage = null;
-            	if (usageMap != null)
-            		usage = usageMap.get(tagGroup);
-            	if (cost == null && usage == null)
-            		continue;
-            	cauMap.put(tagGroup, new CostAndUsage(cost == null ? 0 : cost, usage == null ? 0 : usage));
-            }
-        }		
-	}
-	
 	public DataSerializer(int numUserTags) {
 		this.numUserTags = numUserTags;
 		this.tagGroups = ConcurrentHashMap.newKeySet();
@@ -97,8 +89,55 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
         return data.get(i);
     }
 
+	public void enableTagGroupCache(boolean enabled) {
+		if (!enabled)
+			tagGroups = null;
+		else if (tagGroups == null) {
+			tagGroups = ConcurrentHashMap.newKeySet();
+	        for (int i = 0; i < data.size(); i++) {
+        		tagGroups.addAll(data.get(i).keySet());	        	
+	        }
+		}
+	}
+	
+	public String toString() {
+		final int max = 2560;
+		StringBuffer sb = new StringBuffer();
+		sb.append("[\n");
+		for (Map<TagGroup, CostAndUsage> map: data) {
+			sb.append("  {\n");
+			for (TagGroup tg: map.keySet()) {
+				sb.append("    " + tg.toString() + ": " + map.get(tg).toString() + "\n");
+				if (sb.length() > max) {
+					sb.append("...");
+					break;
+				}
+			}
+			sb.append("  },\n");
+			if (sb.length() > max) {
+				sb.append("...");
+				break;
+			}
+		}
+		sb.append("]\n");
+		return sb.toString();
+	}
+
+
+    /**
+     * Gets the aggregated set of TagGroups across all time intervals in the list of maps.
+     *
+     * @return a set of TagGroups
+     */
     public Collection<TagGroup> getTagGroups() {
         return tagGroups;
+    }
+
+    /**
+     * Gets the tagGroup key set for the given hour
+     */
+    public Collection<TagGroup> getTagGroups(int i) {
+    	return getData(i).keySet();
     }
 
     public int getNum() {
@@ -113,6 +152,11 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     	return getData(i).get(tagGroup);
     }
 
+    void cutData(int num) {
+        if (data.size() > num)
+            data = data.subList(0, num);
+    }
+
     public void put(int i, TagGroup tagGroup, CostAndUsage value) {
     	getCreateData(i).put(tagGroup, value);
     	if (tagGroups != null)
@@ -121,10 +165,43 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     
     public void add(int i, TagGroup tagGroup, CostAndUsage value) {
     	Map<TagGroup, CostAndUsage> map = getCreateData(i);
-    	CostAndUsage existing = map.get(tagGroup);
-        map.put(tagGroup, existing == null ? value : new CostAndUsage(existing.cost + value.cost, existing.usage + value.usage));
+        map.put(tagGroup, value.add(map.get(tagGroup)));
     	if (tagGroups != null)
     		tagGroups.add(tagGroup);
+    }
+
+    public void add(int i, TagGroup tagGroup, double cost, double usage) {
+    	Map<TagGroup, CostAndUsage> map = getCreateData(i);
+    	CostAndUsage existing = map.get(tagGroup);
+        map.put(tagGroup, existing != null ? existing.add(cost, usage) : new CostAndUsage(cost, usage));
+    	if (tagGroups != null)
+    		tagGroups.add(tagGroup);
+    }
+
+    public CostAndUsage remove(int i, TagGroup tagGroup) {
+    	if (i >= data.size())
+    		return null;
+    	CostAndUsage existing = data.get(i).remove(tagGroup);
+    	if (existing != null) {
+    		// See if we can purge the value from the cache
+    		boolean found = false;
+    		// Most remove calls are done by RI and SP processors which
+    		// run through the data lists from 0 to the end.
+    		// Assuming most values are present throughout the list, we
+    		// can save time by checking from back to front since we'll
+    		// bail quickly if we find the tagGroup at the end.
+    		for (int j = data.size() - 1; j >= 0; j--) {
+    			Map<TagGroup, CostAndUsage> d = data.get(j);
+    			if (d.containsKey(tagGroup)) {
+    				found = true;
+    				break;
+    			}
+    		}
+    		if (!found && tagGroups != null)
+    			tagGroups.remove(tagGroup);
+    	}
+
+    	return existing;
     }
 
     /**
@@ -180,7 +257,7 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
                 for (TagGroup tg: newData.get(i).keySet()) {
                 	CostAndUsage existingValue = existed.get(tg);
                 	CostAndUsage value = newData.get(i).get(tg);
-                    existed.put(tg, existingValue == null ? value : new CostAndUsage(existingValue.cost + value.cost, existingValue.usage + value.usage));
+                    existed.put(tg, existingValue == null ? value : value.add(existingValue));
                 }
             }
         }
@@ -292,4 +369,63 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
         this.data = data;		
 	}
 
+    public void serializeCsv(OutputStreamWriter out, String resourceGroupHeader) throws IOException {
+    	// write the header
+    	out.write("index,");
+    	TagGroup.Serializer.serializeCsvHeader(out, resourceGroupHeader);
+    	out.write(",cost,usage\n");
+        for (int i = 0; i < data.size(); i++) {
+            Map<TagGroup, CostAndUsage> map = getData(i);
+            for (Entry<TagGroup, CostAndUsage> entry: map.entrySet()) {
+            	out.write("" + i + ",");
+            	TagGroup.Serializer.serializeCsv(out, entry.getKey());
+                out.write(",");
+                CostAndUsage v = entry.getValue();
+                if (v == null)
+                	out.write("0.0,0.0");
+                else
+                	out.write(Double.toString(v.cost) + "," + Double.toString(v.usage));
+                out.write("\n");
+            }
+        }
+    }
+    
+    public void deserializeCsv(AccountService accountService, ProductService productService, BufferedReader in) throws IOException, BadZone {
+    	final int numNonResourceColumns = 10; // 8 dimensions (index, account, region, zone, product, operation, usageType, units)  plus cost and usage columns
+    	final int resourceStartIndex = 8;
+        List<Map<TagGroup, CostAndUsage>> data = Lists.newArrayList();
+        
+        String line;
+        
+        // skip the header
+        in.readLine();
+
+        Map<TagGroup, CostAndUsage> map = null;
+        while ((line = in.readLine()) != null) {
+        	String[] items = line.split(",");
+        	int hour = Integer.parseInt(items[0]);
+        	while (hour >= data.size()) {
+        		map = Maps.newHashMap();
+        		data.add(map);
+        	}
+        	map = data.get(hour);
+        	String[] resourceGroup = null;
+        	if (items.length > numNonResourceColumns) {
+	        	resourceGroup = new String[items.length - numNonResourceColumns];
+	        	for (int i = 0; i < items.length - numNonResourceColumns; i++)
+	        		resourceGroup[i] = items[i + resourceStartIndex];
+        	}
+        	TagGroup tag = null;
+			try {
+				tag = TagGroup.getTagGroup(items[1], items[2], items[3], items[4], items[5], items[6], items[7], resourceGroup, accountService, productService);
+			} catch (ResourceException e) {
+				// Should never throw because no user tags are null
+			}
+        	Double cost = Double.parseDouble(items[items.length-2]);
+        	Double usage = Double.parseDouble(items[items.length-1]);
+        	map.put(tag, new CostAndUsage(cost, usage));
+        }
+
+        this.data = data;
+    }
 }

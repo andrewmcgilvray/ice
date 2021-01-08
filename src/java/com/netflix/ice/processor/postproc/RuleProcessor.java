@@ -14,7 +14,7 @@ import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.tag.Product;
 
 public abstract class RuleProcessor {
@@ -48,23 +48,25 @@ public abstract class RuleProcessor {
 		sw.start();
 		
 		Map<AggregationTagGroup, Double[]> valuesMap = Maps.newHashMap();
-		Collection<Product> products = isNonResource ? Lists.newArrayList(new Product[]{null}) : query.getProducts(productService);			
+		Collection<Product> products = isNonResource ? Lists.newArrayList(new Product[]{null}) : query.getProducts(productService);
+		
+		boolean isCost = query.getType() == RuleConfig.DataType.cost;
 
 		if (query.isSingleTagGroup()) {
 			// Handle a single tagGroup lookup - Doing this explicitly avoids a scan of the tag group map.
 			TagGroup tg = query.getSingleTagGroup(accountService, productService, isNonResource);
 			Product product = isNonResource ? null : tg.product;
-			ReadWriteData inData = query.getType() == RuleConfig.DataType.cost ? data.getCost(product) : data.getUsage(product);
+			DataSerializer inData = data.get(product);
 			Double[] values = new Double[query.isMonthly() ? 1 : maxHours];
 			for (int i = 0; i < values.length; i++)
 				values[i] = 0.0;
-			getData(inData, tg, values, query.isMonthly());
+			getData(inData, isCost, tg, values, query.isMonthly());
 			AggregationTagGroup aggregatedTagGroup = query.aggregateTagGroup(tg, accountService, productService);
 			valuesMap.put(aggregatedTagGroup, values);
 		}
 		else {
 			for (Product product: products) {
-				ReadWriteData inData = query.getType() == RuleConfig.DataType.cost ? data.getCost(product) : data.getUsage(product);
+				DataSerializer inData = data.get(product);
 				if (inData == null)
 					continue;
 				
@@ -80,7 +82,7 @@ public abstract class RuleProcessor {
 							values[i] = 0.0;
 						valuesMap.put(aggregatedTagGroup, values);
 					}
-					getData(inData, tg, values, query.isMonthly());
+					getData(inData, isCost, tg, values, query.isMonthly());
 				}
 			}
 		}
@@ -91,11 +93,12 @@ public abstract class RuleProcessor {
 		return valuesMap;
 	}
 
-	private void getData(ReadWriteData data, TagGroup tg, Double[] values, boolean isMonthly) {
+	private void getData(DataSerializer data, boolean isCost, TagGroup tg, Double[] values, boolean isMonthly) {
 		for (int hour = 0; hour < data.getNum(); hour++) {
-			Double v = data.get(hour, tg);
-			if (v != null)
-				values[isMonthly ? 0 : hour] += v;
+			DataSerializer.CostAndUsage cau = data.get(hour, tg);
+			if (cau != null) {
+				values[isMonthly ? 0 : hour] += isCost ? cau.cost : cau.usage;
+			}
 		}
 	}
 	

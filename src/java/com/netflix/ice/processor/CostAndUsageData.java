@@ -72,8 +72,9 @@ public class CostAndUsageData {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
     private final long startMilli;
-    private Map<Product, ReadWriteData> usageDataByProduct;
-    private Map<Product, ReadWriteData> costDataByProduct;
+    
+    private Map<Product, DataSerializer> dataByProduct;
+    
     private final WorkBucketConfig workBucketConfig;
     private final AccountService accountService;
     private final ProductService productService;
@@ -91,10 +92,10 @@ public class CostAndUsageData {
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
         this.userTagKeys = userTagKeys;
-		this.usageDataByProduct = Maps.newHashMap();
-		this.costDataByProduct = Maps.newHashMap();
-        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
-        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        
+        this.dataByProduct = Maps.newHashMap();
+		this.dataByProduct.put(null, new DataSerializer(userTagKeys == null ? 0 : userTagKeys.size()));
+		        
         this.workBucketConfig = workBucketConfig;
         this.accountService = accountService;
         this.productService = productService;
@@ -118,10 +119,8 @@ public class CostAndUsageData {
 	public CostAndUsageData(CostAndUsageData other, List<UserTagKey> userTagKeys) {
 		this.startMilli = other.startMilli;
         this.userTagKeys = userTagKeys;
-		this.usageDataByProduct = Maps.newHashMap();
-		this.costDataByProduct = Maps.newHashMap();
-        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
-        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.dataByProduct = Maps.newHashMap();
+		this.dataByProduct.put(null, new DataSerializer(userTagKeys.size()));
         this.workBucketConfig = other.workBucketConfig;
         this.accountService = other.accountService;
         this.productService = other.productService;
@@ -150,15 +149,13 @@ public class CostAndUsageData {
 		return cacheTagGroups;
 	}
 	
-	public void enableTagGroupCache(boolean cacheTagGroups) {
-		this.cacheTagGroups = cacheTagGroups;
-		for (ReadWriteData rwd: usageDataByProduct.values())
-			rwd.enableTagGroupCache(cacheTagGroups);
-		for (ReadWriteData rwd: costDataByProduct.values())
-			rwd.enableTagGroupCache(cacheTagGroups);
+	public void enableTagGroupCache(boolean enabled) {
+		this.cacheTagGroups = enabled;
+		for (DataSerializer ds: dataByProduct.values())
+			ds.enableTagGroupCache(enabled);
 		if (tagCoverage != null) {
 			for (ReadWriteTagCoverageData tcd: tagCoverage.values())
-				tcd.enableTagGroupCache(true);
+				tcd.enableTagGroupCache(enabled);
 		}
 	}
 	
@@ -175,24 +172,38 @@ public class CostAndUsageData {
 		return userTagKeysAsStrings;
 	}
 	
-	public ReadWriteData getUsage(Product product) {
-		return usageDataByProduct.get(product);
+	public DataSerializer get(Product product) {
+		return dataByProduct.get(product);
 	}
 	
-	public void putUsage(Product product, ReadWriteData data) {
-		usageDataByProduct.put(product,  data);
+	public void put(Product product, DataSerializer data) {
+		dataByProduct.put(product, data);
 		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
-	public ReadWriteData getCost(Product product) {
-		return costDataByProduct.get(product);
-	}
-	
-	public void putCost(Product product, ReadWriteData data) {
-		costDataByProduct.put(product,  data);
-		data.enableTagGroupCache(cacheTagGroups);
-	}
-	
+    public int getNum(Product product) {
+    	DataSerializer ds = dataByProduct.get(product);
+        return ds == null ? 0 : ds.getNum();
+    }
+
+    public Collection<TagGroup> getTagGroups(Product product) {
+        return dataByProduct.get(product).getTagGroups();
+    }
+    
+    public void add(Product product, int i, TagGroup tagGroup, double cost, double usage) {
+    	DataSerializer ds = dataByProduct.get(product);
+    	if (ds == null) {
+    		ds = new DataSerializer(userTagKeys.size());
+    		dataByProduct.put(product, ds);
+    	}
+        CostAndUsage oldV = ds.get(i, tagGroup);
+        if (oldV != null) {
+        	cost += oldV.cost;
+            usage += oldV.usage;
+        }
+        ds.put(i, tagGroup, new CostAndUsage(cost, usage));
+    }
+
 	public ReadWriteTagCoverageData getTagCoverage(Product product) {
 		return tagCoverage.get(product);
 	}
@@ -205,27 +216,16 @@ public class CostAndUsageData {
 	
 	public void putAll(CostAndUsageData data) {
 		// Add all the data from the supplied CostAndUsageData
+		for (Product product: data.dataByProduct.keySet()) {
+			DataSerializer ds = dataByProduct.get(product);
+			if (ds == null) {
+				dataByProduct.put(product, data.dataByProduct.get(product));
+			}
+			else {
+				ds.putAll(data.dataByProduct.get(product));
+			}
+		}
 		
-		for (Entry<Product, ReadWriteData> entry: data.usageDataByProduct.entrySet()) {
-			ReadWriteData usage = getUsage(entry.getKey());
-			if (usage == null) {
-				usageDataByProduct.put(entry.getKey(), entry.getValue());
-				entry.getValue().enableTagGroupCache(cacheTagGroups);
-			}
-			else {
-				usage.putAll(entry.getValue());
-			}
-		}
-		for (Entry<Product, ReadWriteData> entry: data.costDataByProduct.entrySet()) {
-			ReadWriteData cost = getCost(entry.getKey());
-			if (cost == null) {
-				costDataByProduct.put(entry.getKey(), entry.getValue());
-				entry.getValue().enableTagGroupCache(cacheTagGroups);
-			}
-			else {
-				cost.putAll(entry.getValue());
-			}
-		}
 		if (tagCoverage != null && data.tagCoverage != null) {
 			for (Entry<Product, ReadWriteTagCoverageData> entry: data.tagCoverage.entrySet()) {
 				ReadWriteTagCoverageData tc = getTagCoverage(entry.getKey());
@@ -244,23 +244,16 @@ public class CostAndUsageData {
 	}
 	
     public void cutData(int hours) {
-        for (ReadWriteData data: usageDataByProduct.values()) {
-            data.cutData(hours);
-        }
-        for (ReadWriteData data: costDataByProduct.values()) {
-            data.cutData(hours);
-        }
+        for (DataSerializer ds: dataByProduct.values())
+            ds.cutData(hours);
     }
     
     public int getMaxNum() {
     	// return the maximum number of hours represented in the underlying maps
     	int max = 0;
     	
-        for (ReadWriteData data: usageDataByProduct.values()) {
-            max = max < data.getNum() ? data.getNum() : max;
-        }
-        for (ReadWriteData data: costDataByProduct.values()) {
-            max = max < data.getNum() ? data.getNum() : max;
+        for (DataSerializer ds: dataByProduct.values()) {
+            max = max < ds.getNum() ? ds.getNum() : max;
         }
         return max;
     }
@@ -363,15 +356,12 @@ public class CostAndUsageData {
     	for (JsonFileType jft: jsonFiles)
         	futures.add(archiveJson(jft, instanceMetrics, priceListService, pool));
     	
-        for (Product product: costDataByProduct.keySet()) {
-        	futures.add(archiveTagGroups(startMilli, product, costDataByProduct.get(product).getTagGroups(), pool));
+        for (Product product: dataByProduct.keySet()) {
+        	futures.add(archiveTagGroups(startMilli, product, dataByProduct.get(product).getTagGroups(), pool));
         }
         
-        Set<Product> products = Sets.newHashSet(costDataByProduct.keySet());
-        products.addAll(usageDataByProduct.keySet());
-
-        archiveHourly(archiveHourlyData, products, pool, futures);    
-        archiveSummary(startDate, products, pool, futures);
+        archiveHourly(archiveHourlyData, pool, futures);    
+        archiveSummary(startDate, pool, futures);
         
         archiveSummaryTagCoverage(startDate, pool, futures);
 
@@ -414,18 +404,13 @@ public class CostAndUsageData {
 	}
     
     private void verifyTagGroups() throws Exception {    	
-        for (Product product: costDataByProduct.keySet()) {
+        for (Product product: dataByProduct.keySet()) {
         	boolean verify = product == null || product.isEc2Instance() || product.isRdsInstance() || product.isRedshift() || product.isElastiCache() || product.isElasticsearch();
         	if (!verify)
         		continue;
         	
-            Collection<TagGroup> tagGroups = costDataByProduct.get(product).getTagGroups();            
+            Collection<TagGroup> tagGroups = dataByProduct.get(product).getTagGroups();            
         	verifyTagGroupsForProduct(tagGroups);
-
-        	if (usageDataByProduct.get(product) != null) {
-	            tagGroups = usageDataByProduct.get(product).getTagGroups();
-	            verifyTagGroupsForProduct(tagGroups);
-        	}
         }
     }
     
@@ -456,7 +441,7 @@ public class CostAndUsageData {
     	        String filename = writeJsonFiles.name() + "_all_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".json";
     	        try {
 	    	        DataJsonWriter writer = new DataJsonWriter(filename,
-	    	        		monthDateTime, userTagKeys, writeJsonFiles, costDataByProduct, usageDataByProduct, instanceMetrics, priceListService, workBucketConfig);
+	    	        		monthDateTime, userTagKeys, writeJsonFiles, dataByProduct, instanceMetrics, priceListService, workBucketConfig);
 	    	        writer.archive();
     	        }
     	        catch (Exception e) {
@@ -487,25 +472,16 @@ public class CostAndUsageData {
     	});        
     }
     
-    private void archiveHourly(boolean archiveHourlyData, Set<Product> products, ExecutorService pool, List<Future<Status>> futures) {
+    private void archiveHourly(boolean archiveHourlyData, ExecutorService pool, List<Future<Status>> futures) {
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
         
-        for (Product product: products) {
+        for (Product product: dataByProduct.keySet()) {
         	if (!archiveHourlyData && product != null && !product.hasReservations() && !product.hasSavingsPlans())
         		continue;
         	
             String name = "hourly_" + getProdName(product) + "_" + AwsUtils.monthDateFormat.print(monthDateTime);
-            ReadWriteData costData = costDataByProduct.get(product);
-            ReadWriteData usageData = usageDataByProduct.get(product);
-            
-        	// Generate the full set of tag groups across both cost and usage
-        	Set<TagGroup> tagGroups = Sets.newHashSet();
-        	if (costData != null)
-        		tagGroups.addAll(costData.getTagGroups());
-        	if (usageData != null)
-        		tagGroups.addAll(usageData.getTagGroups());
-            
-            futures.add(archiveHourlyFile(name, new DataSerializer(costData, usageData, tagGroups), archiveHourlyData, pool));
+                        
+            futures.add(archiveHourlyFile(name, dataByProduct.get(product), archiveHourlyData, pool));
         }
     }
     
@@ -548,19 +524,19 @@ public class CostAndUsageData {
     }
 
 
-    private void archiveSummary(DateTime startDate, Set<Product> products, ExecutorService pool, List<Future<Status>> futures) {
+    private void archiveSummary(DateTime startDate, ExecutorService pool, List<Future<Status>> futures) {
 
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
 
         // Queue the non-resource version first because it takes longer and we
         // don't like to have it last with other threads idle.
-        futures.add(archiveSummaryProductFuture(monthDateTime, startDate, null, costDataByProduct.get(null), usageDataByProduct.get(null), pool));
+        futures.add(archiveSummaryProductFuture(monthDateTime, startDate, null, dataByProduct.get(null), pool));
                 
-        for (Product product: products) {
+        for (Product product: dataByProduct.keySet()) {
         	if (product == null)
         		continue;
         	
-            futures.add(archiveSummaryProductFuture(monthDateTime, startDate, product, costDataByProduct.get(product), usageDataByProduct.get(product), pool));
+            futures.add(archiveSummaryProductFuture(monthDateTime, startDate, product, dataByProduct.get(product), pool));
         }
     }
     
@@ -610,13 +586,8 @@ public class CostAndUsageData {
         return new DataWriter(name, data, load, workBucketConfig, accountService, productService);
     }
     
-    protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, Product product, ReadWriteData costData, ReadWriteData usageData) throws Exception {
-    	// Generate the full set of tag groups across both cost and usage
-    	Set<TagGroup> tagGroups = Sets.newHashSet();
-    	if (costData != null)
-    		tagGroups.addAll(costData.getTagGroups());
-    	if (usageData != null)
-    		tagGroups.addAll(usageData.getTagGroups());
+    protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, Product product, DataSerializer data) throws Exception {
+    	Collection<TagGroup> tagGroups = data.getTagGroups();
     	
         // init daily, weekly and monthly
         List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
@@ -650,7 +621,6 @@ public class CostAndUsageData {
         if (daysInNextMonth == 7)
         	daysInNextMonth = 0;
         
-        DataSerializer data = new DataSerializer(costData, usageData, tagGroups);
         aggregateSummaryData(data, daysFromLastMonth, daily, weekly, monthly);
         
         if (daysInNextMonth > 0) {
@@ -702,12 +672,12 @@ public class CostAndUsageData {
     }
     
     private Future<Status> archiveSummaryProductFuture(final DateTime monthDateTime, final DateTime startDate, final Product product,
-    		final ReadWriteData costData, final ReadWriteData usageData, ExecutorService pool) {
+    		final DataSerializer data, ExecutorService pool) {
     	return pool.submit(new Callable<Status>() {
     		@Override
     		public Status call() {
     			try {
-    				archiveSummaryProduct(monthDateTime, startDate, product, costData, usageData);  
+    				archiveSummaryProduct(monthDateTime, startDate, product, data);  
     			}
     			catch (Exception e) {
     				e.printStackTrace();

@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.tag.UserTag;
 
@@ -38,13 +38,13 @@ public class ReportWriter {
 	private List<String> header;
 	private List<Rule.TagKey> tagKeys;
 	private List<String> userTagKeys;
-	private ReadWriteData data;
+	private DataSerializer data;
 	private RuleConfig.Aggregation aggregation;
 	
 	public ReportWriter(String reportSubPrefix, String filename, ReportConfig config, String localDir,
 			DateTime month, RuleConfig.DataType type,
 			List<Rule.TagKey> tagKeys, List<String> userTagKeys,
-			ReadWriteData data, RuleConfig.Aggregation aggregation) throws Exception {
+			DataSerializer data, RuleConfig.Aggregation aggregation) throws Exception {
 		
 		this.reportSubPrefix = reportSubPrefix;
 		this.filename = filename;
@@ -115,9 +115,10 @@ public class ReportWriter {
 			}
 			String dateString = date.toString(isoFormatter);
 			
-    		Map<TagGroup, Double> hourData = data.getData(index);
+    		Map<TagGroup, DataSerializer.CostAndUsage> hourData = data.getData(index);
     		for (TagGroup tg: hourData.keySet()) {
-    			Double v = hourData.get(tg);
+    			DataSerializer.CostAndUsage cau = hourData.get(tg);
+    			double v = cau == null ? 0 : isCost ? cau.cost : cau.usage;
     			
     			List<String> cols = Lists.newArrayList();
     			cols.add(dateString); // StartDate

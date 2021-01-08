@@ -75,5 +75,4 @@ public abstract class TagGroupArn<T extends Tag> extends TagGroup {
         result = prime * result + ((this.arn != null) ? this.arn.hashCode() : 0);
         return result;
     }
-
 }

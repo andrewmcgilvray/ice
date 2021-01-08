@@ -38,7 +38,7 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.tag.UserTagKey;
@@ -156,7 +156,8 @@ public class PostProcessor {
 	}
 				
 	protected void writeReports(Rule rule, CostAndUsageData cauData) throws Exception {
-		ReadWriteData data = rule.config.getIn().getType() == RuleConfig.DataType.cost ? cauData.getCost(null) : cauData.getUsage(null);
+		DataSerializer data = cauData.get(null);
+		boolean isCost = rule.config.getIn().getType() == RuleConfig.DataType.cost;
 		Query in = rule.getIn();
 		
 		Collection<RuleConfig.Aggregation> aggregate = rule.config.getReport().getAggregate();
@@ -168,10 +169,10 @@ public class PostProcessor {
 			writer.archive();
 		}
 		if (aggregate.contains(RuleConfig.Aggregation.monthly) || aggregate.contains(RuleConfig.Aggregation.daily)) {
-			List<Map<TagGroup, Double>> monthly = Lists.newArrayList();
-			List<Map<TagGroup, Double>> daily = Lists.newArrayList();
+			List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
+			List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
 			
-			aggregateSummaryData(data, daily, monthly);
+			aggregateSummaryData(data, isCost, daily, monthly);
 			if (aggregate.contains(RuleConfig.Aggregation.monthly)) {
 				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, monthly, RuleConfig.Aggregation.monthly);
 			}
@@ -187,10 +188,10 @@ public class PostProcessor {
 		return "report-" + ruleName + "-" + aggregation.toString() + "-" + month.toString(yearMonth) + ".csv.gz";
 	}
 	
-	protected void writeReport(DateTime month, List<String> userTagKeys, Rule rule, List<Map<TagGroup, Double>> data, RuleConfig.Aggregation aggregation) throws Exception {
+	protected void writeReport(DateTime month, List<String> userTagKeys, Rule rule, List<Map<TagGroup, DataSerializer.CostAndUsage>> data, RuleConfig.Aggregation aggregation) throws Exception {
 		Query in = rule.getIn();
 		String filename = reportName(month, rule.config.getName(), aggregation);
-        ReadWriteData rwData = new ReadWriteData(userTagKeys.size());
+        DataSerializer rwData = new DataSerializer(userTagKeys.size());
         rwData.enableTagGroupCache(true);
         rwData.setData(data, 0);
 		ReportWriter writer = new ReportWriter(reportSubPrefix, filename, rule.config.getReport(), workBucketConfig.localDir, 
@@ -199,9 +200,10 @@ public class PostProcessor {
 	}
 	
     protected void aggregateSummaryData(
-    		ReadWriteData data,
-            List<Map<TagGroup, Double>> daily,
-            List<Map<TagGroup, Double>> monthly
+    		DataSerializer data,
+    		boolean isCost,
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> daily,
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly
     		) {
     	
     	Collection<TagGroup> tagGroups = data.getTagGroups();
@@ -209,11 +211,12 @@ public class PostProcessor {
         // aggregate to daily and monthly
         for (int hour = 0; hour < data.getNum(); hour++) {
             // this month, add to weekly, monthly and daily
-            Map<TagGroup, Double> map = data.getData(hour);
+            Map<TagGroup, DataSerializer.CostAndUsage> map = data.getData(hour);
 
             for (TagGroup tagGroup: tagGroups) {
-                Double v = map.get(tagGroup);
-                if (v != null && v != 0) {
+            	DataSerializer.CostAndUsage v = map.get(tagGroup);
+            	
+                if (v != null) {
                     addValue(monthly, 0, tagGroup, v);
                     addValue(daily, hour/24, tagGroup, v);
                 }
@@ -221,10 +224,9 @@ public class PostProcessor {
         }
     }
     
-    protected void addValue(List<Map<TagGroup, Double>> list, int index, TagGroup tagGroup, double v) {
-        Map<TagGroup, Double> map = ReadWriteData.getCreateData(list, index);
-        Double existedV = map.get(tagGroup);
-        map.put(tagGroup, existedV == null ? v : existedV + v);
+    protected void addValue(List<Map<TagGroup, DataSerializer.CostAndUsage>> list, int index, TagGroup tagGroup, DataSerializer.CostAndUsage v) {
+        Map<TagGroup, DataSerializer.CostAndUsage> map = DataSerializer.getCreateData(list, index);
+        map.put(tagGroup, v.add(map.get(tagGroup)));
     }
 
 

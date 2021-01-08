@@ -244,7 +244,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 					else
 						data.endMilli = processReportGzip(file, report.getRootName(), lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
 					
-		            logger.info("done processing " + file.getName() + ", end is " + new DateTime(data.endMilli, DateTimeZone.UTC).toString() + ", " + data.costAndUsageData.getCost(null).getNum() + " hours");
+		            logger.info("done processing " + file.getName() + ", end is " + new DateTime(data.endMilli, DateTimeZone.UTC).toString() + ", " + data.costAndUsageData.getNum(null) + " hours");
 			        file.delete();
 			        return data;
 		        }
@@ -368,7 +368,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 				endMilli = processReportZip(file, report.getRootName(), lineItem, delayedItems, costAndUsageData, edpDiscount);
 			else
 				endMilli = processReportGzip(file, report.getRootName(), lineItem, delayedItems, costAndUsageData, edpDiscount);
-            logger.info("done processing " + file.getName() + ", end is " + new DateTime(endMilli, DateTimeZone.UTC).toString() + ", " + costAndUsageData.getCost(null).getNum() + " hours");
+            logger.info("done processing " + file.getName() + ", end is " + new DateTime(endMilli, DateTimeZone.UTC).toString() + ", " + costAndUsageData.getNum(null) + " hours");
 		}
 
         for (String[] items: delayedItems) {

@@ -23,7 +23,7 @@ import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.Config.WorkBucketConfig;
 import com.netflix.ice.processor.CostAndUsageData;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.processor.config.KubernetesConfig;
@@ -166,6 +166,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 	private void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
 		boolean copy = outCauData != null;
 		int numUserTags = cauData.getNumUserTags();
+		boolean isCost = rule.getIn().getType() == RuleConfig.DataType.cost;
 
 		for (AggregationTagGroup atg: inDataGroups.keySet()) {
 			Double[] inValues = inDataGroups.get(atg);
@@ -176,12 +177,12 @@ public class VariableRuleProcessor extends RuleProcessor {
 						
 			// Get the input and output data sets. If generating a report, put all of the data on the "null" product key.
 			Product p = copy ? null : tagGroup.product;
-			ReadWriteData data = rule.getIn().getType() == RuleConfig.DataType.cost ? cauData.getCost(p) : cauData.getUsage(p);
+			DataSerializer data = cauData.get(p);
 		
 			if (inValues[hour] == null || inValues[hour] == 0.0)
 				continue;
 			
-			processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
+			processHourData(allocationReport, data, isCost, hour, tagGroup, inValues[hour], allocatedTagGroups);
 		}			
 	}
 	
@@ -238,7 +239,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 			}
 			
 			// Generating a report so put all of the data on the "null" product key.
-			ReadWriteData data = rule.getIn().getType() == RuleConfig.DataType.cost ? outCauData.getCost(null): outCauData.getUsage(null);
+			DataSerializer data = outCauData.get(null);
+			boolean isCost = rule.getIn().getType() == RuleConfig.DataType.cost;
 			
 			for (int hour = 0; hour < inValues.length; hour++) {
 				if (inValues[hour] == null || inValues[hour] == 0.0)
@@ -247,7 +249,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 				inAggregated[hour] += inValues[hour];
 				
 				// Copy the data to the output report
-				data.add(hour, tagGroup, inValues[hour]);
+				data.add(hour, tagGroup, isCost ? inValues[hour] : 0, isCost ? 0 : inValues[hour]);
 			}			
 		}
 		logger.info("  -- copyAndReduce elapsed time: " + sw + ", aggregated groups: " + aggregatedInDataGroups.keySet().size());
@@ -300,7 +302,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		return ar;
 	}	
 	
-	protected void processHourData(AllocationReport report, ReadWriteData data, int hour, TagGroup tg, Double total, Set<TagGroup> allocatedTagGroups) throws Exception {
+	protected void processHourData(AllocationReport report, DataSerializer data, boolean isCost, int hour, TagGroup tg, Double total, Set<TagGroup> allocatedTagGroups) throws Exception {
 		if (total == null || total == 0.0)
 			return;
 				
@@ -322,8 +324,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 			
 			allocatedTagGroups.add(allocatedTagGroup);
 			
-			Double existing = data.get(hour, allocatedTagGroup);
-			data.put(hour, allocatedTagGroup,  allocated + (existing == null ? 0.0 : existing));
+			data.add(hour,  allocatedTagGroup, isCost ? allocated : 0, isCost ? 0 : allocated);
 			
 			unAllocated -= allocated;
 		}
@@ -332,7 +333,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		// Unused cost can go negative if, for example, a K8s cluster is over-subscribed, so test the absolute value.
 		if (Math.abs(unAllocated) > threshold) {
 			// Put the remaining cost on the original tagGroup
-			data.put(hour, tg, unAllocated);
+			data.put(hour, tg, new DataSerializer.CostAndUsage(isCost ? unAllocated : 0, isCost ? 0 : unAllocated));
 		}
 		//boolean overAllocated = unAllocated < -threshold;
 		//if (overAllocated)

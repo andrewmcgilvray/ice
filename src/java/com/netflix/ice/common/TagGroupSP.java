@@ -81,4 +81,10 @@ public class TagGroupSP extends TagGroupArn<SavingsPlanArn> {
         }
     }
 
+
+    @Override
+    public TagGroup withResourceGroup(ResourceGroup rg) {
+    	return get(account, region, zone, product, operation, usageType, rg, arn);
+    }
+
 }

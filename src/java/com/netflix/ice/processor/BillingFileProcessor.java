@@ -221,7 +221,7 @@ public class BillingFileProcessor extends Poller {
     	}
     	// Process resource version of data for products that SPs apply to
     	for (Product p: costAndUsageData.getSavingsPlanProducts()) {
-        	if (costAndUsageData.getCost(p) != null)
+        	if (costAndUsageData.get(p) != null)
         		savingsPlanProcessor.process(p);
     	}
     	
@@ -277,10 +277,8 @@ public class BillingFileProcessor extends Poller {
     }
     
     private void addSavingsData(DateTime month, CostAndUsageData data, Product product, InstancePrices ec2Prices) throws Exception {
-    	ReadWriteData usageData = data.getUsage(product);
-    	ReadWriteData costData = data.getCost(product);
-    	
-    	if (usageData == null || costData == null)
+    	DataSerializer ds = data.get(product);
+    	if (ds == null)
     		return;
     	
     	double edpDiscount = config.getDiscount(startMilli);
@@ -288,18 +286,17 @@ public class BillingFileProcessor extends Poller {
     	/*
     	 * Run through all the spot instance usage and add savings data
     	 */
-    	for (TagGroup tg: usageData.getTagGroups()) {
+    	for (TagGroup tg: ds.getTagGroups()) {
     		if (tg.operation == ReservationOperation.spotInstances) {
     			TagGroup savingsTag = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, ReservationOperation.spotInstanceSavings, tg.usageType, tg.resourceGroup);
-    			for (int i = 0; i < usageData.getNum(); i++) {
+    			for (int i = 0; i < ds.getNum(); i++) {
     				// For each hour of usage...
-    				Double usage = usageData.get(i, tg);
-    				Double cost = costData.get(i, tg);
-    				if (usage != null && cost != null) {
+    				DataSerializer.CostAndUsage cau = ds.get(i, tg);
+    				if (cau != null) {
     					double onDemandRate = ec2Prices.getOnDemandRate(tg.region, tg.usageType);
     					// Don't include the EDP discount on top of the spot savings
     					double edpRate = onDemandRate * (1 - edpDiscount);
-    					costData.put(i, savingsTag, edpRate * usage - cost);
+    					ds.put(i, savingsTag, new DataSerializer.CostAndUsage(edpRate * cau.usage - cau.cost, 0));
     				}
     			}
     		}

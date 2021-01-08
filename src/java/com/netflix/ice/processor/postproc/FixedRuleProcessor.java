@@ -12,7 +12,7 @@ import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.tag.Product;
@@ -49,18 +49,15 @@ public class FixedRuleProcessor extends RuleProcessor {
 		sw.start();
 		
 		// Get data maps for results. Handle case where we're creating a new product
-		List<ReadWriteData> resultData = Lists.newArrayList();
+		List<DataSerializer> resultData = Lists.newArrayList();
 		for (Rule.Result result: rule.getResults()) {
 			Product p = isNonResource ? null : productService.getProductByServiceCode(result.getProduct());
-			ReadWriteData rwd = result.getType() == RuleConfig.DataType.usage ? data.getUsage(p) : data.getCost(p);
-			if (rwd == null) {
-				rwd = new ReadWriteData(data.getNumUserTags());
-				if (result.getType() == RuleConfig.DataType.usage)
-					data.putUsage(p, rwd);
-				else
-					data.putCost(p, rwd);
+			DataSerializer ds = data.get(p);
+			if (ds == null) {
+				ds = new DataSerializer(data.getNumUserTags());
+				data.put(p, ds);
 			}
-			resultData.add(rwd);
+			resultData.add(ds);
 		}
 		
 		logger.info("  -- resultData size: " + resultData.size());
@@ -122,7 +119,7 @@ public class FixedRuleProcessor extends RuleProcessor {
 			Rule rule,
 			Map<AggregationTagGroup, Double[]> in,
 			Map<String, Double[]> opSingleValues,
-			List<ReadWriteData> resultData,
+			List<DataSerializer> resultData,
 			boolean isNonResource,
 			int maxNum) throws Exception {
 		
@@ -135,15 +132,15 @@ public class FixedRuleProcessor extends RuleProcessor {
 			
 			if (result.isSingle()) {
 				TagGroup outTagGroup = result.tagGroup(null, accountService, productService, isNonResource);
-				ReadWriteData rwd = resultData.get(i);
+				DataSerializer ds = resultData.get(i);
 				// Remove any existing value from the result data
-				for (int hour = 0; hour < rwd.getNum(); hour++)
-					rwd.remove(hour, outTagGroup);
+				for (int hour = 0; hour < ds.getNum(); hour++)
+					ds.remove(hour, outTagGroup); // TODO: handle case where we only want to remove the type in the rule and not both cost and usage
 						
 				String expr = rule.getResultValue(i);
 				if (expr != null && !expr.isEmpty()) {
 					//logger.info("process hour data");
-					eval(i, rule, expr, null, opSingleValues, rwd, outTagGroup, maxNum);
+					eval(i, rule, result, expr, null, opSingleValues, ds, outTagGroup, maxNum);
 					numResults++;
 				}
 			}
@@ -155,7 +152,7 @@ public class FixedRuleProcessor extends RuleProcessor {
 					String expr = rule.getResultValue(i);
 					if (expr != null && !expr.isEmpty()) {
 						//logger.info("process hour data");
-						eval(i, rule, expr, in.get(atg), opSingleValues, resultData.get(i), outTagGroup, maxNum);
+						eval(i, rule, result, expr, in.get(atg), opSingleValues, resultData.get(i), outTagGroup, maxNum);
 						numResults++;
 					}
 					
@@ -169,11 +166,12 @@ public class FixedRuleProcessor extends RuleProcessor {
 	
 	private void eval(
 			int index,
-			Rule rule, 
+			Rule rule,
+			Rule.Result result,
 			String outExpr, 
 			Double[] inValues, 
 			Map<String, Double[]> opSingleValuesMap,
-			ReadWriteData resultData,
+			DataSerializer resultData,
 			TagGroup outTagGroup,
 			int maxNum) throws Exception {
 
@@ -195,7 +193,7 @@ public class FixedRuleProcessor extends RuleProcessor {
 				Double value = new Evaluator().eval(expr);
 				if (debug && hour == 0)
 					logger.info("eval(" + index + "): " + outExpr + " = " + expr + " = " + value + ", " + outTagGroup);
-				resultData.add(hour, outTagGroup, value);
+				resultData.add(hour, outTagGroup, result.getType() == RuleConfig.DataType.cost ? value : 0, result.getType() == RuleConfig.DataType.usage ? value : 0);
 			}
 			catch (Exception e) {
 				logger.error("Error processing expression \"" + expr + "\", " + e.getMessage());

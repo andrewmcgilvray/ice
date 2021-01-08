@@ -43,7 +43,8 @@ import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
+import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
@@ -104,26 +105,26 @@ public class ReportWriterTest {
     	
     	class Datum {
     		int num;
-    		Double value;
+    		CostAndUsage value;
     		TagGroup tg;
     		
-    		public Datum(int num, Double value, TagGroup tg) {
+    		public Datum(int num, double cost, double usage, TagGroup tg) {
     			this.num = num;
-    			this.value = value;
+    			this.value = new CostAndUsage(cost, usage);
     			this.tg = tg;
     		}
     	}
         Datum[] data = new Datum[]{
-        		new Datum(0,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(0, 25.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),
-        		new Datum(0, 30.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"}))),
-        		new Datum(0, 40.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"}))),
+        		new Datum(0,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(0, 25.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),
+        		new Datum(0, 30.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"}))),
+        		new Datum(0, 40.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"}))),
         };
 
-		ReadWriteData rwData = new ReadWriteData();
+        DataSerializer ds = new DataSerializer(2);
         for (int i = 0; i < data.length; i++) {
         	Datum d = data[i];
-        	rwData.add(d.num, d.tg, d.value);	
+        	ds.add(d.num, d.tg, d.value);	
         }
         
 		String expectedHeader = "Date,Cost,Account ID,Account Name,CostType,Extra1,Key1,Key2,Extra2";
@@ -136,7 +137,7 @@ public class ReportWriterTest {
 		
         // Test monthly aggregation
 		
-		ReportWriter writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.monthly);		
+		ReportWriter writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, ds, RuleConfig.Aggregation.monthly);		
 		ByteArrayOutputStream os = new ByteArrayOutputStream();
 		Writer out = new OutputStreamWriter(os);
 		writer.writeCsv(out);		
@@ -146,10 +147,10 @@ public class ReportWriterTest {
 		
 		// Test daily aggregation -- add some additional items from above at different times
 		
-		rwData = new ReadWriteData();
+		ds = new DataSerializer(2);
 		for (int i = 0; i < data.length; i++) {
         	Datum d = data[i];
-        	rwData.add(i, d.tg, d.value);	
+        	ds.add(i, d.tg, d.value);	
         }
 		expectedRows = new String[]{
 			"2020-08-01T00:00:00Z,5.0,111111111111,111111111111,Recurring,,clusterA,compute,",
@@ -157,7 +158,7 @@ public class ReportWriterTest {
 			"2020-08-03T00:00:00Z,30.0,111111111111,111111111111,Recurring,extra1B,clusterA,thirty,extra2A",
 			"2020-08-04T00:00:00Z,40.0,111111111111,111111111111,Recurring,extra1B,clusterA,forty,extra2B",
 		};
-		writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.daily);		
+		writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, ds, RuleConfig.Aggregation.daily);		
 		os = new ByteArrayOutputStream();
 		out = new OutputStreamWriter(os);
 		writer.writeCsv(out);		
@@ -166,10 +167,10 @@ public class ReportWriterTest {
 		
 		// Test hourly aggregation -- add some additional items from above at different times
 		
-		rwData = new ReadWriteData();
+		ds = new DataSerializer(2);
         for (int i = 0; i < data.length; i++) {
         	Datum d = data[i];
-        	rwData.add(i, d.tg, d.value);	
+        	ds.add(i, d.tg, d.value);	
         }
 		expectedRows = new String[]{
 			"2020-08-01T00:00:00Z,5.0,111111111111,111111111111,Recurring,,clusterA,compute,",
@@ -177,7 +178,7 @@ public class ReportWriterTest {
 			"2020-08-01T02:00:00Z,30.0,111111111111,111111111111,Recurring,extra1B,clusterA,thirty,extra2A",
 			"2020-08-01T03:00:00Z,40.0,111111111111,111111111111,Recurring,extra1B,clusterA,forty,extra2B",
 		};
-		writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, rwData, RuleConfig.Aggregation.hourly);		
+		writer = new ReportWriter("", "report-test", rule.config.getReport(), null, start, RuleConfig.DataType.cost, rule.getGroupBy(), userTagKeys, ds, RuleConfig.Aggregation.hourly);		
 		os = new ByteArrayOutputStream();
 		out = new OutputStreamWriter(os);
 		writer.writeCsv(out);		

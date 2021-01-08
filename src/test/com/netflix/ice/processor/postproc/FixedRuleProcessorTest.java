@@ -24,8 +24,8 @@ import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
-import com.netflix.ice.processor.ReadWriteData;
-import com.netflix.ice.processor.postproc.TagGroupSpec.DataType;
+import com.netflix.ice.processor.DataSerializer;
+import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 
@@ -59,21 +59,21 @@ public class FixedRuleProcessorTest {
 		return mapper.readValue(yaml, rc.getClass());
 	}
 
-    private void loadComputedCostData(ReadWriteData usageData, ReadWriteData costData) throws Exception {
+    private void loadComputedCostData(DataSerializer data) throws Exception {
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-1", 1000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-2", 2000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-DataTransfer-Out-Bytes", 4000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-1", 0, 1000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-2", 0, 2000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-DataTransfer-Out-Bytes", 0, 4000.0),
         		
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-1", 8000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-2", 16000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-DataTransfer-Out-Bytes", 32000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-1", 0, 8000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-2", 0, 16000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-DataTransfer-Out-Bytes", 0, 32000.0),
         		
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", 10000.0),
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", 20000.0),
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-DataTransfer-Out-Bytes", 40000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", 0, 10000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", 0, 20000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-DataTransfer-Out-Bytes", 0, 40000.0),
         };
-        TagGroupSpec.loadData(dataSpecs, usageData, costData, 0, as, ps);
+        TagGroupSpec.loadData(dataSpecs, data, 0, as, ps);
 	}
 	
 	private String computedCostYaml = "" +
@@ -101,16 +101,15 @@ public class FixedRuleProcessorTest {
 
 	@Test
 	public void testRunQuery() throws Exception {
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		data.enableTagGroupCache(true);
-		ReadWriteData usageData = data.getUsage(null);
-		ReadWriteData costData = data.getCost(null);
-		loadComputedCostData(usageData, costData);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		cauData.enableTagGroupCache(true);
+		DataSerializer data = cauData.get(null);
+		loadComputedCostData(data);
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		
-		Map<AggregationTagGroup, Double[]> inMap = frp.runQuery(rule.getIn(), data, true, data.getMaxNum(), rule.config.getName());
+		Map<AggregationTagGroup, Double[]> inMap = frp.runQuery(rule.getIn(), cauData, true, cauData.getMaxNum(), rule.config.getName());
 		
 		assertEquals("Wrong number of matched tags", 6, inMap.size());
 		// Scan map and make sure we have 4 US and 2 EU
@@ -128,35 +127,34 @@ public class FixedRuleProcessorTest {
 		
 		String productCode = Product.Code.CloudFront.serviceCode;
 		TagGroupSpec[] specs = new TagGroupSpec[]{
-				new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-1", 1000.0),
-				new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-2", 2000.0),
-				new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-1", 8000.0),
-				new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-2", 16000.0),
-				new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", 10000.0),
-				new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", 20000.0),
+				new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-1", 0, 1000.0),
+				new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-2", 0, 2000.0),
+				new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-1", 0, 8000.0),
+				new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-2", 0, 16000.0),
+				new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", 0, 10000.0),
+				new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", 0, 20000.0),
 		};
 		
 		for (TagGroupSpec spec: specs) {
 			TagGroup tg = spec.getTagGroup(a1, as, ps);
 			AggregationTagGroup atg = rule.getIn().aggregation.getAggregationTagGroup(tg);
-			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value, inMap.get(atg)[0], 0.001);
+			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0], 0.001);
 		}
 	}
 	
 	@Test
 	public void testProcessReadWriteData() throws Exception {
 		
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		data.enableTagGroupCache(true);
-		ReadWriteData usageData = data.getUsage(null);
-		ReadWriteData costData = data.getCost(null);
-		loadComputedCostData(usageData, costData);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		cauData.enableTagGroupCache(true);
+		DataSerializer data = cauData.get(null);
+		loadComputedCostData(data);
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
 		
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
-		frp.processReadWriteData(data, true, operandSingleValueCache);
+		frp.processReadWriteData(cauData, true, operandSingleValueCache);
 
 		assertEquals("Wrong number of entries in the single value cache", 0, operandSingleValueCache.size());
 
@@ -164,64 +162,56 @@ public class FixedRuleProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: ((1000 + 2000) - (4000 * 4 * 8 / 2)) * 0.01 / 1000 == (3000 - 64000) * 0.00001 == 2999.36
-		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", null).getTagGroup(as, ps);
-		Double value = costData.get(0, usReqs);
-		assertNotNull("No cost value for US-Requests", value);
-		assertEquals("Wrong cost value for OP1 US-Requests", 0.03, value, .0001);
-		
-		value = usageData.get(0, usReqs);
-		assertNotNull("No usage value for US-Requests", value);
-		assertEquals("Wrong usage value for OP2 US-Requests", 3000.0, value, .0001);
+		TagGroup usReqs = new TagGroupSpec(a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", null).getTagGroup(as, ps);
+		CostAndUsage value = data.get(0, usReqs);
+		assertNotNull("No value for US-Requests", value);
+		assertEquals("Wrong cost value for OP1 US-Requests", 0.03, value.cost, .0001);
+		assertEquals("Wrong usage value for OP2 US-Requests", 3000.0, value.usage, .0001);
 		
 		// EU:  ((10000 + 20000) - (40000 * 4 * 8 / 2)) * 0.01 / 1000 == (30000 - 640000) * 0.00001 == 29993.6
-		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", null).getTagGroup(as, ps);
-		Double euValue = costData.get(0, euReqs);
-		assertNotNull("No cost value for EU-Requests", euValue);
-		assertEquals("Wrong cost value for EU-Requests", 0.3, euValue, .0001);
-		
-		euValue = usageData.get(0, euReqs);
-		assertNotNull("No usage value for EU-Requests", euValue);
-		assertEquals("Wrong usage value for EU-Requests", 30000.0, euValue, .0001);
+		TagGroup euReqs = new TagGroupSpec(a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", null).getTagGroup(as, ps);
+		CostAndUsage euValue = data.get(0, euReqs);
+		assertNotNull("No value for EU-Requests", euValue);
+		assertEquals("Wrong cost value for EU-Requests", 0.3, euValue.cost, .0001);
+		assertEquals("Wrong usage value for EU-Requests", 30000.0, euValue.usage, .0001);
 	}
 
-	private void loadComputedCostDataWithResources(ReadWriteData usageData, ReadWriteData costData) throws Exception {
+	private void loadComputedCostDataWithResources(DataSerializer data) throws Exception {
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-1", new String[]{"tagA", ""}, 1000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-Requests-2", new String[]{"tagA", ""}, 2000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP1", "US-DataTransfer-Out-Bytes", new String[]{"tagA", ""}, 4000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-1", new String[]{"tagA", ""}, 0, 1000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-2", new String[]{"tagA", ""}, 0, 2000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-DataTransfer-Out-Bytes", new String[]{"tagA", ""}, 0, 4000.0),
         		
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-1", new String[]{"tagB", ""}, 8000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-Requests-2", new String[]{"tagB", ""}, 16000.0),
-        		new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "OP2", "US-DataTransfer-Out-Bytes", new String[]{"tagB", ""}, 32000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-1", new String[]{"tagB", ""}, 0, 8000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-2", new String[]{"tagB", ""}, 0, 16000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-DataTransfer-Out-Bytes", new String[]{"tagB", ""}, 0, 32000.0),
         		
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", new String[]{"tagC", ""}, 10000.0),
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", new String[]{"tagC", ""}, 20000.0),
-        		new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "OP1", "EU-DataTransfer-Out-Bytes", new String[]{"tagC", ""}, 40000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-Requests-1", new String[]{"tagC", ""}, 0, 10000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-Requests-2", new String[]{"tagC", ""}, 0, 20000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP1", "EU-DataTransfer-Out-Bytes", new String[]{"tagC", ""}, 0, 40000.0),
         };
-        TagGroupSpec.loadData(dataSpecs, usageData, costData, 0, as, ps);
+        TagGroupSpec.loadData(dataSpecs, data, 0, as, ps);
 	}
 	
 	@Test
 	public void testProcessReadWriteDataWithResources() throws Exception {
 		
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
-		loadComputedCostDataWithResources(usageData, costData);
+		DataSerializer data = new DataSerializer(2);
+		loadComputedCostDataWithResources(data);
 		Product product = ps.getProduct(Product.Code.CloudFront);
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-        data.putUsage(product, usageData);
-        data.putCost(product, costData);
-		data.enableTagGroupCache(true);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        cauData.put(product, data);
+		cauData.enableTagGroupCache(true);
 
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		frp.debug = true;
-		frp.processReadWriteData(data, false, operandSingleValueCache);
+		frp.processReadWriteData(cauData, false, operandSingleValueCache);
 		
 		Product outProduct = ps.getProductByServiceCode("ComputedCost");
-		ReadWriteData outCostData = data.getCost(outProduct);
+		DataSerializer outData = cauData.get(outProduct);
 		
 		assertEquals("Wrong number of entries in the single value cache", 0, operandSingleValueCache.size());
 
@@ -229,16 +219,16 @@ public class FixedRuleProcessorTest {
 		// 'in' is the sum of the two request values
 		//
 		// US: (1000 + 2000) * 0.01 / 1000 == 3000 * 0.00001 == 0.03
-		TagGroup usReqs = new TagGroupSpec(DataType.cost, a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", new String[]{"tagA", ""}, 0.0).getTagGroup(as, ps);
-		Double value = outCostData.get(0, usReqs);
+		TagGroup usReqs = new TagGroupSpec(a1, "us-east-1", "ComputedCost", "OP1", "US-Requests", new String[]{"tagA", ""}).getTagGroup(as, ps);
+		CostAndUsage value = outData.get(0, usReqs);
 		assertNotNull("No value for US-Requests", value);
-		assertEquals("Wrong value for US-Requests", .03, value, .0001);
+		assertEquals("Wrong value for US-Requests", .03, value.cost, .0001);
 		
 		// EU:  (10000 + 20000) * 0.01 / 1000 == 30000 * 0.00001 == 0.3
-		TagGroup euReqs = new TagGroupSpec(DataType.cost, a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", new String[]{"tagC", ""}, 0.0).getTagGroup(as, ps);
-		Double euValue = outCostData.get(0, euReqs);
+		TagGroup euReqs = new TagGroupSpec(a1, "eu-west-1", "ComputedCost", "OP1", "EU-Requests", new String[]{"tagC", ""}).getTagGroup(as, ps);
+		CostAndUsage euValue = outData.get(0, euReqs);
 		assertNotNull("No value for EU-Requests", euValue);
-		assertEquals("Wrong value for EU-Requests", 0.3, euValue, .0001);
+		assertEquals("Wrong value for EU-Requests", 0.3, euValue.cost, .0001);
 	}
 	
 	// Config to add a surcharge of 3% to all costs split out by account, region, and zone
@@ -264,49 +254,48 @@ public class FixedRuleProcessorTest {
 		"      usageType: Dollar\n" + 
 		"    value: '${in}'\n";
 	
-	private void loadSurchargeData(ReadWriteData usageData, ReadWriteData costData) throws Exception {
+	private void loadSurchargeData(DataSerializer data) throws Exception {
 		String productCode = Product.Code.CloudFront.serviceCode;
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "OP1", "US-Requests-1", 1000.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "OP2", "US-Requests-2", 2000.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "OP3", "US-DataTransfer-Out-Bytes", 4000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP1", "US-Requests-1", 1000, 0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP2", "US-Requests-2", 2000, 0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP3", "US-DataTransfer-Out-Bytes", 4000, 0),
         		
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "OP4", "US-Requests-1", 8000.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "OP5", "US-Requests-2", 16000.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "OP6", "US-DataTransfer-Out-Bytes", 32000.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP4", "US-Requests-1", 8000, 0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP5", "US-Requests-2", 16000, 0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "OP6", "US-DataTransfer-Out-Bytes", 32000, 0),
         		
-        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", productCode, "OP7", "EU-Requests-1", 10000.0),
-        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", productCode, "OP8", "EU-Requests-2", 20000.0),
-        		new TagGroupSpec(DataType.cost, a1, "eu-west-1", productCode, "OP9", "EU-DataTransfer-Out-Bytes", 40000.0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP7", "EU-Requests-1", 10000, 0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP8", "EU-Requests-2", 20000, 0),
+        		new TagGroupSpec(a1, "eu-west-1", productCode, "OP9", "EU-DataTransfer-Out-Bytes", 40000, 0),
         		
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "OP1", "US-Requests-1", 1000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "OP2", "US-Requests-2", 2000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "OP3", "US-DataTransfer-Out-Bytes", 4000.0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "OP1", "US-Requests-1", 1000, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "OP2", "US-Requests-2", 2000, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "OP3", "US-DataTransfer-Out-Bytes", 4000, 0),
         		
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "OP4", "US-Requests-1", 8000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "OP5", "US-Requests-2", 16000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "OP6", "US-DataTransfer-Out-Bytes", 32000.0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "OP4", "US-Requests-1", 8000, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "OP5", "US-Requests-2", 16000, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "OP6", "US-DataTransfer-Out-Bytes", 32000, 0),
         		
-        		new TagGroupSpec(DataType.cost, a2, "eu-west-1", productCode, "OP7", "EU-Requests-1", 10000.0),
-        		new TagGroupSpec(DataType.cost, a2, "eu-west-1", productCode, "OP8", "EU-Requests-2", 20000.0),
-        		new TagGroupSpec(DataType.cost, a2, "eu-west-1", productCode, "OP9", "EU-DataTransfer-Out-Bytes", 40000.0),
+        		new TagGroupSpec(a2, "eu-west-1", productCode, "OP7", "EU-Requests-1", 10000, 0),
+        		new TagGroupSpec(a2, "eu-west-1", productCode, "OP8", "EU-Requests-2", 20000, 0),
+        		new TagGroupSpec(a2, "eu-west-1", productCode, "OP9", "EU-DataTransfer-Out-Bytes", 40000, 0),
         };
         
-        TagGroupSpec.loadData(dataSpecs, usageData, costData, 0, as, ps);
+        TagGroupSpec.loadData(dataSpecs, data, 0, as, ps);
 	}
 	
 	@Test
 	public void testSurchargeGetInValues() throws Exception {
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		data.enableTagGroupCache(true);
-		ReadWriteData usageData = data.getUsage(null);
-		ReadWriteData costData = data.getCost(null);
-		loadSurchargeData(usageData, costData);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		cauData.enableTagGroupCache(true);
+		DataSerializer data = cauData.get(null);
+		loadSurchargeData(data);
 				
 		Rule rule = new Rule(getConfig(surchargeConfigYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 				
-		Map<AggregationTagGroup, Double[]> inMap = frp.runQuery(rule.getIn(), data, true, data.getMaxNum(), rule.config.getName());
+		Map<AggregationTagGroup, Double[]> inMap = frp.runQuery(rule.getIn(), cauData, true, cauData.getMaxNum(), rule.config.getName());
 		
 		assertEquals("Wrong number of matched tags", 4, inMap.size());
 		// Scan map and make sure we have 2 us-east-1 and 2 eu-west-1
@@ -323,16 +312,16 @@ public class FixedRuleProcessorTest {
 		assertEquals("Wrong number of EU tagGroups", 2, eu);
 		
 		TagGroupSpec[] specs = new TagGroupSpec[]{
-				new TagGroupSpec(DataType.usage, a1, "us-east-1", productCode, "", "", 63000.0),
-				new TagGroupSpec(DataType.usage, a1, "eu-west-1", productCode, "", "", 70000.0),
+				new TagGroupSpec(a1, "us-east-1", productCode, "", "", 0, 63000),
+				new TagGroupSpec(a1, "eu-west-1", productCode, "", "", 0, 70000),
 		};
 		
 		for (TagGroupSpec spec: specs) {
 			TagGroup tg = spec.getTagGroup(a1, as, ps);
 			AggregationTagGroup atg = rule.getIn().aggregation.getAggregationTagGroup(tg);
-			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value, inMap.get(atg)[0], 0.001);
+			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0], 0.001);
 			tg = spec.getTagGroup(a2, as, ps);
-			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value, inMap.get(atg)[0], 0.001);
+			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0], 0.001);
 		}
 	}
 
@@ -393,27 +382,21 @@ public class FixedRuleProcessorTest {
 	public void testGlobalSplit() throws Exception {
 		// Split $300 (3% of $10,000) of spend across three accounts based on individual account spend
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", 300.0),
-        		new TagGroupSpec(DataType.usage, a1, "global", "GlobalFee", "None", "Dollar", 10000.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "None", "Dollar", 5000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", 3000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", 1500.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 500.0),
+        		new TagGroupSpec(a1, "global", "GlobalFee", "None", "Dollar", 300, 10000),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "None", "Dollar", 5000, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "None", "Dollar", 3000, 0),
+        		new TagGroupSpec(a3, "us-east-1", productCode, "None", "Dollar", 1500, 0),
+        		new TagGroupSpec(a3, "us-west-2", productCode, "None", "Dollar", 500, 0),
         };
         
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		data.enableTagGroupCache(true);
-		ReadWriteData usageData = data.getUsage(null);
-		ReadWriteData costData = data.getCost(null);
-		TagGroupSpec.loadData(dataSpecs, usageData, costData, 0, as, ps);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		cauData.enableTagGroupCache(true);
+		DataSerializer data = cauData.get(null);
+		TagGroupSpec.loadData(dataSpecs, data, 0, as, ps);
         
-		Map<TagGroup, Double> in = costData.getData(0);
+		Map<TagGroup, CostAndUsage> in = data.getData(0);
 		for (TagGroup tg: in.keySet())
-			logger.info("in cost: " + in.get(tg) + ", " + tg);
-		in = usageData.getData(0);
-		for (TagGroup tg: in.keySet())
-			logger.info("in usage: " + in.get(tg) + ", " + tg);
-
+			logger.info("in: " + in.get(tg) + ", " + tg);
 		
 		Rule rule = new Rule(getConfig(splitCostYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
@@ -425,78 +408,69 @@ public class FixedRuleProcessorTest {
 		assertTrue("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
 
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(data, true, operandSingleValueCache);
+		frp.processReadWriteData(cauData, true, operandSingleValueCache);
 		
-		ReadWriteData outCostData = data.getCost(null);
-		Map<TagGroup, Double> m = outCostData.getData(0);
+		DataSerializer outData = cauData.get(null);
+		Map<TagGroup, CostAndUsage> m = outData.getData(0);
 		for (TagGroup tg: m.keySet())
 			logger.info("out: " + m.get(tg) + ", " + tg);
 				
 		assertEquals("Wrong number of entries in the single value cache", 2, operandSingleValueCache.size());
 
 		// Should have zero-ed out the GlobalFee cost
-		TagGroup globalFee = new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", null).getTagGroup(as, ps);
-		Double value = outCostData.get(0, globalFee);
+		TagGroup globalFee = new TagGroupSpec(a1, "global", "GlobalFee", "None", "Dollar", null).getTagGroup(as, ps);
+		CostAndUsage value = outData.get(0, globalFee);
 		assertNotNull("No value for global fee", value);
-		assertEquals("Wrong value for global fee", 0.0, value, .001);
+		assertEquals("Wrong value for global fee", 0.0, value.cost, .001);
 		
 		// Should have 50/30/15/5% split of $300
-		TagGroup a1split = new TagGroupSpec(DataType.cost, a1, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a1split);
+		TagGroup a1split = new TagGroupSpec(a1, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a1split);
 		assertNotNull("No value for global fee on account 1", value);
-		assertEquals("wrong value for account 1", 300.0 * 0.5, value, .001);
+		assertEquals("wrong value for account 1", 300.0 * 0.5, value.cost, .001);
 		
-		TagGroup a2split = new TagGroupSpec(DataType.cost, a2, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a2split);
+		TagGroup a2split = new TagGroupSpec(a2, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a2split);
 		assertNotNull("No value for global fee on account 2", value);
-		assertEquals("wrong value for account 2", 300.0 * 0.3, value, .001);
+		assertEquals("wrong value for account 2", 300.0 * 0.3, value.cost, .001);
 		
-		TagGroup a3split = new TagGroupSpec(DataType.cost, a3, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
+		TagGroup a3split = new TagGroupSpec(a3, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
 		assertNotNull("No value for global fee on account 3", value);
-		assertEquals("wrong value for account 3", 300.0 * 0.15, value, .001);
-		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
+		assertEquals("wrong value for account 3", 300.0 * 0.15, value.cost, .001);
+		a3split = new TagGroupSpec(a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
 		assertNotNull("No value for global fee on account 4", value);
-		assertEquals("wrong value for account 3", 300.0 * 0.05, value, .001);
+		assertEquals("wrong value for account 3", 300.0 * 0.05, value.cost, .001);
 	}
 	
 	@Test
 	public void testGlobalSplitWithUserTags() throws Exception {
 		// Split $300 (3% of $10,000) of spend across three accounts based on individual account spend
         TagGroupSpec[] globalFeeSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, 300.0),
-        		new TagGroupSpec(DataType.usage, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, 10000.0),
+        		new TagGroupSpec(a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, 300.0, 10000.0),
         };
         TagGroupSpec[] productSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag1", ""}, 5000.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag2", ""}, 3000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag3", ""}, 1500.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", new String[]{"Tag4", ""}, 500.0),
+        		new TagGroupSpec(a1, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag1", ""}, 5000.0, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag2", ""}, 3000.0, 0),
+        		new TagGroupSpec(a3, "us-east-1", productCode, "None", "Dollar", new String[]{"Tag3", ""}, 1500.0, 0),
+        		new TagGroupSpec(a3, "us-west-2", productCode, "None", "Dollar", new String[]{"Tag4", ""}, 500.0, 0),
         };
         
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		ReadWriteData usageData = new ReadWriteData();
-		ReadWriteData costData = new ReadWriteData();
-		TagGroupSpec.loadData(globalFeeSpecs, usageData, costData, 0, as, ps);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		DataSerializer data = new DataSerializer(2);
+		TagGroupSpec.loadData(globalFeeSpecs, data, 0, as, ps);
 		Product globalFee = ps.getProduct("GlobalFee", "GlobalFee");
-        data.putUsage(globalFee, usageData);
-        data.putCost(globalFee, costData);
-		usageData = new ReadWriteData();
-		costData = new ReadWriteData();
-		TagGroupSpec.loadData(productSpecs, usageData, costData, 0, as, ps);
+		cauData.put(globalFee, data);
+		data = new DataSerializer(2);
+		TagGroupSpec.loadData(productSpecs, data, 0, as, ps);
 		Product product = ps.getProduct(productCode, productCode);
-        data.putUsage(product, usageData);
-        data.putCost(product, costData);
-        data.enableTagGroupCache(true);
+		cauData.put(product, data);
+		cauData.enableTagGroupCache(true);
         
-		Map<TagGroup, Double> in = costData.getData(0);
+		Map<TagGroup, CostAndUsage> in = data.getData(0);
 		for (TagGroup tg: in.keySet())
-			logger.info("in cost: " + in.get(tg) + ", " + tg);
-		in = usageData.getData(0);
-		for (TagGroup tg: in.keySet())
-			logger.info("in usage: " + in.get(tg) + ", " + tg);
-
+			logger.info("in: " + in.get(tg) + ", " + tg);
 		
 		Rule rule = new Rule(getConfig(splitCostYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
@@ -508,40 +482,40 @@ public class FixedRuleProcessorTest {
 		assertTrue("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
 
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(data, false, operandSingleValueCache);
+		frp.processReadWriteData(cauData, false, operandSingleValueCache);
 
-		ReadWriteData outCostData = data.getCost(globalFee);
-		Map<TagGroup, Double> m = outCostData.getData(0);
+		DataSerializer outData = cauData.get(globalFee);
+		Map<TagGroup, CostAndUsage> m = outData.getData(0);
 		for (TagGroup tg: m.keySet())
 			logger.info("globalFee out: " + m.get(tg) + ", " + tg);
 				
 		assertEquals("Wrong number of entries in the single value cache", 2, operandSingleValueCache.size());
 
 		// Should have zeroed out the GlobalFee cost
-		TagGroup globalFeeTag = new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}, null).getTagGroup(as, ps);
-		Double value = outCostData.get(0, globalFeeTag);
+		TagGroup globalFeeTag = new TagGroupSpec(a1, "global", "GlobalFee", "None", "Dollar", new String[]{"TagA", ""}).getTagGroup(as, ps);
+		CostAndUsage value = outData.get(0, globalFeeTag);
 		assertNotNull("No value for global fee", value);
-		assertEquals("Wrong value for global fee", 0.0, value, .001);
+		assertEquals("Wrong value for global fee", 0.0, value.cost, .001);
 		
 		// Should have 50/30/15/5% split of $300
-		TagGroup a1split = new TagGroupSpec(DataType.cost, a1, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag1", ""}, null).getTagGroup(as, ps);
-		value = outCostData.get(0, a1split);
+		TagGroup a1split = new TagGroupSpec(a1, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag1", ""}).getTagGroup(as, ps);
+		value = outData.get(0, a1split);
 		assertNotNull("No value for global fee on account 1", value);
-		assertEquals("wrong value for account 1", 300.0 * 0.5, value, .001);
+		assertEquals("wrong value for account 1", 300.0 * 0.5, value.cost, .001);
 		
-		TagGroup a2split = new TagGroupSpec(DataType.cost, a2, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag2", ""}, null).getTagGroup(as, ps);
-		value = outCostData.get(0, a2split);
+		TagGroup a2split = new TagGroupSpec(a2, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag2", ""}).getTagGroup(as, ps);
+		value = outData.get(0, a2split);
 		assertNotNull("No value for global fee on account 2", value);
-		assertEquals("wrong value for account 2", 300.0 * 0.3, value, .001);
+		assertEquals("wrong value for account 2", 300.0 * 0.3, value.cost, .001);
 		
-		TagGroup a3split = new TagGroupSpec(DataType.cost, a3, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag3", ""}, null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
+		TagGroup a3split = new TagGroupSpec(a3, "us-east-1", "GlobalFee", "Split", "Dollar", new String[]{"Tag3", ""}).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
 		assertNotNull("No value for global fee on account 3", value);
-		assertEquals("wrong value for account 3", 300.0 * 0.15, value, .001);
-		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", new String[]{"Tag4", ""}, null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
+		assertEquals("wrong value for account 3", 300.0 * 0.15, value.cost, .001);
+		a3split = new TagGroupSpec(a3, "us-west-2", "GlobalFee", "Split", "Dollar", new String[]{"Tag4", ""}).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
 		assertNotNull("No value for global fee on account 4", value);
-		assertEquals("wrong value for account 3", 300.0 * 0.05, value, .001);
+		assertEquals("wrong value for account 3", 300.0 * 0.05, value.cost, .001);
 	}
 	
 	private String splitMonthlyCostByHourYaml = "" +
@@ -583,53 +557,52 @@ public class FixedRuleProcessorTest {
 	public void testMonthlySplitByHour() throws Exception {
 		// Split $300 (3% of $10,000) of spend across three accounts and two hours based on individual account spend
         TagGroupSpec[] dataSpecs0 = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", 300.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", 3000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", 2000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 1500.0),
+        		new TagGroupSpec(a1, "global", "GlobalFee", "None", "Dollar", 300.0, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "None", "Dollar", 3000.0, 0),
+        		new TagGroupSpec(a3, "us-east-1", productCode, "None", "Dollar", 2000.0, 0),
+        		new TagGroupSpec(a3, "us-west-2", productCode, "None", "Dollar", 1500.0, 0),
         };        
         TagGroupSpec[] dataSpecs1 = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", 2000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", 1000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 500.0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "None", "Dollar", 2000.0, 0),
+        		new TagGroupSpec(a3, "us-east-1", productCode, "None", "Dollar", 1000.0, 0),
+        		new TagGroupSpec(a3, "us-west-2", productCode, "None", "Dollar", 500.0, 0),
         };
         
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		data.enableTagGroupCache(true);
-		ReadWriteData usageData = data.getUsage(null);
-		ReadWriteData costData = data.getCost(null);
-		TagGroupSpec.loadData(dataSpecs0, usageData, costData, 0, as, ps);
-		TagGroupSpec.loadData(dataSpecs1, usageData, costData, 1, as, ps);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		cauData.enableTagGroupCache(true);
+		DataSerializer data = cauData.get(null);
+		TagGroupSpec.loadData(dataSpecs0, data, 0, as, ps);
+		TagGroupSpec.loadData(dataSpecs1, data, 1, as, ps);
         
 		Rule rule = new Rule(getConfig(splitMonthlyCostByHourYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		frp.debug = true;
 
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(data, true, operandSingleValueCache);
-		ReadWriteData outCostData = data.getCost(null);
+		frp.processReadWriteData(cauData, true, operandSingleValueCache);
+		DataSerializer outData = cauData.get(null);
 
-		Map<TagGroup, Double> m = outCostData.getData(0);
+		Map<TagGroup, CostAndUsage> m = outData.getData(0);
 		for (TagGroup tg: m.keySet())
 			logger.info("out: " + m.get(tg) + ", " + tg);
 		
 		assertEquals("Wrong number of entries in the single value cache", 2, operandSingleValueCache.size());
 
 		// Should have 50/30/20% split of $300
-		TagGroup a2split = new TagGroupSpec(DataType.cost, a2, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		Double value = outCostData.get(0, a2split);
-		value += outCostData.get(1, a2split);
-		assertEquals("wrong value for account 2", 300.0 * 0.5, value, .001);
+		TagGroup a2split = new TagGroupSpec(a2, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		CostAndUsage value = outData.get(0, a2split);
+		value = value.add(outData.get(1, a2split));
+		assertEquals("wrong value for account 2", 300.0 * 0.5, value.cost, .001);
 		
-		TagGroup a3split = new TagGroupSpec(DataType.cost, a3, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
-		value += outCostData.get(1, a3split);
-		assertEquals("wrong value for account 3", 300.0 * 0.3, value, .001);
+		TagGroup a3split = new TagGroupSpec(a3, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
+		value = value.add(outData.get(1, a3split));
+		assertEquals("wrong value for account 3", 300.0 * 0.3, value.cost, .001);
 		
-		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
-		value += outCostData.get(1, a3split);
-		assertEquals("wrong value for account 3", 300.0 * 0.2, value, .001);
+		a3split = new TagGroupSpec(a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
+		value = value.add(outData.get(1, a3split));
+		assertEquals("wrong value for account 3", 300.0 * 0.2, value.cost, .001);
 	}
 
 	private String splitMonthlyCostByMonthYaml = "" +
@@ -672,49 +645,48 @@ public class FixedRuleProcessorTest {
 	public void testMonthlySplitByMonth() throws Exception {
 		// Split $300 (3% of $10,000) of spend across three accounts and two hours based on individual account spend
         TagGroupSpec[] dataSpecs0 = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "global", "GlobalFee", "None", "Dollar", 300.0),
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", 3000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", 2000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 1500.0),
+        		new TagGroupSpec(a1, "global", "GlobalFee", "None", "Dollar", 300.0, 0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "None", "Dollar", 3000.0, 0),
+        		new TagGroupSpec(a3, "us-east-1", productCode, "None", "Dollar", 2000.0, 0),
+        		new TagGroupSpec(a3, "us-west-2", productCode, "None", "Dollar", 1500.0, 0),
         };        
         TagGroupSpec[] dataSpecs1 = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a2, "us-east-1", productCode, "None", "Dollar", 2000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-east-1", productCode, "None", "Dollar", 1000.0),
-        		new TagGroupSpec(DataType.cost, a3, "us-west-2", productCode, "None", "Dollar", 500.0),
+        		new TagGroupSpec(a2, "us-east-1", productCode, "None", "Dollar", 2000.0, 0),
+        		new TagGroupSpec(a3, "us-east-1", productCode, "None", "Dollar", 1000.0, 0),
+        		new TagGroupSpec(a3, "us-west-2", productCode, "None", "Dollar", 500.0, 0),
         };
         
-		CostAndUsageData data = new CostAndUsageData(0, null, null, null, as, ps);
-		data.enableTagGroupCache(true);
-		ReadWriteData usageData = data.getUsage(null);
-		ReadWriteData costData = data.getCost(null);
-		TagGroupSpec.loadData(dataSpecs0, usageData, costData, 0, as, ps);
-		TagGroupSpec.loadData(dataSpecs1, usageData, costData, 1, as, ps);
+		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+		cauData.enableTagGroupCache(true);
+		DataSerializer data = cauData.get(null);
+		TagGroupSpec.loadData(dataSpecs0, data, 0, as, ps);
+		TagGroupSpec.loadData(dataSpecs1, data, 1, as, ps);
         
 		Rule rule = new Rule(getConfig(splitMonthlyCostByMonthYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		frp.debug = true;
 
 		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(data, true, operandSingleValueCache);
-		ReadWriteData outCostData = data.getCost(null);
+		frp.processReadWriteData(cauData, true, operandSingleValueCache);
+		DataSerializer outData = cauData.get(null);
 				
-		Map<TagGroup, Double> m = outCostData.getData(0);
+		Map<TagGroup, CostAndUsage> m = outData.getData(0);
 		for (TagGroup tg: m.keySet())
 			logger.info("out: " + m.get(tg) + ", " + tg);
 
 		assertEquals("Wrong number of entries in the single value cache", 2, operandSingleValueCache.size());
 
 		// Should have 50/30/20% split of $300
-		TagGroup a2split = new TagGroupSpec(DataType.cost, a2, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		Double value = outCostData.get(0, a2split);
-		assertEquals("wrong value for account 2", 300.0 * 0.5, value, .001);
+		TagGroup a2split = new TagGroupSpec(a2, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		CostAndUsage value = outData.get(0, a2split);
+		assertEquals("wrong value for account 2", 300.0 * 0.5, value.cost, .001);
 		
-		TagGroup a3split = new TagGroupSpec(DataType.cost, a3, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
-		assertEquals("wrong value for account 3", 300.0 * 0.3, value, .001);
+		TagGroup a3split = new TagGroupSpec(a3, "us-east-1", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
+		assertEquals("wrong value for account 3", 300.0 * 0.3, value.cost, .001);
 		
-		a3split = new TagGroupSpec(DataType.cost, a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
-		value = outCostData.get(0, a3split);
-		assertEquals("wrong value for account 3", 300.0 * 0.2, value, .001);
+		a3split = new TagGroupSpec(a3, "us-west-2", "GlobalFee", "Split", "Dollar", null).getTagGroup(as, ps);
+		value = outData.get(0, a3split);
+		assertEquals("wrong value for account 3", 300.0 * 0.2, value.cost, .001);
 	}
 }

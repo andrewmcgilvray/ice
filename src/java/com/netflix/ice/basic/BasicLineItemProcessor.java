@@ -291,13 +291,13 @@ public abstract class BasicLineItemProcessor implements LineItemProcessor {
         }
         else if (result == Result.monthly) {
             startIndex = 0;
-            endIndex = costAndUsageData.getUsage(null).getNum();
+            endIndex = costAndUsageData.get(null).getNum();
             int numHoursInMonth = new DateTime(startMilli, DateTimeZone.UTC).dayOfMonth().getMaximumValue() * 24;
             usageValue = usageValue * endIndex / numHoursInMonth;
             costValue = costValue * endIndex / numHoursInMonth;
         }
         else if (result == Result.hourlyTruncate) {
-            endIndex = Math.min(endIndex, costAndUsageData.getUsage(null).getNum());
+            endIndex = Math.min(endIndex, costAndUsageData.get(null).getNum());
         }
 
         if (monthlyCost) {
@@ -332,15 +332,6 @@ public abstract class BasicLineItemProcessor implements LineItemProcessor {
     protected abstract void addData(String fileName, LineItem lineItem, TagGroup tagGroup, TagGroup resourceTagGroup,
     		CostAndUsageData costAndUsageData, double usageValue, double costValue, boolean monthly, int[] indexes, double edpDiscount, long startMilli);
 
-    protected void addValue(ReadWriteData rwd, int i, TagGroup tagGroup, double value) {
-        Double oldV = rwd.get(i, tagGroup);
-        if (oldV != null) {
-            value += oldV;
-        }
-
-        rwd.put(i, tagGroup, value);
-    }
-    
     protected abstract void addReservation(
     		String fileName,
     		LineItem lineItem,
