@@ -98,7 +98,9 @@ public class AllocationReport extends Report {
 		this.newTagKeys = null;
 		this.data = Lists.newArrayList();
 		
-		this.inTagKeys = Lists.newArrayList(config.getIn().keySet());
+		this.inTagKeys = Lists.newArrayList();
+		if (config.getIn() != null)
+			this.inTagKeys.addAll(config.getIn().keySet());
 		this.inTagValues = Lists.newArrayList();
 		for (int i = 0; i < inTagKeys.size(); i++)
 			this.inTagValues.add(Sets.<String>newHashSet());

@@ -120,7 +120,7 @@ public class Rule {
 				results.add(new Result(rc));
 		}
 		
-		if (config.getAllocation() != null) {
+		if (config.getAllocation() != null && config.getAllocation().getIn() != null) {
 			// Make sure we're not allocating on a dimension that we've aggregated in the 'in' operand
 			List<String> inAllocationTagKeys = Lists.newArrayList(config.getAllocation().getIn().keySet());
 			List<TagKey> inTagKeys = config.getIn().getGroupBy();
