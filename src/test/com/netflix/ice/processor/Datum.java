@@ -17,8 +17,6 @@
  */
 package com.netflix.ice.processor;
 
-import com.netflix.ice.basic.BasicProductService;
-import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagGroupRI;
 import com.netflix.ice.common.TagGroupSP;
@@ -36,8 +34,6 @@ import com.netflix.ice.tag.Zone;
 import com.netflix.ice.tag.Zone.BadZone;
 
 public class Datum {
-	private final static ProductService productService = new BasicProductService();
-	
 	public static Zone ap_southeast_2a;
 	public static Zone us_east_1a;
 	
