@@ -293,7 +293,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 			}
 		}
 		else {
-			ar = new AllocationReport(rc.getAllocation(), rc.isReport(), outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings());
+			ar = new AllocationReport(rc.getAllocation(), data.getStartMilli(), rc.isReport(), outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings());
 			// Download the allocation report and load it.
 			ar.loadReport(data.getStart(), workBucketConfig.localDir);
 		}
@@ -359,7 +359,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		int maxNum = data.getMaxNum();
 		Map<AggregationTagGroup, Double[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());
 		
-		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings());
+		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), data.getStartMilli(), rule.config.isReport(), outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings());
 		int numUserTags = resourceService.getCustomTags().size();
 		
 		for (AggregationTagGroup atg: inData.keySet()) {

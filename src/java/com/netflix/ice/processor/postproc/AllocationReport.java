@@ -15,8 +15,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -38,8 +36,8 @@ import com.google.common.collect.Sets;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.Config.WorkBucketConfig;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.common.TagMappings;
 import com.netflix.ice.processor.Report;
+import com.netflix.ice.processor.TagMapper;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
@@ -53,7 +51,7 @@ import com.netflix.ice.tag.UserTag;
  *  Allocation - A decimal value typically between 0 and 1 indicating the portion of the input cost/usage to allocate to the specified output record
  *  
  *  One or more input tags used to filter the source data set and find the entries to apply the allocation in the row.
- *    Each input tag may be a literal value or an empty string. If empty, all source data with either and empty value or non-matching value in a different row for
+ *    Each input tag may be a literal value or an empty string. If empty, all source data with either an empty value or non-matching value in a different row for
  *    the dimension will produce a match.
  *  
  *  One or more output tags used to label the allocation.
@@ -69,6 +67,8 @@ public class AllocationReport extends Report {
     }
 	
 	private AllocationConfig config;
+	private long startMillis;
+	private List<String> userTagKeys;
 	private List<String> inTagKeys;
 	private List<String> outTagKeys;
 	private List<Integer> inTagIndeces; // ResourceGroup user tag indeces for the input tags
@@ -76,11 +76,10 @@ public class AllocationReport extends Report {
 	private List<Set<String>> inTagValues; // Values used in the allocation report for each input tag key. Used to resolve empty strings for values in the report.
 	private List<Map<Key, Map<Key, Double>>> data;	
 	private List<String> header;
-	private Map<String, Tagger> taggers; // taggers for outTagKeys
-	private Map<Integer, Tagger> otherTaggers; // taggers for userTags not included in the report
+	private List<TagMapper> taggers;
 	private List<String> newTagKeys;
 
-	public AllocationReport(AllocationConfig config, boolean isReport, List<String> userTagKeys) throws Exception {
+	public AllocationReport(AllocationConfig config, long startMillis, boolean isReport, List<String> userTagKeys) throws Exception {
     	super();
     	S3BucketConfig bucket = config.getS3Bucket();
     	withS3BucketConfig(new S3BucketConfig()
@@ -92,6 +91,8 @@ public class AllocationReport extends Report {
 		.withExternalId(bucket.getExternalId()));
     	
 		this.config = config;
+		this.startMillis = startMillis;
+		this.userTagKeys = userTagKeys;
 		this.header = Lists.newArrayList(new String[]{AllocationColumn.StartDate.toString(), AllocationColumn.EndDate.toString(), AllocationColumn.Allocation.toString()});
 		this.inTagIndeces = Lists.newArrayList();
 		this.outTagIndeces = Lists.newArrayList();
@@ -139,17 +140,16 @@ public class AllocationReport extends Report {
 			header.add(colName);
 		}		
 		
-		taggers = Maps.newHashMap();
-		otherTaggers = Maps.newHashMap();
+		taggers = Lists.newArrayList();
 
 		if (config.getTagMaps() != null) {
+			Map<String, Integer> tagKeyIndeces = Maps.newHashMap();
+			int i = 0;
+			for (String key: userTagKeys)
+				tagKeyIndeces.put(key, i++);
+			
 			for (String tm: config.getTagMaps().keySet()) {
-				if (outTagKeys.contains(tm)) {
-					taggers.put(tm, new Tagger(config.getTagMaps().get(tm)));
-				}
-				else {
-					otherTaggers.put(userTagKeys.indexOf(tm), new Tagger(config.getTagMaps().get(tm)));
-				}
+				taggers.add(new TagMapper(userTagKeys.indexOf(tm), config.getTagMaps().get(tm), tagKeyIndeces));
 			}
 		}
 	}
@@ -168,71 +168,7 @@ public class AllocationReport extends Report {
 	
 	public List<String> getOutTagKeys() {
 		return outTagKeys;
-	}
-	
-	public class Tagger {
-		private Map<String, Map<String, Comparator>> rules;
-				
-		Tagger(TagMappings tagMappings) {
-			this.rules = Maps.newHashMap();
-			
-			Map<String, Map<String, List<String>>> maps = tagMappings.getMaps();
-			rules = Maps.newHashMap();
-			for (String dstValue: maps.keySet()) {
-				Map<String, Comparator> srcKeyMap = Maps.newHashMap();
-				for (String srcKey: maps.get(dstValue).keySet()) {
-					srcKeyMap.put(srcKey, new Comparator(srcKey, maps.get(dstValue).get(srcKey)));
-				}
-				rules.put(dstValue, srcKeyMap);
-			}
-		}
-		
-		public class Comparator {
-			private static final String regexPrefix = "re:";
-			
-			private int outputsIndex;
-			private List<String> literals;
-			private List<Pattern> patterns;
-			
-			Comparator(String key, List<String> patterns) {
-				this.literals = Lists.newArrayList();
-				this.patterns = Lists.newArrayList();
-				
-				// regular expressions have an "re:" prefix
-				for (String p: patterns) {
-					if (p.startsWith(regexPrefix)) {
-						this.patterns.add(Pattern.compile(p.substring(regexPrefix.length())));
-					}
-					else {
-						literals.add(p);
-					}
-				}
-				this.outputsIndex = outTagKeys.indexOf(key);
-			}
-			
-			boolean matches(List<String> values) {
-				String value = values.get(outputsIndex);
-				if (literals.contains(value))
-					return true;
-				for (Pattern p: patterns) {
-					Matcher m = p.matcher(value);
-					if (m.matches())
-						return true;
-				}
-				return false;
-			}
-		}
-		
-		String get(Key outputKey) {
-			for (String dstValue: rules.keySet()) {
-				for (String srcKey: rules.get(dstValue).keySet()) {
-					if (rules.get(dstValue).get(srcKey).matches(outputKey.getTags()))
-						return dstValue;
-				}
-			}
-			return "";
-		}
-	}
+	}		
 	
 	private Key getKey(int hour, TagGroup tg) throws Exception {
 		List<String> inTags = Lists.newArrayListWithCapacity(32);
@@ -450,29 +386,28 @@ public class AllocationReport extends Report {
 	}
 
 	public TagGroup getOutputTagGroup(Key outputKey, TagGroup tg) {
-		UserTag[] userTags = tg.resourceGroup.getUserTags().clone();
+		UserTag[] userTags = tg.resourceGroup.getUserTags();
+		String[] tags = new String[userTagKeys.size()];
+		for (int i = 0; i < userTags.length; i++)
+			tags[i] = userTags[i].name;
+		
 		List<String> outputs = outputKey.getTags();
 		
+		// Assign values from allocation report
 		for (int i = 0; i < outputs.size(); i++) {
 			String tag = outputs.get(i);
-			if (tag.isEmpty()) {
-				// Apply any mapping rules
-				Tagger t = taggers.get(outTagKeys.get(i));
-				if (t == null)
-					continue;
-				
-				tag = t.get(outputKey);
-			}
-			userTags[outTagIndeces.get(i)] = UserTag.get(tag);
+			if (!tag.isEmpty()) // Only overwrite the existing value if we have something.
+				tags[outTagIndeces.get(i)] = tag;
 		}
-		for (int i: otherTaggers.keySet()) {
-			String tag = otherTaggers.get(i).get(outputKey);
-			if (tag.isEmpty())
-				continue;
-			userTags[i] = UserTag.get(tag);
+		
+		// Apply any mapping rules
+		for (TagMapper tm: taggers) {
+			int index = tm.getTagIndex();
+			String tag = tm.apply(startMillis, tg.account.getId(), tags, tags[index]);
+			tags[index] = tag;
 		}
 		try {
-			return tg.withResourceGroup(ResourceGroup.getResourceGroup(userTags));
+			return tg.withResourceGroup(ResourceGroup.getResourceGroup(tags));
 		} catch (ResourceException e) {
 			// should never throw because no user tags are null
 			logger.error("error creating resource group from user tags: " + e);

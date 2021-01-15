@@ -20,11 +20,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.basic.BasicResourceService;
+import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.postproc.AllocationReport.Key;
+import com.netflix.ice.processor.postproc.TagGroupSpec.DataType;
+import com.netflix.ice.tag.Product;
+import com.netflix.ice.tag.ResourceGroup;
 
 public class AllocationReportTest {
+	static final String ec2Instance = Product.Code.Ec2Instance.serviceCode;
+	static private String a1 = "111111111111";
 
 	@Test
 	public void testKey() {
@@ -66,7 +73,7 @@ public class AllocationReportTest {
 		"  InTag1: outCol1\n" + 
 		""; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
 		assertNotNull("report is null", ar);
 	}
 	
@@ -90,7 +97,7 @@ public class AllocationReportTest {
 		""; 
 		
 		// should throw
-		new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
+		new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
 		fail("constructor didn't throw");
 	}
 
@@ -112,7 +119,7 @@ public class AllocationReportTest {
 		"  OutTag1: outCol1\n" + 
 		"  OutTag2: outCol2\n"; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
 		ar.add(0, 1.0, Lists.newArrayList(new String[]{"inA", "inB"}), Lists.newArrayList(new String[]{"outA", "outB"}));
 		
 		StringWriter out = new StringWriter();
@@ -146,7 +153,7 @@ public class AllocationReportTest {
 		"  OutTag1: outCol1\n" + 
 		"  OutTag2: outCol2\n"; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
 		
 		// Throw in a record with a NaN for the allocation to make sure we ignore it
 		String csv = "" +
@@ -181,4 +188,77 @@ public class AllocationReportTest {
 			assertNotNull("expected key not found", values.get(outKey));
 		}
 	} 
+	
+	@Test
+	public void testGetOutputTagGroup() throws Exception {
+		BasicProductService ps = new BasicProductService();
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1", "Key2", "Key3", "Key4"}, false);
+		BasicAccountService as = new BasicAccountService();
+		
+		// config with same key in both in and out, but different column names
+		String arConfigYaml = "" +
+				"s3Bucket:\n" +
+				"  name: reports\n" +
+				"in:\n" +
+				"  _product: _Product\n" +
+				"  Key1: Key1\n" +
+				"out:\n" +
+				"  Key2: Key2\n" +
+				"tagMaps:\n" +
+				"  Key2:\n" +
+				"    force: true\n" +
+				"    maps:\n" +
+				"      unused:\n" + // Mark unused if Key2 is empty
+				"        key: Key4\n" +
+				"        operator: isOneOf\n" +
+				"        values: [A,D]\n" +
+				"  Key4:\n" +
+				"    force: true\n" +
+				"    maps:\n" +
+				"      '':\n" +
+				"        key: Key4\n" +
+				"        operator: isOneOf\n" +
+				"        values: [D]\n" +
+				"  Key3:\n" +
+				"    maps:\n" +
+				"      V25:\n" +
+				"        key: Key2\n" +
+				"        operator: isOneOf\n" +
+				"        values: [25,'twenty-.*']\n" +
+				"      V70:\n" +
+				"        key: Key2\n" +
+				"        operator: isOneOf\n" +
+				"        values: [seventy]\n" +
+				"";
+				
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
+		
+        TagGroupSpec[] data = new TagGroupSpec[]{
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", "A"}, 50.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "B"}, 250.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "C"}, 700.0),
+        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "D"}, 0.0),
+         };
+        Key[] outputKeys = {
+        		new Key(Lists.newArrayList(new String[]{"compute"})),
+        		new Key(Lists.newArrayList(new String[]{"twenty-five"})),
+        		new Key(Lists.newArrayList(new String[]{"seventy"})),
+        		new Key(Lists.newArrayList(new String[]{""})),
+        };
+        
+        ResourceGroup[] expected = {
+        		ResourceGroup.getResourceGroup(new String[]{"clusterA", "unused", "", "A"}),
+        		ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five", "V25", "B"}),
+        		ResourceGroup.getResourceGroup(new String[]{"clusterA", "seventy", "V70", "C"}),
+        		ResourceGroup.getResourceGroup(new String[]{"clusterA", "unused", "", ""}),
+        };
+        
+        for (int i = 0; i < data.length; i++) {
+        	TagGroupSpec tgs = data[i];
+            TagGroup got = ar.getOutputTagGroup(outputKeys[i], tgs.getTagGroup(as, ps));
+            assertEquals("resource group doesn't match", expected[i], got.resourceGroup);
+        }
+	}
+	
+
 }

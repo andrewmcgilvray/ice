@@ -161,7 +161,9 @@ public class KubernetesReportTest {
 	    "    Environment:\n" +
 		"      maps:\n" + 
 		"        Prod:\n" + 
-		"          K8sNamespace: [ 're:.*prod.*', 're:.*production.*', 're:.*prd.*' ]\n" +
+		"          key: K8sNamespace\n" +
+		"          operator: isOneOf\n" +
+		"          values: [ '.*prod.*', '.*production.*', '.*prd.*' ]\n" +
 		"";
 		
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());

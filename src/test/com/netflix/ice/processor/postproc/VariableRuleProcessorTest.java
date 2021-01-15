@@ -165,7 +165,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags());
 		
 		// First call with empty report to make sure it handles it
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
@@ -285,9 +285,13 @@ public class VariableRuleProcessorTest {
 				"    Key3:\n" +
 				"      maps:\n" +
 				"        V25:\n" +
-				"          Key2: [25,'re:twenty-.*']\n" +
+				"          key: Key2\n" +
+				"          operator: isOneOf\n" +
+				"          values: [25,'twenty-.*']\n" +
 				"        V70:\n" +
-				"          Key2: [seventy]\n" +
+				"          key: Key2\n" +
+				"          operator: isOneOf\n" +
+				"          values: [seventy]\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 1000.0),
@@ -296,7 +300,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags());
 		
 		// Process with a report
 		String reportData = "" +
@@ -394,7 +398,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), userTagKeys);
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys);
 		
 		// Process with a report
 		String reportData = "" +
@@ -466,7 +470,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), userTagKeys);
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys);
 		
 		// Process with a report that has both empty and non-empty Key1 values.
 		// Should apply the allocations for specific non-empty values and then use
@@ -544,7 +548,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"CostType","Extra1", "Key1", "Key2", "Extra2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), rule.config.isReport(), reportUserTagKeys);
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), reportUserTagKeys);
 		
 		// Process with a report
 		String reportData = "" +
