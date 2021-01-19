@@ -104,7 +104,7 @@ public class RuleConfigTest {
 		"    userTag2: userTag2\n" +
 	    "  tagMaps:\n" +
 	    "    Environment:\n" +
-		"      maps:\n" + 
+		"    - maps:\n" + 
 		"        Prod:\n" + 
 		"          key: K8sNamespace\n" +
 		"          operator: isOneOf\n" +

@@ -73,7 +73,7 @@ public class AllocationReportTest {
 		"  InTag1: outCol1\n" + 
 		""; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		assertNotNull("report is null", ar);
 	}
 	
@@ -97,7 +97,7 @@ public class AllocationReportTest {
 		""; 
 		
 		// should throw
-		new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
+		new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		fail("constructor didn't throw");
 	}
 
@@ -119,7 +119,7 @@ public class AllocationReportTest {
 		"  OutTag1: outCol1\n" + 
 		"  OutTag2: outCol2\n"; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		ar.add(0, 1.0, Lists.newArrayList(new String[]{"inA", "inB"}), Lists.newArrayList(new String[]{"outA", "outB"}));
 		
 		StringWriter out = new StringWriter();
@@ -153,7 +153,7 @@ public class AllocationReportTest {
 		"  OutTag1: outCol1\n" + 
 		"  OutTag2: outCol2\n"; 
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		
 		// Throw in a record with a NaN for the allocation to make sure we ignore it
 		String csv = "" +
@@ -206,21 +206,21 @@ public class AllocationReportTest {
 				"  Key2: Key2\n" +
 				"tagMaps:\n" +
 				"  Key2:\n" +
-				"    force: true\n" +
+				"  - force: true\n" +
 				"    maps:\n" +
 				"      unused:\n" + // Mark unused if Key2 is empty
 				"        key: Key4\n" +
 				"        operator: isOneOf\n" +
 				"        values: [A,D]\n" +
 				"  Key4:\n" +
-				"    force: true\n" +
+				"  - force: true\n" +
 				"    maps:\n" +
 				"      '':\n" +
 				"        key: Key4\n" +
 				"        operator: isOneOf\n" +
 				"        values: [D]\n" +
 				"  Key3:\n" +
-				"    maps:\n" +
+				"  - maps:\n" +
 				"      V25:\n" +
 				"        key: Key2\n" +
 				"        operator: isOneOf\n" +
@@ -231,7 +231,7 @@ public class AllocationReportTest {
 				"        values: [seventy]\n" +
 				"";
 				
-		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		
         TagGroupSpec[] data = new TagGroupSpec[]{
         		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", "A"}, 50.0),

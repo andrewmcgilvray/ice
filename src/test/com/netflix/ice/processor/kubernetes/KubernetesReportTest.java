@@ -159,7 +159,7 @@ public class KubernetesReportTest {
 		"    K8sNamespace: K8sNamespace\n" +
 	    "  tagMaps:\n" +
 	    "    Environment:\n" +
-		"      maps:\n" + 
+		"    - maps:\n" + 
 		"        Prod:\n" + 
 		"          key: K8sNamespace\n" +
 		"          operator: isOneOf\n" +

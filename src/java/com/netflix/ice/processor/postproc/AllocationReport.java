@@ -35,9 +35,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.common.TagMappings;
 import com.netflix.ice.processor.Report;
-import com.netflix.ice.processor.TagMapper;
+import com.netflix.ice.processor.TagMappers;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
@@ -76,10 +78,10 @@ public class AllocationReport extends Report {
 	private List<Set<String>> inTagValues; // Values used in the allocation report for each input tag key. Used to resolve empty strings for values in the report.
 	private List<Map<Key, Map<Key, Double>>> data;	
 	private List<String> header;
-	private List<TagMapper> taggers;
+	private List<TagMappers> taggers;
 	private List<String> newTagKeys;
 
-	public AllocationReport(AllocationConfig config, long startMillis, boolean isReport, List<String> userTagKeys) throws Exception {
+	public AllocationReport(AllocationConfig config, long startMillis, boolean isReport, List<String> userTagKeys, ResourceService resourceService) throws Exception {
     	super();
     	S3BucketConfig bucket = config.getS3Bucket();
     	withS3BucketConfig(new S3BucketConfig()
@@ -148,8 +150,22 @@ public class AllocationReport extends Report {
 			for (String key: userTagKeys)
 				tagKeyIndeces.put(key, i++);
 			
-			for (String tm: config.getTagMaps().keySet()) {
-				taggers.add(new TagMapper(userTagKeys.indexOf(tm), config.getTagMaps().get(tm), tagKeyIndeces));
+			for (String tagKey: config.getTagMaps().keySet()) {
+				List<TagMappings> tagMappingsList = Lists.newArrayList();
+				for (TagMappings tagMappings: config.getTagMaps().get(tagKey)) {
+					// See if we need to inherit anything
+					String parentName = tagMappings.getParent();
+					if (parentName != null && !parentName.isEmpty()) {
+						// Get the parent config from the resource service and inherit
+						TagMappings parent = resourceService.getTagMappings(tagKey, parentName);
+						if (parent != null)
+							tagMappings.inherit(parent);
+						else
+							logger.error("userTags rule for tag key \"" + tagKey + "\" references unknown tag mappings name: " + parentName);
+					}
+					tagMappingsList.add(tagMappings);
+				}
+				taggers.add(new TagMappers(userTagKeys.indexOf(tagKey), tagKey, tagMappingsList, tagKeyIndeces));
 			}
 		}
 	}
@@ -401,9 +417,9 @@ public class AllocationReport extends Report {
 		}
 		
 		// Apply any mapping rules
-		for (TagMapper tm: taggers) {
+		for (TagMappers tm: taggers) {
 			int index = tm.getTagIndex();
-			String tag = tm.apply(startMillis, tg.account.getId(), tags, tags[index]);
+			String tag = tm.getMappedUserTagValue(startMillis, tg.account.getId(), tags, tags[index]);
 			tags[index] = tag;
 		}
 		try {

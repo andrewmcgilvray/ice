@@ -49,7 +49,9 @@ public class TagConfigTest {
 		"values:\n" +
 		"  Prod: [production]\n" +
 		"mapped:\n" +
-		"- maps:\n" +
+		"- name: foobar\n" +
+		"  owners: [foo.bar@company.com,a.b@co.com]\n" +
+		"  maps:\n" +
 		"    QA:\n" +
 		"      key: Application\n" +
 		"      values: [test-web-server,'']\n" +

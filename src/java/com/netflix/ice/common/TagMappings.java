@@ -68,12 +68,27 @@ import java.util.Map;
  * </pre>
  */
 public class TagMappings {
+	public String name; // name of tag mapping which if present allows it to be inherited by other TagMappings.
+	public List<String> owners; // names of owners responsible for the mapping rule
 	public Map<String, TagMappingTerm> maps;
 	public List<String> include;
 	public List<String> exclude;
 	public String start;
-	public boolean force;
+	public Boolean force;
+	public String parent; // Name of tag mappings to inherit from. Any parameters defined in this mappings will override values inherited.
 	
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public List<String> getOwners() {
+		return owners;
+	}
+	public void setOwners(List<String> owners) {
+		this.owners = owners;
+	}
 	public Map<String, TagMappingTerm> getMaps() {
 		return maps;
 	}
@@ -98,11 +113,34 @@ public class TagMappings {
 	public void setStart(String start) {
 		this.start = start;
 	}
-	public boolean isForce() {
+	public Boolean isForce() {
 		return force;
 	}
-	public void setForce(boolean force) {
+	public void setForce(Boolean force) {
 		this.force = force;
+	}
+	public String getParent() {
+		return parent;
+	}
+	public void setParent(String parent) {
+		this.parent = parent;
+	}
+	
+	public void inherit(TagMappings parent) {
+		if (name == null)
+			name = parent.name;
+		if (owners == null)
+			owners = parent.owners;
+		if (maps == null)
+			maps = parent.maps;
+		if (include == null)
+			include = parent.include;
+		if (exclude == null)
+			exclude = parent.exclude;
+		if (start == null)
+			start = parent.start;
+		if (force == null)
+			force = parent.force;
 	}
 }
 	

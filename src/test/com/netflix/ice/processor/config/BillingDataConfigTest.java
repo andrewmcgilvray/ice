@@ -111,7 +111,7 @@ public class BillingDataConfigTest {
 		"        userTag2: userTag2\n" +
 	    "      tagMaps:\n" +
 	    "        Environment:\n" +
-	    "          maps:\n" +
+	    "        - maps:\n" +
 		"            Prod:\n" + 
 		"              key: Namespace\n" +
 		"              operator: isOneOf\n" +

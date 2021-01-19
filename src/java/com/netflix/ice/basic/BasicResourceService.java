@@ -17,7 +17,6 @@
  */
 package com.netflix.ice.basic;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,7 +32,7 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagConfig;
 import com.netflix.ice.common.TagMappings;
-import com.netflix.ice.processor.TagMapper;
+import com.netflix.ice.processor.TagMappers;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -74,22 +73,18 @@ public class BasicResourceService extends ResourceService {
      * 
      * Primary map key is the payer account ID,
      * List index is the tag key index,
-     * Secondary map key is the start time for the mapper rule in milliseconds
      * .
      *  <pre>
      *  tagMappers:
      *    <payerAcctId1>:
-     *    - <startMillis1>:
-     *        - <tagMapperA>
-     *        - <tagMapperB>
-     *    - <startMillis2>:
-     *        - <tagMapperC>
+     *    - <tagMappersA>:
+     *    - <tagMappersB>
      *        ...
      *    <payerAcctId2>:
      *      ...
      *  </pre>
      */
-    private Map<String, List<Map<Long, List<TagMapper>>>> tagMappers;
+    private Map<String, List<TagMappers>> tagMappers;
     
     public BasicResourceService(ProductService productService, String[] customTags, boolean includeReservationIds) {
 		super();
@@ -116,6 +111,21 @@ public class BasicResourceService extends ResourceService {
     @Override
     public Map<String, Map<String, TagConfig>> getTagConfigs() {
     	return tagConfigs;
+    }
+    
+    @Override
+    public TagMappings getTagMappings(String tagKey, String name) {
+    	for (Map<String, TagConfig> maps: tagConfigs.values()) {
+			TagConfig tc = maps.get(tagKey);
+    		if (tc != null) {
+    			for (TagMappings tm: tc.mapped) {
+    				String n = tm.getName();
+    				if (n != null && n.equals(name))
+    					return tm;
+    			}
+    		}
+    	}
+    	return null;
     }
 
     @Override
@@ -165,7 +175,7 @@ public class BasicResourceService extends ResourceService {
 		this.tagValuesInverted.put(payerAccountId, indeces);
 		
 		// Create the maps setting tags based on the values of other tags
-		List<Map<Long, List<TagMapper>>> mapped = Lists.newArrayList();
+		List<TagMappers> mapped = Lists.newArrayList();
 		for (int tagIndex = 0; tagIndex < customTags.size(); tagIndex++) {
 			String tagKey = customTags.get(tagIndex);
 			TagConfig tc = configs.get(tagKey);
@@ -173,17 +183,7 @@ public class BasicResourceService extends ResourceService {
 				mapped.add(null);
 				continue;
 			}
-			Map<Long, List<TagMapper>> mappers = Maps.newTreeMap();
-			for (TagMappings m: tc.mapped) {
-				TagMapper mapper = new TagMapper(tagIndex, m, tagResourceGroupIndeces);
-				List<TagMapper> l = mappers.get(mapper.getStartMillis());
-				if (l == null) {
-					l = Lists.newArrayList();
-					mappers.put(mapper.getStartMillis(), l);
-				}
-				l.add(mapper);
-			}
-			mapped.add(mappers);
+			mapped.add(new TagMappers(tagIndex, tagKey, tc.mapped, tagResourceGroupIndeces));
 		}
 		this.tagMappers.put(payerAccountId, mapped);
     }
@@ -220,16 +220,16 @@ public class BasicResourceService extends ResourceService {
        	}
        	
        	// Handle any tag mapping
-    	List<Map<Long, List<TagMapper>>> tagMappersForPayerAccount = tagMappers.get(lineItem.getPayerAccountId());
+    	List<TagMappers> tagMappersForPayerAccount = tagMappers.get(lineItem.getPayerAccountId());
     	
        	for (int i = 0; i < customTags.size(); i++) {
        		String v = tags[i];
        		
        		// Apply tag mappers if any
        		if (tagMappersForPayerAccount != null) {
-       	    	Map<Long, List<TagMapper>> tagMappersForKey = tagMappersForPayerAccount.get(i);
+       	    	TagMappers tagMappersForKey = tagMappersForPayerAccount.get(i);
 	        	if (tagMappersForKey != null)
-	        		v = getMappedUserTagValue(tagMappersForKey, millisStart, account, tags, tags[i]);
+	        		v = tagMappersForKey.getMappedUserTagValue(millisStart, account.getId(), tags, tags[i]);
        		}
        		
        		// Apply default mappings if any
@@ -280,20 +280,6 @@ public class BasicResourceService extends ResourceService {
 			logger.error("Error creating resource group from user tags in line item" + e);
 		}
 		return null;
-    }
-    
-    private String getMappedUserTagValue(Map<Long, List<TagMapper>> tagMappersForKey, long startMillis, Account account, String[] tags, String value) {
-    	// return the user tag value for the specified account if there is a mapping configured.
-    	
-    	// Get the time-ordered values
-    	Collection<List<TagMapper>> timeOrderedListsOfTagMappers = tagMappersForKey.values();
-    	
-    	for (List<TagMapper> tml: timeOrderedListsOfTagMappers) {
-    		for (TagMapper tm: tml)
-    			value = tm.apply(startMillis, account.getId(), tags, value);
-    	}	
-    	
-    	return value;
     }
     
     /**

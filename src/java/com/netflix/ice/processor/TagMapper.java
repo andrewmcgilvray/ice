@@ -36,13 +36,15 @@ public class TagMapper {
     private final int tagIndex;
 	private final TagMappings config;
 	private final long startMillis;
+	private final boolean force;
 	
 	public static final String suspend = "<suspend>";
 
 	public TagMapper(int tagIndex, TagMappings mappings, Map<String, Integer> tagKeyIndeces) {
 		this.tagIndex = tagIndex;
 		this.config = mappings;
-		this.startMillis = mappings.start == null || mappings.start.isEmpty() ? 0 : new DateTime(mappings.start, DateTimeZone.UTC).getMillis();
+		this.startMillis = config.start == null || config.start.isEmpty() ? 0 : new DateTime(config.start, DateTimeZone.UTC).getMillis();
+		this.force = config.force == null ? false : config.force;
 
 		for (String mappedValue: config.maps.keySet()) {
 			TagMappingTerm term = config.maps.get(mappedValue);
@@ -50,7 +52,7 @@ public class TagMapper {
 				continue;
 		}
 	}
-	
+		
 	private int initTerm(String mappedValue, TagMappingTerm term, Map<String, Integer> tagKeyIndeces) {
 		TagMappingTerm.Operator op = term.getOperator();
 		if (op == null) {
@@ -145,7 +147,7 @@ public class TagMapper {
 			return value;
 		
 		// If we already have a value and we aren't set to force the map, just return current value.
-		if (tags[tagIndex] != null && !tags[tagIndex].isEmpty() && !config.force)
+		if (tags[tagIndex] != null && !tags[tagIndex].isEmpty() && !force)
 			return value;
 
     	// If we have an include filter, make sure the account is in the list

@@ -46,6 +46,8 @@ public abstract class ResourceService {
 
     abstract public Map<String, Map<String, TagConfig>> getTagConfigs();
     
+    abstract public TagMappings getTagMappings(String tagKey, String name);
+    
     /**
      * Get resource group. Subclass can maintain a mapping of resource ids and resource group names.
      * Users can also choose to add user-defined tags in the billing file. E.g. in SampleMapDbResourceService,

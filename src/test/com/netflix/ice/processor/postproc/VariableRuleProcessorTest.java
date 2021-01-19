@@ -166,7 +166,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 		
 		// First call with empty report to make sure it handles it
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
@@ -238,7 +238,7 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
 		rule = new Rule(getConfig(allocationYaml2), as, ps, rs.getCustomTags());
-		ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags());
+		ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 		reportData = "" +
 				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,EC2Instance,clusterC,twenty-five\n" +
@@ -284,7 +284,7 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
 		rule = new Rule(getConfig(allocationYaml3), as, ps, rs.getCustomTags());
-		ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags());
+		ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 		reportData = "" +
 				"StartDate,EndDate,Allocation,Key2\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,twenty-five\n" +
@@ -353,7 +353,7 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"  tagMaps:\n" +
 				"    Key3:\n" +
-				"      maps:\n" +
+				"    - maps:\n" +
 				"        V25:\n" +
 				"          key: Key2\n" +
 				"          operator: isOneOf\n" +
@@ -370,7 +370,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0);
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 		
 		// Process with a report
 		String reportData = "" +
@@ -468,7 +468,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys);
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys, rs);
 		
 		// Process with a report
 		String reportData = "" +
@@ -540,7 +540,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys);
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys, rs);
 		
 		// Process with a report that has both empty and non-empty Key1 values.
 		// Should apply the allocations for specific non-empty values and then use
@@ -618,7 +618,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"CostType","Extra1", "Key1", "Key2", "Extra2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), reportUserTagKeys);
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), reportUserTagKeys, rs);
 		
 		// Process with a report
 		String reportData = "" +
