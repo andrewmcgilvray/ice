@@ -30,7 +30,7 @@ public class FixedRuleProcessor extends RuleProcessor {
 	}
 	
 	@Override
-	public void process(CostAndUsageData data) throws Exception {
+	public boolean process(CostAndUsageData data) throws Exception {
 		// Cache the single values across the resource and non-resource based passes
 		// in case we can reuse them. This saves a lot of time on operands that
 		// aggregate a large amount of data into a single value and are not grouping
@@ -42,6 +42,8 @@ public class FixedRuleProcessor extends RuleProcessor {
 		
 		logger.info("Post-process with rule " + getConfig().getName() + " on resource data");
 		processReadWriteData(data, false, operandSingleValueCache);
+		
+		return true;
 	}
 	
 	protected void processReadWriteData(CostAndUsageData data, boolean isNonResource, Map<Query, Double[]> operandSingleValueCache) throws Exception {		

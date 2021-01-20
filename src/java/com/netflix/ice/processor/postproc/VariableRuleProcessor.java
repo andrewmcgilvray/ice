@@ -63,7 +63,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 	}
 	
 	@Override
-	public void process(CostAndUsageData inCauData) throws Exception {
+	public boolean process(CostAndUsageData inCauData) throws Exception {
 		int maxNum = inCauData.getMaxNum();
 		String logMsg = "Post-process rule " + getConfig().getName() + " on " + maxNum + " hours of resource data";
 		if (getConfig().getAllocation() != null)
@@ -73,17 +73,22 @@ public class VariableRuleProcessor extends RuleProcessor {
 			
 		if (getConfig().getAllocation() == null && !getConfig().isReport()) {
 			logger.error("Post-process rule " + getConfig().getName() + " has nothing to do.");
-			return;
+			return false;
 		}
 		logger.info(logMsg);
 
 		boolean copy = outCauData != null;
-		AllocationReport allocationReport = getAllocationReport(inCauData);
+		boolean isAllocation = getConfig().getAllocation() != null;
+
+		AllocationReport allocationReport = null;
+		if (isAllocation)
+			allocationReport = getAllocationReport(inCauData);
 		
-		if (!copy && allocationReport == null) {
+		// Only process if it's a copy without allocation -or- we have an allocation report
+		if (!(copy && !isAllocation) && allocationReport == null) {
 			logger.warn("No allocation report to process for rule " + getConfig().getName());
 			inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, 0, 0, "No allocation report found"));
-			return;
+			return false;
 		}
 		StopWatch sw = new StopWatch();
 		sw.start();
@@ -117,6 +122,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 		
 		logger.info("  -- data for rule " + rule.config.getName() + " -- in data size = " + inDataGroups.size() + ", --- allocated size = " + allocatedTagGroups.size());
 		inCauData.addPostProcessorStats(new PostProcessorStats(rule.config.getName(), RuleType.Variable, false, inDataGroups.size(), allocatedTagGroups.size(), info));
+		
+		return true;
 	}
 	
 	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
@@ -296,7 +303,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 			ar = new AllocationReport(rc.getAllocation(), data.getStartMilli(), rc.isReport(), 
 					outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings(), resourceService);
 			// Download the allocation report and load it.
-			ar.loadReport(data.getStart(), workBucketConfig.localDir);
+			if (!ar.loadReport(data.getStart(), workBucketConfig.localDir))
+				ar = null; // No report to process
 		}
 		return ar;
 	}	
