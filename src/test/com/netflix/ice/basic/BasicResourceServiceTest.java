@@ -429,9 +429,14 @@ public class BasicResourceServiceTest {
 		"mapped:\n" +
 		"  - maps:\n" +
 		"      DestValue1:\n" +
-		"        TagKey4: [SrcValue4a]\n" +
+		"        key: TagKey4\n" +
+		"        operator: isOneOf\n" +
+		"        values: [SrcValue4a]\n" +
 		"      DestValue2:\n" +
-		"        TagKey4: [SrcValue4b]\n";
+		"        key: TagKey4\n" +
+		"        operator: isOneOf\n" +
+		"        values: [SrcValue4b]\n" +
+		"";
 
 		String[] customTags = new String[]{"DestKey", "TagKey4"};
 		Account payerAccount = makeAccountWithDefaultTag("123456789012", "DestKey", "DestValueDefault");
@@ -478,9 +483,14 @@ public class BasicResourceServiceTest {
 				"  - start: 2020-02\n" +
 				"    maps:\n" +
 				"      DestValue1a:\n" +
-				"        TagKey4: [SrcValue4a]\n" +
+				"        key: TagKey4\n" +
+				"        operator: isOneOf\n" +
+				"        values: [SrcValue4a]\n" +
 				"      DestValue2a:\n" +
-				"        TagKey4: [SrcValue4b]\n";
+				"        key: TagKey4\n" +
+				"        operator: isOneOf\n" +
+				"        values: [SrcValue4b]\n" +
+				"";
 		resource = getResourceGroup(yamlWithStart, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"DestValue1", "SrcValue4a"}), resource);
 		
@@ -502,8 +512,15 @@ public class BasicResourceServiceTest {
 		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue1:\n" +
-		"        TagKey1: [SrcValue1]\n" +
-		"        TagKey2: [SrcValue2]\n";
+		"        operator: or\n" +
+		"        terms:\n" +
+		"        - key: TagKey1\n" +
+		"          operator: isOneOf\n" +
+		"          values: [SrcValue1]\n" +
+		"        - key: TagKey2\n" +
+		"          operator: isOneOf\n" +
+		"          values: [SrcValue2]\n" +
+		"";
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
@@ -541,11 +558,16 @@ public class BasicResourceServiceTest {
 		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue1:\n" +
-		"        TagKey1: [SrcValue1]\n" +
+		"        key: TagKey1\n" +
+		"        operator: isOneOf\n" +
+		"        values: [SrcValue1]\n" +
 		"  - include: [" + account.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue2:\n" +
-		"        TagKey2: [SrcValue2]";
+		"        key: TagKey2\n" +
+		"        operator: isOneOf\n" +
+		"        values: [SrcValue2]\n" +
+		"";
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
@@ -602,20 +624,33 @@ public class BasicResourceServiceTest {
 		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    maps:\n" +
 		"      DestValue1:\n" +
-		"        TagKey1: [SrcValue1a]\n" +
+		"        key: TagKey1\n" +
+		"        operator: isOneOf\n" + 
+		"        values: [SrcValue1a]\n" +
 		"      DestValue2:\n" +
-		"        TagKey1: [SrcValue1b]\n" +
+		"        key: TagKey1\n" +
+		"        operator: isOneOf\n" + 
+		"        values: [SrcValue1b]\n" +
 		"      DestValue3:\n" +
-		"        TagKey1: [SrcValue1c]\n" +
+		"        key: TagKey1\n" +
+		"        operator: isOneOf\n" + 
+		"        values: [SrcValue1c]\n" +
 		"  - include: [" + payerAccount.getId() + "]\n" +
 		"    start: 2020-02\n" +
-		"    suspend:\n" +
-		"      TagKey1: [SrcValue1c]\n" +  // suspend SrcValue1c
 		"    maps:\n" +
+		"      '':\n" +
+		"        key: TagKey1\n" +
+		"        operator: isOneOf\n" + 
+		"        values: [SrcValue1a]\n" +
 		"      DestValue2:\n" +
-		"        TagKey1: [SrcValue1d]\n" + // add new SrcValue1d
+		"        key: TagKey1\n" + // add new SrcValue1d
+		"        operator: isOneOf\n" + 
+		"        values: [SrcValue1d]\n" +
 		"      DestValue3:\n" +
-		"        TagKey1: [SrcValue1b]\n"; // remap SrcValue1b to DestValue3
+		"        key: TagKey1\n" +
+		"        operator: isOneOf\n" + 
+		"        values: [SrcValue1b]\n" +
+		""; // remap SrcValue1b to DestValue3
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4", "TagKey1", "TagKey2"};
@@ -644,9 +679,9 @@ public class BasicResourceServiceTest {
 		//
 		// Check that items processed after 2020-02 are correct
 		start = "2020-02-01T00:00:00Z";
-		// Test DestValue1 - should give DestValue1
+		// Test DestValue1 - should not give DestValue1
 		tags = new String[]{ "", "SrcValue1a", "", "", ""};		
-		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue1", "", "SrcValue1a", ""});
+		expect = ResourceGroup.getResourceGroup(new String[]{ "", "", "SrcValue1a", ""});
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 		
@@ -655,13 +690,7 @@ public class BasicResourceServiceTest {
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue2", "", "SrcValue1d", ""});
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
-		
-		// Test DestValue3 with suspended value
-		tags = new String[]{ "", "SrcValue1c", "", "", ""};		
-		expect = ResourceGroup.getResourceGroup(new String[]{ "", "", "SrcValue1c", ""});
-		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
-		assertEquals("Resource name doesn't match", expect, resource);
-		
+				
 		// Test DestValue3 with remap of 1b
 		tags = new String[]{ "", "SrcValue1b", "", "", ""};		
 		expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue3", "", "SrcValue1b", ""});
@@ -682,7 +711,9 @@ public class BasicResourceServiceTest {
 		"      - include: [" + payerAccount + "]\n" +
 		"        maps:\n" +
 		"          DestValue1:\n" +
-		"            TagKey3: [SrcValue3]\n" +
+		"            key: TagKey3\n" +
+		"            operator: isOneOf\n" +
+		"            values: [SrcValue3]\n" +
 		"  - name: TagKey4\n" +
 		"    aliases: [TagKey3]\n";
 		

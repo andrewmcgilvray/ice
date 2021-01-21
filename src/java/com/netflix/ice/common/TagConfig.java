@@ -76,4 +76,11 @@ public class TagConfig {
 		return mapped;
 	}
 
+	public TagMappings getTagMappings(String name) {
+		for (TagMappings tm: mapped) {
+			if (name.equals(tm.getName()))
+				return tm;
+		}
+		return null;
+	}
 }

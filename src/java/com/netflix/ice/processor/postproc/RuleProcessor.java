@@ -102,5 +102,5 @@ public abstract class RuleProcessor {
 		}
 	}
 	
-	public abstract void process(CostAndUsageData data) throws Exception;
+	public abstract boolean process(CostAndUsageData data) throws Exception;
 }

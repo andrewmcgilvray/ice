@@ -15,6 +15,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.TagConfig;
+import com.netflix.ice.common.TagMappingTerm;
 
 public class TagConfigTest {
 
@@ -48,10 +49,14 @@ public class TagConfigTest {
 		"values:\n" +
 		"  Prod: [production]\n" +
 		"mapped:\n" +
-		"  - maps:\n" +
-		"      QA:\n" +
-		"        Application: [test-web-server]\n" +
-		"    include: [123456789012]\n";
+		"- name: foobar\n" +
+		"  owners: [foo.bar@company.com,a.b@co.com]\n" +
+		"  maps:\n" +
+		"    QA:\n" +
+		"      key: Application\n" +
+		"      values: [test-web-server,'']\n" +
+		"      operator: isOneOf\n" +
+		"  include: [123456789012]\n";
 
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 		TagConfig tc = new TagConfig();
@@ -66,12 +71,14 @@ public class TagConfigTest {
 		assertEquals("wrong value alias", "production", tc.values.get("Prod").get(0));
 		assertEquals("wrong number of computed values", 1, tc.mapped.size());
 		
-		Map<String, Map<String, List<String>>> maps = tc.mapped.get(0).maps;
+		Map<String, TagMappingTerm> maps = tc.mapped.get(0).maps;
 		assertTrue("wrong computed value name", maps.containsKey("QA"));
-		assertEquals("wrong number of matches", 1, maps.get("QA").size());
-		assertTrue("wrong computed value key", maps.get("QA").containsKey("Application"));
-		assertEquals("wrong number of computed value key matches", 1, maps.get("QA").get("Application").size());
-		assertEquals("wrong computed value mapped value", "test-web-server", maps.get("QA").get("Application").get(0));
+		TagMappingTerm term = maps.get("QA");
+		assertNotNull("no term", term);
+		assertTrue("wrong term key", term.getKey().equals("Application"));
+		assertEquals("wrong number of term values", 2, term.getValues().size());
+		assertEquals("wrong term value", "test-web-server", term.getValues().get(0));
+		assertEquals("wrong term value", "", term.getValues().get(1));
 		
 		List<String> include = tc.mapped.get(0).include;
 		assertTrue("No include map", include != null);

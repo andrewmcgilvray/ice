@@ -147,8 +147,8 @@ public class PostProcessor {
 	    		pool = Executors.newFixedThreadPool(numThreads);
 
 			VariableRuleProcessor rp = new VariableRuleProcessor(rule, outData, accountService, productService, resourceService, workBucketConfig, pool);
-			rp.process(data);
-			if (rc.isReport()) {
+			boolean processed = rp.process(data);
+			if (processed && rc.isReport()) {
 				outData.enableTagGroupCache(true);
 				writeReports(rule, outData);
 			}

@@ -22,10 +22,22 @@ import java.util.Map;
 
 /**
  * TagMappings defines a set of mapping rules that allow you to apply values to a
- * User Tag based on values of other tags. You can optionally specify what accounts
+ * User Tag based on values of that tag or other tags. You can optionally specify what accounts
  * the rules apply to based on use of either <i>include</i> or <i>exclude</i> arrays.
  * The mappings may also specify a start date to indicate when the rules should take
- * effect.
+ * effect. By default, only empty values are replaced by the mapping rules, but existing
+ * values may be overwritten by setting <i>force</i> to true.
+ * 
+ * Previously defined rules may be stopped by specifying the mapped value as an empty string.
+ * 
+ * Rules are specified using a hierarcy of terms and associated operations.
+ * Supported operations are:
+ * 
+ *   isoneof - used to test if a tag key has one of the values in a list of supplied values
+ *   isnotoneof - used to test if a tag key is not one of the values in a list
+ *   
+ *   or - logical or of the evaluated results of all child terms
+ *   and - logical and of the evaluated results of all child terms
  * 
  * Example yml config data for setting an Environment tag based on an Application tag
  * for account # 123456789012 starting on Feb. 1, 2020.
@@ -33,26 +45,54 @@ import java.util.Map;
  * <pre>
  * include: [123456789012]
  * start: 2020-02
- * suspend:
- *   Application: [webServerTest]
+ * force: true
  * maps:
  *   NonProd:
- *     Application: [webServerTest, webServerStage]
+ *     key: Application
+ *     operator: isOneOf
+ *     values: [webServerTest, webServerStage]
  *   Prod:
- *     Application: [webServerProd]
+ *     operator: or
+ *     terms:
+ *     - operator: and
+ *       terms:
+ *       - key: Application:
+ *         operator: isOneOf
+ *         values: [webServer]
+ *       - key: Env:
+ *         operator: isNotOneOf
+ *         values: [test, qa, uat, stage]
+ *     - key: Env
+ *       operator: isOneOf
+ *       values: [prod]
  * </pre>
  */
 public class TagMappings {
-	public Map<String, Map<String, List<String>>> maps;
+	public String name; // name of tag mapping which if present allows it to be inherited by other TagMappings.
+	public List<String> owners; // names of owners responsible for the mapping rule
+	public Map<String, TagMappingTerm> maps;
 	public List<String> include;
 	public List<String> exclude;
 	public String start;
-	public Map<String, List<String>> suspend;
+	public Boolean force;
+	public String parent; // Name of tag mappings to inherit from. Any parameters defined in this mappings will override values inherited.
 	
-	public Map<String, Map<String, List<String>>> getMaps() {
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public List<String> getOwners() {
+		return owners;
+	}
+	public void setOwners(List<String> owners) {
+		this.owners = owners;
+	}
+	public Map<String, TagMappingTerm> getMaps() {
 		return maps;
 	}
-	public void setMaps(Map<String, Map<String, List<String>>> maps) {
+	public void setMaps(Map<String, TagMappingTerm> maps) {
 		this.maps = maps;
 	}
 	public List<String> getInclude() {
@@ -72,6 +112,35 @@ public class TagMappings {
 	}
 	public void setStart(String start) {
 		this.start = start;
+	}
+	public Boolean isForce() {
+		return force;
+	}
+	public void setForce(Boolean force) {
+		this.force = force;
+	}
+	public String getParent() {
+		return parent;
+	}
+	public void setParent(String parent) {
+		this.parent = parent;
+	}
+	
+	public void inherit(TagMappings parent) {
+		if (name == null)
+			name = parent.name;
+		if (owners == null)
+			owners = parent.owners;
+		if (maps == null)
+			maps = parent.maps;
+		if (include == null)
+			include = parent.include;
+		if (exclude == null)
+			exclude = parent.exclude;
+		if (start == null)
+			start = parent.start;
+		if (force == null)
+			force = parent.force;
 	}
 }
 	

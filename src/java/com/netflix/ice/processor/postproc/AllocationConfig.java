@@ -1,5 +1,6 @@
 package com.netflix.ice.processor.postproc;
 
+import java.util.List;
 import java.util.Map;
 
 import com.netflix.ice.common.TagMappings;
@@ -13,7 +14,7 @@ public class AllocationConfig {
 	private Map<String, String> in;
 	// Output tag map = UserTag Key is the map key, Report Column name is the map value.
 	private Map<String, String> out;
-	private Map<String, TagMappings> tagMaps;
+	private Map<String, List<TagMappings>> tagMaps;
 	
 	public S3BucketConfig getS3Bucket() {
 		return s3Bucket;
@@ -39,10 +40,10 @@ public class AllocationConfig {
 	public void setOut(Map<String, String> out) {
 		this.out = out;
 	}	
-	public Map<String, TagMappings> getTagMaps() {
+	public Map<String, List<TagMappings>> getTagMaps() {
 		return tagMaps;
 	}
-	public void setTagMaps(Map<String, TagMappings> tagMaps) {
+	public void setTagMaps(Map<String, List<TagMappings>> tagMaps) {
 		this.tagMaps = tagMaps;
 	}
 }
