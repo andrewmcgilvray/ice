@@ -194,6 +194,18 @@ public class PriceListServiceTest {
 	}
 	
 	@Test
+	public void testImportCurrentElasticsearchPriceList() throws Exception {
+		
+		InstancePrices prices = priceListService.getPrices(DateTime.now(), ServiceCode.AmazonES);
+		
+		assertFalse("Errors processing ES pricelist", prices.hasErrors());
+		
+		// Verify that we have a couple products
+		assertNotNull("no ES product in US_EAST_1", prices.getProduct(Region.US_EAST_1, UsageType.getUsageType("m5.large.elasticsearch", "hours")));
+		assertNotNull("no ES product in EU_WEST_1", prices.getProduct(Region.EU_WEST_1, UsageType.getUsageType("c5.4xlarge.elasticsearch", "hours")));
+	}
+	
+	@Test
 	public void testImportSep2019ElasticsearchPriceList() throws Exception {
 		
 		InstancePrices ip = priceListService.getPrices(DateTime.parse("2019-09-01T00:00:00Z"), ServiceCode.AmazonES);
@@ -207,6 +219,18 @@ public class PriceListServiceTest {
 		rate = ip.getReservationRate(Region.US_WEST_2, UsageType.getUsageType("c5.4xlarge.elasticsearch", "hours"), LeaseContractLength.threeyear, PurchaseOption.PartialUpfront, OfferingClass.standard);
 		assertEquals("Fixed rate should be ", 6590.0, rate.fixed, 0.0001);
 		assertEquals("Hourly rate should be ", 0.251, rate.hourly, 0.0001);
+	}
+	
+	@Test
+	public void testImportCurrentElastiCachePriceList() throws Exception {
+		
+		InstancePrices prices = priceListService.getPrices(DateTime.now(), ServiceCode.AmazonElastiCache);
+		
+		assertFalse("Errors processing ES pricelist", prices.hasErrors());
+		
+		// Verify that we have a couple products
+		assertNotNull("no ES product in US_EAST_1", prices.getProduct(Region.US_EAST_1, UsageType.getUsageType("cache.m5.large.redis", "hours")));
+		assertNotNull("no ES product in EU_WEST_1", prices.getProduct(Region.EU_WEST_1, UsageType.getUsageType("cache.r5.4xlarge.memcached", "hours")));
 	}
 	
 	@Test

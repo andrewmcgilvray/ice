@@ -395,6 +395,7 @@ public class PriceListService {
 		ConcurrencyScalingFreeUsage, // Redshift only
 		DedicatedEbsThroughput("Dedicated EBS Throughput"), // EC2 and RDS only
 		ECU, // EC2 and Redshift only
+		PricingUnit("Pricing Unit"), // Redshift only
 		ElasticGraphicsType("Elastic Graphics Type"), // EC2 only
 		MemoryGiB("Memory (GiB)"), // ES only
 		EnhancedNetworkingSupported("Enhanced Networking Supported"), // EC2 and RDS only
