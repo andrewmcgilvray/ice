@@ -111,9 +111,11 @@ public class BillingDataConfigTest {
 		"        userTag2: userTag2\n" +
 	    "      tagMaps:\n" +
 	    "        Environment:\n" +
-	    "          maps:\n" +
+	    "        - maps:\n" +
 		"            Prod:\n" + 
-		"              Namespace: [ \".*prod.*\", \".*production.*\", \".*prd.*\" ]\n" + 
+		"              key: Namespace\n" +
+		"              operator: isOneOf\n" +
+		"              values: [ '.*prod.*', '.*production.*', '.*prd.*' ]\n" +
 		"";
 		
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
