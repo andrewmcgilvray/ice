@@ -66,7 +66,7 @@ public abstract class DataFile {
     	os.close();
     	
         logger.info(this.dbName + " uploading to s3...");
-        AwsUtils.upload(config.workS3BucketName, config.workS3BucketPrefix, config.localDir, dbName);
+        AwsUtils.upload(config.workS3BucketName, config.workS3BucketPrefix, file);
         logger.info(this.dbName + " uploading done.");    	
     }
     

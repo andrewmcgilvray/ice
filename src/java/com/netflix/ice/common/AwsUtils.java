@@ -567,18 +567,6 @@ public class AwsUtils {
         s3Client.putObject(bucketName, prefix + file.getName(), file);
     }
 
-    public static void upload(String bucketName, String prefix, String localDir, final String filePrefix) {
-
-        File dir = new File(localDir);
-        File[] files = dir.listFiles(new FilenameFilter() {
-            public boolean accept(File file, String fileName) {
-                return fileName.startsWith(filePrefix);
-            }
-        });
-        for (File file: files)
-            s3Client.putObject(bucketName, prefix + file.getName(), file);
-    }
-
     public static void upload(String bucketName, String bucketRegion, String bucketPrefix, File file, String accountId, String assumeRole, String externalId) {
         AmazonS3Client s3Client = AwsUtils.s3Client;
 
