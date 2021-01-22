@@ -432,17 +432,17 @@ public class AllocationReport extends Report {
 	}
 
 	public void archiveReport(DateTime month, String filename, WorkBucketConfig workBucketConfig) throws Exception {
-        writeFile(month, workBucketConfig.localDir, filename, true);
+        File file = new File(workBucketConfig.localDir, filename + ".gz");
+        
+        writeFile(month, file, true);
         
         // archive to s3
         logger.info("uploading " + filename + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, filename);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
         logger.info("uploaded " + filename);
 	}
 	
-	protected void writeFile(DateTime month, String dir, String filename, boolean compress) throws Exception {
-        File file = new File(dir, filename + (compress ? ".gz" : ""));
-        
+	protected void writeFile(DateTime month, File file, boolean compress) throws Exception {        
     	OutputStream os = new FileOutputStream(file);
     	if (compress)
     		os = new GZIPOutputStream(os);

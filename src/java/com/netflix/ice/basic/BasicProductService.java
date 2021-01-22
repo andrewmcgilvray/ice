@@ -272,7 +272,7 @@ public class BasicProductService implements ProductService {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(bucket, prefix, localDir, file.getName());
+        AwsUtils.upload(bucket, prefix, file);
         logger.info("uploaded " + file);
     }
 

@@ -281,7 +281,7 @@ public class PriceListService {
         
         if (workS3BucketName != null) {
 	        logger.info(name + " uploading to s3...");
-	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, localDir, name);
+	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, file);
 	        logger.info(name + " uploading done.");
         }
     }
@@ -327,7 +327,7 @@ public class PriceListService {
         
         if (workS3BucketName != null) {
 	        logger.info(InstanceMetrics.dbName + " uploading to s3...");
-	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, localDir, InstanceMetrics.dbName);
+	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, file);
 	        logger.info(InstanceMetrics.dbName + " uploading done.");
         }
     }
@@ -395,6 +395,7 @@ public class PriceListService {
 		ConcurrencyScalingFreeUsage, // Redshift only
 		DedicatedEbsThroughput("Dedicated EBS Throughput"), // EC2 and RDS only
 		ECU, // EC2 and Redshift only
+		PricingUnit("Pricing Unit"), // Redshift only
 		ElasticGraphicsType("Elastic Graphics Type"), // EC2 only
 		MemoryGiB("Memory (GiB)"), // ES only
 		EnhancedNetworkingSupported("Enhanced Networking Supported"), // EC2 and RDS only

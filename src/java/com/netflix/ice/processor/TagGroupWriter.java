@@ -88,7 +88,7 @@ public class TagGroupWriter {
         }
         
         logger.info(dbName + " uploading to s3...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, workBucketConfig.localDir, dbName);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
         logger.info(dbName + " uploading done.");
     }
     

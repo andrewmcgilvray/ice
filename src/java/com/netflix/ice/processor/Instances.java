@@ -112,7 +112,7 @@ public class Instances {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, localDir, file.getName());
+        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, file);
         logger.info("uploaded " + file);
     }
     
