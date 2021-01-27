@@ -31,6 +31,7 @@ import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
+import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
 
 public class VariableRuleProcessor extends RuleProcessor {
@@ -360,7 +361,12 @@ public class VariableRuleProcessor extends RuleProcessor {
 			if (!key.startsWith("_"))
 				groupByTags.add(key);
 		}
-		inConfig.setGroupBy(Lists.<Rule.TagKey>newArrayList(Rule.TagKey.product));
+		List<Rule.TagKey> groupBy = Lists.newArrayList(Rule.TagKey.product);
+		if (report.hasUsageType())
+			groupBy.add(Rule.TagKey.usageType);
+		
+		inConfig.setGroupBy(groupBy);
+
 		inConfig.setGroupByTags(groupByTags);
 		
 		Query query = new Query(inConfig, resourceService.getCustomTags(), false);
@@ -390,10 +396,11 @@ public class VariableRuleProcessor extends RuleProcessor {
 			
 			unprocessedClusters.remove(clusterName);
 			
-			List<String> inTags = getInTags(allocationReport, ut, atg.getProduct());
+			List<String> inTags = getInTags(allocationReport, ut, atg.getProduct(), atg.getUsageType());
+			String ec2UsageType = atg.getProduct().isEc2Instance() ? atg.getUsageType() != null ? atg.getUsageType().name : null : null;
 			
 			for (int hour = 0; hour < maxHours; hour++) {						
-				List<String[]> hourClusterData = report.getData(clusterName, hour);
+				List<String[]> hourClusterData = report.getData(clusterName, hour, ec2UsageType);
 				if (hourClusterData != null && !hourClusterData.isEmpty()) {
 					addHourClusterRecords(allocationReport, hour, atg.getProduct(), inTags, clusterName, report, hourClusterData);
 				}
@@ -403,13 +410,19 @@ public class VariableRuleProcessor extends RuleProcessor {
 		return allocationReport;
 	}
 	
-	private List<String> getInTags(AllocationReport allocationReport, UserTag[] userTags, Product product) {
+	private List<String> getInTags(AllocationReport allocationReport, UserTag[] userTags, Product product, UsageType usageType) {
 		List<String> tags = Lists.newArrayList();
-		for (Integer i: allocationReport.getInTagIndeces()) {
-			if (i < 0)
-				tags.add(product.getServiceCode());
+		List<String> inTagKeys = allocationReport.getInTagKeys();
+		for (int i = 0; i < inTagKeys.size(); i++) {
+			String key = inTagKeys.get(i);
+			String v = null;
+			if (key.equals("_product"))
+				v = product.getServiceCode();
+			else if (key.equals("_usageType"))
+				v = usageType.getName();
 			else
-				tags.add(userTags[i].name);
+				v = userTags[allocationReport.getInTagIndeces().get(i)].name;
+			tags.add(v);
 		}
 		return tags;
 	}
