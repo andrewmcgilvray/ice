@@ -812,6 +812,12 @@ public class VariableRuleProcessorTest {
 		AllocationReport ar = vrp.generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
 
 		assertEquals("wrong number of hours", testDataHour+1, ar.getNumHours());
+		// Check header
+		List<String> arHeader = ar.getHeader();
+		List<String> expectedHeader = Lists.newArrayList(new String[]{
+				"StartDate", "EndDate", "Allocation", "Cluster", "_Product", "_UsageType", "K8sNamespace", "UserTag1", "AltUserTag2"
+		});
+		assertEquals("wrong header", expectedHeader, arHeader);
 		
 		// Verify keys
 		Key ec2r5Key = new Key(Lists.newArrayList(new String[]{"cluster","EC2Instance","r5.4xlarge"}));

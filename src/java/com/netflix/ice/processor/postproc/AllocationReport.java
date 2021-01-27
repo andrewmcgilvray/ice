@@ -170,6 +170,10 @@ public class AllocationReport extends Report {
 		}
 	}
 	
+	protected List<String> getHeader() {
+		return header;
+	}
+	
 	protected List<Map<Key, Map<Key, Double>>> getData() {
 		return data;
 	}
