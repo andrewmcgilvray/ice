@@ -33,8 +33,7 @@
 	    <tr>
 	      <th ng-click="order(mappedValues[payer], 'destKey')">Destination Tag</th>
 	      <th ng-click="order(mappedValues[payer], 'destValue')">Destination Value</th>
-	      <th ng-click="order(mappedValues[payer], 'srcKey')">Source Tag</th>
-	      <th ng-click="order(mappedValues[payer], 'srcValue')">Source Value</th>
+	      <th ng-click="order(mappedValues[payer], 'srcValue')">Source</th>
 	      <th>Start</th>
 	      <th>Account Filter</th>
 	    </tr>
@@ -43,8 +42,7 @@
 	    <tr ng-repeat="mappedValue in mappedValues[payer] | filter:filter_mappings" class="{{getTrClass($index)}}">
 	      <td>{{mappedValue.destKey}}</td>
 	      <td>{{mappedValue.destValue}}</td>
-	      <td>{{mappedValue.srcKey}}</td>
-	      <td>{{mappedValue.srcValue}}</td>
+	      <td>{{mappedValue.src}}</td>
 	      <td>{{mappedValue.start}}</td>
 	      <td>{{mappedValue.filter}}</td>
 	    </tr>

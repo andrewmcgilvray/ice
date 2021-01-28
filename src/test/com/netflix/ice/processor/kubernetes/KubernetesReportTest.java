@@ -83,10 +83,10 @@ public class KubernetesReportTest {
 		tkr.readFile(file);
 		
 		assertEquals("Wrong number of clusters", 4, tkr.getClusters().size());
-		assertEquals("Should not have data at hour 0", 0, tkr.getData("dev-usw2a", 0).size());
-		assertEquals("Should have data at hour 395", 10, tkr.getData("dev-usw2a", 395).size());
+		assertEquals("Should not have data at hour 0", 0, tkr.getData("dev-usw2a", 0, null).size());
+		assertEquals("Should have data at hour 395", 10, tkr.getData("dev-usw2a", 395, null).size());
 		
-		List<String[]> data = tkr.getData("dev-usw2a", 395);
+		List<String[]> data = tkr.getData("dev-usw2a", 395, null);
 		
 		// find the kube-system namespace
 		String[] kubeSystem = null;

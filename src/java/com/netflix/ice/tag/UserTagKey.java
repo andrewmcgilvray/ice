@@ -41,7 +41,11 @@ public class UserTagKey extends Tag {
 	}
 	
 	public void addAllAliases(Collection<String> aliases) {
-		this.aliases.addAll(aliases);
+		// only add aliases not already in the list
+		for (String alias: aliases) {
+			if (!this.aliases.contains(alias))
+				this.aliases.add(alias);				
+		}
 	}
 	
 	public static UserTagKey get(String name) {

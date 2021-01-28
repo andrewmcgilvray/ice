@@ -25,6 +25,7 @@ import java.io.InputStreamReader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
@@ -91,6 +92,7 @@ public class KubernetesReport extends Report {
     	ClusterNetworkOutGiB,
     	PersistentVolumeClaimGiB,
     	ClusterPersistentVolumeClaimGiB,
+    	UsageType,
     }
     
     public enum Type {
@@ -140,6 +142,10 @@ public class KubernetesReport extends Report {
 				deployParams.put(config.getOut().get(deployParam), KubernetesColumn.valueOf(deployParam));
 			}
 		}
+	}
+	
+	public boolean hasUsageType() {
+		return reportIndeces.containsKey(KubernetesColumn.UsageType);
 	}
 	
 	private String getMissingParams(S3BucketConfig bucket) {
@@ -237,7 +243,7 @@ public class KubernetesReport extends Report {
         return endMilli;
 	}
 
-	private long readFile(String fileName, InputStream in) {
+	protected long readFile(String fileName, InputStream in) {
 
         CsvReader reader = new CsvReader(new InputStreamReader(in), ',');
         data = Maps.newHashMap();
@@ -286,9 +292,16 @@ public class KubernetesReport extends Report {
 		reportIndeces = Maps.newHashMap();
 		userTagIndeces = Maps.newHashMap();
 		
+		List<String> unreferenced = Lists.newArrayList();
+		List<Integer> empty = Lists.newArrayList();
 		for (int i = 0; i < header.length; i++) {
-			if (allocationConfig.getOut() != null && allocationConfig.getOut().containsKey(header[i])) {
-				userTagIndeces.put(header[i], i);
+			if (allocationConfig.getOut() != null && allocationConfig.getOut().containsValue(header[i])) {
+				for (Entry<String, String> e: allocationConfig.getOut().entrySet()) {
+					if (e.getValue().equals(header[i])) {
+						userTagIndeces.put(e.getKey(), i);
+						break;
+					}
+				}
 			}
 			else {
 				try {
@@ -297,22 +310,32 @@ public class KubernetesReport extends Report {
 				}
 				catch (IllegalArgumentException e) {
 					if (header[i].isEmpty())
-						logger.warn("Empty column (" + i + ") in Kubernetes report");
+						empty.add(i);
 					else
-						logger.info("Unreferenced column (" + i + ") in Kubernetes report: " + header[i]);
+						unreferenced.add(header[i]);
 				}
 			}
 		}
+		if (!empty.isEmpty())
+			logger.warn("Empty columns in Kubernetes report: " + empty);
+		if (!unreferenced.isEmpty())
+			logger.info("Unreferenced columns in Kubernetes report: " + unreferenced);
 		
 		// Check that we have all the columns we expect
+		List<String> optional = Lists.newArrayList();
+		List<String> mandatory = Lists.newArrayList();
 		for (KubernetesColumn col: KubernetesColumn.values()) {
 			if (!reportIndeces.containsKey(col)) {
-				if (col == KubernetesColumn.Type || col == KubernetesColumn.Resource)
-					logger.info("Kubernetes report does not have column for " + col);
+				if (col == KubernetesColumn.Type || col == KubernetesColumn.Resource || col == KubernetesColumn.UsageType)
+					optional.add(col.toString());
 				else
-					logger.error("Kubernetes report does not have column for " + col);
+					mandatory.add(col.toString());
 			}
 		}		
+		if (!optional.isEmpty())
+			logger.info("Kubernetes report does not have columns for optional fields: " + optional);
+		if (!mandatory.isEmpty())
+			logger.error("Kubernetes report does not have columns for mandatory fields: " + mandatory);
 	}
 	
 	private long processOneLine(String[] item) {
@@ -376,9 +399,23 @@ public class KubernetesReport extends Report {
 		return data.get(cluster);
 	}
 	
-	public List<String[]> getData(String cluster, int i) {
+	public List<String[]> getData(String cluster, int hour, String usageType) {
 		List<List<String[]>> clusterData = data.get(cluster);
-		return clusterData == null || clusterData.size() <= i ? null : clusterData.get(i);
+		if (clusterData == null || clusterData.size() <= hour)
+			return null;
+		
+		List<String[]> hourData = clusterData.get(hour);
+		if (usageType != null && !usageType.isEmpty()) {
+			// Pull items with matching usage type
+			List<String[]> all = hourData;
+			hourData = Lists.newArrayListWithCapacity(all.size());
+			for (String[] item: all) {
+				if (usageType.equals(getString(item, KubernetesColumn.UsageType)))
+					hourData.add(item);
+			}
+			
+		}
+		return hourData;
 	}
 	
 	public Type getType(String[] item) {
@@ -393,6 +430,7 @@ public class KubernetesReport extends Report {
 	
 	public double getDouble(String[] item, KubernetesColumn col) {
 		String s = getString(item, col);
+		
 		return s.isEmpty() || s.equalsIgnoreCase("nan") || s.equalsIgnoreCase("inf") ? 0 : Double.parseDouble(s);
 	}
 	
