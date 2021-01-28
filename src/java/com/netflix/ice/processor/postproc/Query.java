@@ -233,6 +233,8 @@ public class Query {
 			tags.add(type.toString());
 			tags.add(tagFilters.toString());
 			tags.add(userTagFilters.toString());
+			tags.add("groupBy:" + groupBy.toString());
+			tags.add("groupByTags:" + groupByTags.toString());
 									
 			string = StringUtils.join(tags, ",");
 		}

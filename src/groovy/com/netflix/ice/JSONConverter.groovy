@@ -18,6 +18,9 @@
 package com.netflix.ice
 
 import grails.converters.JSON
+import com.netflix.ice.common.TagConfig
+import com.netflix.ice.common.TagMappingTerm
+import com.netflix.ice.common.TagMappings
 import com.netflix.ice.tag.Account
 import com.netflix.ice.tag.Product
 import com.netflix.ice.tag.Tag
@@ -41,6 +44,18 @@ class JSONConverter {
 		
  		JSON.registerObjectMarshaller(UserTagKey) { UserTagKey it ->
 			return [name: it.name, aliases: it.aliases]
+		}
+		 
+		JSON.registerObjectMarshaller(TagMappingTerm) { TagMappingTerm it ->
+			return [key: it.key, operator: it.operator.toString(), values: it.values, terms: it.terms]
+		}
+		
+		JSON.registerObjectMarshaller(TagMappings) { TagMappings it ->
+			return [name: it.name, owners: it.owners, parent: it.parent, start: it.start, include: it.include, exclude: it.exclude, maps: it.maps]
+		}
+		
+		JSON.registerObjectMarshaller(TagConfig) { TagConfig it ->
+			return [name: it.name, values: it.values, aliases: it.aliases, displayAliases: it.displayAliases, mapped: it.mapped]
 		}
    }
 }

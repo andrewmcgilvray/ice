@@ -19,6 +19,7 @@ package com.netflix.ice.processor.postproc;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -654,6 +655,13 @@ public class VariableRuleProcessorTest {
 
 			readFile(file);
 		}
+		
+		public TestKubernetesReport(AllocationConfig config, DateTime start, String[] rows, ResourceService resourceService) throws Exception {
+			super(config, start, resourceService);  
+			
+			String input = String.join("\n", rows);
+			readFile("test", new ByteArrayInputStream(input.getBytes()));
+		}
 	}
 
 	@Test
@@ -729,6 +737,121 @@ public class VariableRuleProcessorTest {
 		//logger.info("csv:\n" + writer.toString());
 		assertArrayEquals("bad header", expected.toArray(new String[]{}), got.toArray(new String[]{}));
 		assertEquals("wrong number of data fields", expected.size(), records[1].split(",").length);
+	}
+	
+	@Test
+	public void testGenerateAllocationReportWithUsageType() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Cluster","Environment","K8sNamespace","K8sType","Role","UserTag1","UserTag2"}, false);
+		String allocationYaml = "" +
+				"name: k8s\n" +
+				"start: 2019-01\n" +
+				"end: 2022-11\n" +
+				"in:\n" +
+				"  type: cost\n" +
+				"  filter:\n" +
+				"    userTags:\n" +
+				"      Cluster: [cluster]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"    region: us-east-1\n" +
+				"    accountId: 123456789012\n" +
+				"  in:\n" +
+				"    _product: _Product\n" +
+				"    _usageType: _UsageType\n" +
+				"    Cluster: Cluster\n" +
+				"  out:\n" +
+				"    K8sNamespace: K8sNamespace\n" +
+				"    UserTag1: UserTag1\n" +
+				"    UserTag2: AltUserTag2\n" +
+				"  kubernetes:\n" +
+				"    clusterNameFormulae: [Cluster]\n" +
+				"    type: Pod\n" +
+				"    out:\n" +
+				"      Namespace: K8sNamespace\n" +
+				"";
+		String[] k8sReport = {
+				"Cluster,Type,Resource,Namespace,UsageType,StartDate,EndDate,RequestsCPUCores,UsedCPUCores,LimitsCPUCores,ClusterCPUCores,RequestsMemoryGiB,UsedMemoryGiB,LimitsMemoryGiB,ClusterMemoryGiB,NetworkInGiB,ClusterNetworkInGiB,NetworkOutGiB,ClusterNetworkOutGiB,PersistentVolumeClaimGiB,ClusterPersistentVolumeClaimGiB,UserTag1,AltUserTag2",
+				"cluster,Pod,abc123xyz,namespace1,r5.4xlarge,2021-01-01T00:00:00Z,2021-01-01T01:00:00Z,10,0,0,100,20,0,0,200,0,0,0,0,1,20,tag1A,tag2A",
+				"cluster,Pod,cde123xyz,namespace2,p3.2xlarge,2021-01-01T00:00:00Z,2021-01-01T01:00:00Z,50,0,0,100,30,0,0,500,0,0,0,0,2,30,tag1B,tag2B",
+		};
+        TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"cluster", "", "", "", "", "", ""}, 40.0, 0),
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "p3.2xlarge", new String[]{"cluster", "", "", "", "", "", ""}, 40.0, 0),
+        		
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"cluster", "", "", "", "", "", ""}, 8.0, 0),
+        		
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"cluster", "", "", "", "", "", ""}, 1.0, 0),
+        		
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", dataTransfer, "InterZone-In", "DataTransfer-Regional-Bytes", new String[]{"cluster", "", "", "", "", "", ""}, 1.0, 0),
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", dataTransfer, "InterZone-Out", "DataTransfer-Regional-Bytes", new String[]{"cluster", "", "", "", "", "", ""}, 2.0, 0),
+        };
+		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		final int testDataHour = 0;
+        loadData(dataSpecs, data, testDataHour);
+		
+        RuleConfig rc = getConfig(allocationYaml);
+		Rule rule = new Rule(rc, as, ps, rs.getCustomTags());
+		DateTime start = new DateTime("2021-01", DateTimeZone.UTC);
+		KubernetesReport kr = new TestKubernetesReport(rc.getAllocation(), start, k8sReport, rs);
+		
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
+		
+		Set<String> unprocessedClusters = Sets.newHashSet(kr.getClusters());
+		Set<String> unprocessedAtgs = Sets.newHashSet();
+		AllocationReport ar = vrp.generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
+
+		assertEquals("wrong number of hours", testDataHour+1, ar.getNumHours());
+		// Check header
+		List<String> arHeader = ar.getHeader();
+		List<String> expectedHeader = Lists.newArrayList(new String[]{
+				"StartDate", "EndDate", "Allocation", "Cluster", "_Product", "_UsageType", "K8sNamespace", "UserTag1", "AltUserTag2"
+		});
+		assertEquals("wrong header", expectedHeader, arHeader);
+		
+		// Verify keys
+		Key ec2r5Key = new Key(Lists.newArrayList(new String[]{"cluster","EC2Instance","r5.4xlarge"}));
+		Key ec2p3Key = new Key(Lists.newArrayList(new String[]{"cluster","EC2Instance","p3.2xlarge"}));
+		Key ebsKey = new Key(Lists.newArrayList(new String[]{"cluster","EBS","EBS:VolumeUsage.gp2"}));
+		Key cwKey = new Key(Lists.newArrayList(new String[]{"cluster","AmazonCloudWatch","CW:MetricMonitorUsage"}));
+		Key dtKey = new Key(Lists.newArrayList(new String[]{"cluster","AWSDataTransfer","DataTransfer-Regional-Bytes"}));
+
+		List<Key> expectedKeys = Lists.newArrayList(new Key[]{ec2r5Key, ec2p3Key, ebsKey, cwKey, dtKey});
+		
+		assertEquals("wrong number of keys", 5, ar.getKeySet(testDataHour).size());
+		for (Key k: expectedKeys) {
+			assertNotNull("key not found in allocation report: " + k, ar.getData(testDataHour, k));
+		}
+		assertEquals("have wrong number of unprocessed clusters", 0, unprocessedClusters.size());
+		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
+		
+		Map<Key, Map<Key, Double>> got = ar.getData().get(testDataHour);
+		
+		Map<Key, Double> splits = got.get(ec2r5Key);
+		assertEquals("wrong number of allocations for r5 - should only have namespace1 and unused", 2, splits.size());
+		assertEquals("wrong ec2 namespace1 allocation for r5", 0.1, splits.get(new Key(Lists.newArrayList(new String[]{"namespace1", "tag1A", "tag2A"}))), 0.001);
+		assertEquals("wrong ec2 unused allocation for r5", 0.9, splits.get(new Key(Lists.newArrayList(new String[]{"unused", "", ""}))), 0.001);
+		
+		splits = got.get(ec2p3Key);
+		assertEquals("wrong number of allocations for p3 - should only have namespace2 and unused", 2, splits.size());
+		assertEquals("wrong ec2 namespace2 allocation for p3", 0.362, splits.get(new Key(Lists.newArrayList(new String[]{"namespace2", "tag1B", "tag2B"}))), 0.001);
+		assertEquals("wrong ec2 unused allocation for p3", 0.638, splits.get(new Key(Lists.newArrayList(new String[]{"unused", "", ""}))), 0.001);
+		
+		splits = got.get(ebsKey);
+		assertEquals("wrong number of allocations for ebs - should only have unused", 3, splits.size());
+		assertEquals("wrong ebs namespace1 allocation", 0.05, splits.get(new Key(Lists.newArrayList(new String[]{"namespace1", "tag1A", "tag2A"}))), 0.001);
+		assertEquals("wrong ebs namespace2 allocation", 0.067, splits.get(new Key(Lists.newArrayList(new String[]{"namespace2", "tag1B", "tag2B"}))), 0.001);
+		assertEquals("wrong ebs unused allocation", 0.883, splits.get(new Key(Lists.newArrayList(new String[]{"unused", "", ""}))), 0.001);
+		
+		splits = got.get(cwKey);
+		assertEquals("wrong number of allocations for cloudwatch - should only have unused", 3, splits.size());
+		assertEquals("wrong cloudwatch namespace1 allocation", 0.1, splits.get(new Key(Lists.newArrayList(new String[]{"namespace1", "tag1A", "tag2A"}))), 0.001);
+		assertEquals("wrong cloudwatch namespace2 allocation", 0.362, splits.get(new Key(Lists.newArrayList(new String[]{"namespace2", "tag1B", "tag2B"}))), 0.001);
+		assertEquals("wrong cloudwatch unused allocation", 0.538, splits.get(new Key(Lists.newArrayList(new String[]{"unused", "", ""}))), 0.001);		
+		splits = got.get(dtKey);
+		
+		assertEquals("wrong number of allocations for data transfer - should only have unused", 1, splits.size());
+		assertEquals("wrong data transfer unused allocation", 1, splits.get(new Key(Lists.newArrayList(new String[]{"unused", "", ""}))), 0.001);		
 	}
 
 	@Test

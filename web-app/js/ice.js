@@ -2921,6 +2921,20 @@ function tagconfigsCtrl($scope, $location, $http) {
     });
   }
 
+  var termToString = function (term) {
+    if (term.operator === 'or' || term.operator === 'and') {
+      var ret = '[';
+      for (var i = 0; i < term.terms.length; i++) {
+        if (ret.length > 1)
+          ret += '] ' + term.operator + ' [';
+        ret += termToString(term.terms[i]);
+      }
+      ret += ']'
+      return ret;
+    }
+    return term.key + ' ' + term.operator + ': ' + term.values.join(", ");
+  }
+
   getTagconfigs($scope, function (data) {
     $scope.mappedValues = {};
     var tagConfigsForPayer;
@@ -2942,7 +2956,7 @@ function tagconfigsCtrl($scope, $location, $http) {
           Object.keys(tagConfigsForDestKey.mapped).forEach(function(i) {
             tagConfigsForMapsItem = tagConfigsForDestKey.mapped[i];
             if (tagConfigsForMapsItem.maps) {
-              var tagConfigsForDestValue;
+              var tagMappingTerm;
               var filter = 'None';
               if (tagConfigsForMapsItem.include) {
                 filter = 'Include: ' + tagConfigsForMapsItem.include.join(", ");
@@ -2951,21 +2965,15 @@ function tagconfigsCtrl($scope, $location, $http) {
                 filter = 'Exclude: ' + tagConfigsForMapsItem.exclude.join(", ");
               }
               Object.keys(tagConfigsForMapsItem.maps).forEach(function(destValue) {
-                tagConfigsForDestValue = tagConfigsForMapsItem.maps[destValue];
+                tagMappingTerm = tagConfigsForMapsItem.maps[destValue];
                 var tagConfigsForSrcKey;
-                Object.keys(tagConfigsForDestValue).forEach(function(srcKey) {
-                  var srcValues = tagConfigsForDestValue[srcKey];
-                  for (var i = 0; i < srcValues.length; i++) {
-                    values.push({
-                      destKey: destKey,
-                      destValue: destValue,
-                      srcKey: srcKey,
-                      srcValue: srcValues[i],
-                      start: tagConfigsForMapsItem.start,
-                      filter: filter
-                    });
-                  }
-                });  
+                values.push({
+                  destKey: destKey,
+                  destValue: destValue,
+                  src: termToString(tagMappingTerm),
+                  start: tagConfigsForMapsItem.start,
+                  filter: filter
+                });
               });
             }
           });
