@@ -292,6 +292,8 @@ public class KubernetesReport extends Report {
 		reportIndeces = Maps.newHashMap();
 		userTagIndeces = Maps.newHashMap();
 		
+		List<String> unreferenced = Lists.newArrayList();
+		List<Integer> empty = Lists.newArrayList();
 		for (int i = 0; i < header.length; i++) {
 			if (allocationConfig.getOut() != null && allocationConfig.getOut().containsValue(header[i])) {
 				for (Entry<String, String> e: allocationConfig.getOut().entrySet()) {
@@ -308,22 +310,32 @@ public class KubernetesReport extends Report {
 				}
 				catch (IllegalArgumentException e) {
 					if (header[i].isEmpty())
-						logger.warn("Empty column (" + i + ") in Kubernetes report");
+						empty.add(i);
 					else
-						logger.info("Unreferenced column (" + i + ") in Kubernetes report: " + header[i]);
+						unreferenced.add(header[i]);
 				}
 			}
 		}
+		if (!empty.isEmpty())
+			logger.warn("Empty columns in Kubernetes report: " + empty);
+		if (!unreferenced.isEmpty())
+			logger.info("Unreferenced columns in Kubernetes report: " + unreferenced);
 		
 		// Check that we have all the columns we expect
+		List<String> optional = Lists.newArrayList();
+		List<String> mandatory = Lists.newArrayList();
 		for (KubernetesColumn col: KubernetesColumn.values()) {
 			if (!reportIndeces.containsKey(col)) {
-				if (col == KubernetesColumn.Type || col == KubernetesColumn.Resource)
-					logger.info("Kubernetes report does not have column for " + col);
+				if (col == KubernetesColumn.Type || col == KubernetesColumn.Resource || col == KubernetesColumn.UsageType)
+					optional.add(col.toString());
 				else
-					logger.error("Kubernetes report does not have column for " + col);
+					mandatory.add(col.toString());
 			}
 		}		
+		if (!optional.isEmpty())
+			logger.info("Kubernetes report does not have columns for optional fields: " + optional);
+		if (!mandatory.isEmpty())
+			logger.error("Kubernetes report does not have columns for mandatory fields: " + mandatory);
 	}
 	
 	private long processOneLine(String[] item) {
