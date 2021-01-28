@@ -788,7 +788,7 @@ public class VariableRuleProcessorTest {
         };
 		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 0;
-        loadData(dataSpecs, data, testDataHour);
+        loadData(dataSpecs, data, testDataHour, rs.getUserTagKeys().size());
 		
         RuleConfig rc = getConfig(allocationYaml);
 		Rule rule = new Rule(rc, as, ps, rs.getCustomTags());
