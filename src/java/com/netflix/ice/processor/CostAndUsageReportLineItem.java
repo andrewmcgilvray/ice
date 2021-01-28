@@ -17,6 +17,7 @@
  */
 package com.netflix.ice.processor;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.LineItem;
+import com.netflix.ice.processor.CostAndUsageReport.Column;
 import com.netflix.ice.tag.Region;
 
 public class CostAndUsageReportLineItem extends LineItem {
@@ -127,6 +129,10 @@ public class CostAndUsageReportLineItem extends LineItem {
         
         resourceTagStartIndex = report.getCategoryStartIndex("resourceTags");
         resourceTagsHeader = report.getCategoryHeader("resourceTags");
+        // Call getColumnIndex for each resource column so it's marked as used for the CSV parser
+        List<Column> resourceColumns = report.getCategoryColumns("resourceTags");
+        for (Column c: resourceColumns)
+        	report.getColumnIndex(c.category, c.name);
         
         purchaseOptionIndex = report.getColumnIndex("pricing", "PurchaseOption");
         lineItemTypeIndex = report.getColumnIndex("lineItem", "LineItemType");

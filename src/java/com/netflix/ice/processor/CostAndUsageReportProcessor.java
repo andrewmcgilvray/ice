@@ -31,8 +31,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
-import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -50,6 +48,8 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.processor.config.BillingBucket;
 import com.netflix.ice.processor.config.S3BucketConfig;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -239,10 +239,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 			        
 					CostAndUsageReportLineItem lineItem = new CostAndUsageReportLineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, report);
 			        
-					if (file.getName().endsWith(".zip"))
-						data.endMilli = processReportZip(file, report.getRootName(), lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
-					else
-						data.endMilli = processReportGzip(file, report.getRootName(), lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
+					data.endMilli = processReportGzip(file, report, lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
 					
 		            logger.info("done processing " + file.getName() + ", end is " + new DateTime(data.endMilli, DateTimeZone.UTC).toString() + ", " + data.costAndUsageData.getNum(null) + " hours");
 			        file.delete();
@@ -364,10 +361,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         
 		for (File file: files) {
             logger.info("processing " + file.getName() + "...");
-			if (file.getName().endsWith(".zip"))
-				endMilli = processReportZip(file, report.getRootName(), lineItem, delayedItems, costAndUsageData, edpDiscount);
-			else
-				endMilli = processReportGzip(file, report.getRootName(), lineItem, delayedItems, costAndUsageData, edpDiscount);
+			endMilli = processReportGzip(file, cau, lineItem, delayedItems, costAndUsageData, edpDiscount);
             logger.info("done processing " + file.getName() + ", end is " + new DateTime(endMilli, DateTimeZone.UTC).toString() + ", " + costAndUsageData.getNum(null) + " hours");
 		}
 
@@ -378,50 +372,14 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         return endMilli;
 	}
 	
-	private long processReportZip(File file, String root, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) throws IOException {
-        InputStream input = new FileInputStream(file);
-        ZipArchiveInputStream zipInput = new ZipArchiveInputStream(input);
-        long endMilli = startMilli;
-
-        try {
-            ArchiveEntry entry;
-            while ((entry = zipInput.getNextEntry()) != null) {
-                if (entry.isDirectory())
-                    continue;
-
-                endMilli = processReportFile(entry.getName(), zipInput, root, lineItem, delayedItems, costAndUsageData, edpDiscount);
-            }
-        }
-        catch (IOException e) {
-            if (e.getMessage().equals("Stream closed"))
-                logger.info("reached end of file.");
-            else
-                logger.error("Error processing " + file, e);
-        }
-        finally {
-            try {
-                zipInput.close();
-            } catch (IOException e) {
-                logger.error("Error closing " + file, e);
-            }
-            try {
-                input.close();
-            }
-            catch (IOException e1) {
-                logger.error("Cannot close input for " + file, e1);
-            }
-        }
-        return endMilli;
-	}
-
-	private long processReportGzip(File file, String root, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
+	private long processReportGzip(File file, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
         GZIPInputStream gzipInput = null;
         long endMilli = startMilli;
         
         try {
             InputStream input = new FileInputStream(file);
             gzipInput = new GZIPInputStream(input);
-        	endMilli = processReportFile(file.getName(), gzipInput, root, lineItem, delayedItems, costAndUsageData, edpDiscount);
+        	endMilli = processReportFileUnivocity(file.getName(), gzipInput, report, lineItem, delayedItems, costAndUsageData, edpDiscount);
         }
         catch (IOException e) {
             if (e.getMessage().equals("Stream closed"))
@@ -441,7 +399,33 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         return endMilli;
 	}
 
-	private long processReportFile(String fileName, InputStream in, String root, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
+	private long processReportFileUnivocity(String fileName, InputStream in, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(true);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		Integer[] indecesArray = report.getUsedColumnIndeces().toArray(new Integer[report.getUsedColumnIndeces().size()]);
+		settings.selectIndexes(indecesArray);
+		settings.setColumnReorderingEnabled(false);
+		CsvParser parser = new CsvParser(settings);
+        long endMilli = startMilli;
+        long lineNumber = 0;
+
+		for (String[] row: parser.iterate(in)) {
+			lineNumber++;
+            try {
+            	lineItem.setItems(row);
+                endMilli = processOneLine(fileName, delayedItems, report.getRootName(), lineItem, costAndUsageData, endMilli, edpDiscount);
+            }
+            catch (Exception e) {
+                logger.error("Error on line " + lineNumber + ": " + StringUtils.join(row, ","), e);
+            }
+			
+		}        	
+        return endMilli;
+	}
+	
+	private long processReportFile(String fileName, InputStream in, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
     	CSVFormat format = CSVFormat.DEFAULT.withFirstRecordAsHeader();
     	
         long endMilli = startMilli;
@@ -450,16 +434,17 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         try {
         	records = format.parse(new InputStreamReader(in));
     	    for (CSVRecord record : records) {
+    			lineNumber++;
                 String[] items = new String[record.size()];
                 for (int i = 0; i < record.size(); i++)
                 	items[i] = record.get(i);
                 	
                 try {
                 	lineItem.setItems(items);
-                    endMilli = processOneLine(fileName, delayedItems, root, lineItem, costAndUsageData, endMilli, edpDiscount);
+                    endMilli = processOneLine(fileName, delayedItems, report.getRootName(), lineItem, costAndUsageData, endMilli, edpDiscount);
                 }
                 catch (Exception e) {
-                    logger.error(StringUtils.join(items, ","), e);
+                    logger.error("Error on line " + lineNumber + ": " + StringUtils.join(items, ","), e);
                 }
             }
         }

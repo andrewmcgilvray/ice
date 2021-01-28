@@ -78,7 +78,7 @@ grails.project.dependency.resolution = {
                 // Extra collection types and utilities
                 'commons-collections:commons-collections:3.2.1',
 
-                // Easier Java from of the Apache Foundation
+                // Easier Java from the Apache Foundation
                 'commons-lang:commons-lang:2.4',
      
                 // Better Zip Support
@@ -89,6 +89,7 @@ grails.project.dependency.resolution = {
 				
 				// CSV Reader and Writer
 				'org.apache.commons:commons-csv:1.8',
+				'com.univocity:univocity-parsers:2.9.1',
 
                 // Easier Java from Joshua Bloch and Google
                 'com.google.guava:guava:14.0',
