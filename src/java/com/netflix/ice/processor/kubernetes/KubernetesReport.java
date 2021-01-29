@@ -110,6 +110,7 @@ public class KubernetesReport extends Report {
     private Map<String, List<List<String[]>>> data = null;
     // Map of output tag keys to Kubernetes deployment parameters
     private Map<String, KubernetesColumn> deployParams;
+    private Type typeToProcess;
 
 	public KubernetesReport(AllocationConfig allocationConfig, DateTime month, ResourceService resourceService) throws Exception {
     	super();
@@ -136,6 +137,10 @@ public class KubernetesReport extends Report {
 		if (clusterNameBuilder != null && !allocationConfig.getIn().keySet().containsAll(clusterNameBuilder.getReferencedTags()))
 			throw new Exception("Cluster name formulae refer to tags not in the input tag key list");
 		
+		String t = config.getType();
+		// Default to Type.Namespace if not specified
+		typeToProcess = (t == null || t.isEmpty()) ? Type.Namespace : Type.valueOf(t);
+
 		deployParams = Maps.newHashMap();
 		if (config.getOut() != null) {
 			for (String deployParam: config.getOut().keySet()) {
@@ -338,6 +343,14 @@ public class KubernetesReport extends Report {
 	}
 	
 	private long processOneLine(String[] item) {
+		// Check to see if we're processing this type of line item
+		Type type = getType(item);		
+		// If we have a Type column, the typeToProcess field determines
+		// the scope to use for breaking out the cost.
+		// Each scope duplicates the data set, so we only want to process one.
+		if (type != Type.None && type != typeToProcess)
+			return startMillis;		
+		
 		DateTime startDate = new DateTime(item[reportIndeces.get(KubernetesColumn.StartDate)], DateTimeZone.UTC);
 		long millisStart = startDate.getMillis();
 		DateTime endDate = new DateTime(item[reportIndeces.get(KubernetesColumn.EndDate)], DateTimeZone.UTC);

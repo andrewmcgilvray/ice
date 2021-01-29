@@ -430,22 +430,10 @@ public class VariableRuleProcessor extends RuleProcessor {
 	
 	protected void addHourClusterRecords(AllocationReport allocationReport, int hour, Product product, List<String> inTags, String clusterName, KubernetesReport report, List<String[]> hourClusterData) {
 		double remainingAllocation = 1.0;
-		String t = report.getConfig().getKubernetes().getType();
-		// Default to Namespace if not specified
-		KubernetesReport.Type reportItemType = (t == null || t.isEmpty()) ? KubernetesReport.Type.Namespace : KubernetesReport.Type.valueOf(report.getConfig().getKubernetes().getType());
-
 		
 		for (String[] item: hourClusterData) {
 			double allocation = report.getAllocationFactor(product, item);
 			if (allocation == 0.0)
-				continue;
-			
-			KubernetesReport.Type type = report.getType(item);
-			
-			// If we have a Type column, the config type flag determines
-			// the scope to use for breaking out the cost.
-			// Each scope duplicates the data set, so we only want to process one.
-			if (type != KubernetesReport.Type.None && type != reportItemType)
 				continue;
 			
 			List<String> outTags = report.getTagValues(item, allocationReport.getOutTagKeys());
