@@ -39,7 +39,6 @@ import com.netflix.ice.basic.BasicReservationService;
 import com.netflix.ice.basic.BasicReservationService.Reservation;
 import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.PurchaseOption;
 import com.netflix.ice.common.ResourceService;

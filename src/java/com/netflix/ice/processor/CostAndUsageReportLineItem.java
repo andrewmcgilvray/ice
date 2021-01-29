@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.processor.CostAndUsageReport.Column;
 import com.netflix.ice.tag.Region;
 

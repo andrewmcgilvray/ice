@@ -31,7 +31,6 @@ import com.amazonaws.services.elasticsearch.model.ReservedElasticsearchInstance;
 import com.amazonaws.services.rds.model.ReservedDBInstance;
 import com.amazonaws.services.redshift.model.ReservedNode;
 import com.google.common.collect.Lists;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.tag.Product;
 
 /*

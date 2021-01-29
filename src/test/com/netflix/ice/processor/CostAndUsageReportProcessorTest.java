@@ -27,7 +27,6 @@ import org.apache.commons.lang.StringUtils;
 import org.junit.Test;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.netflix.ice.common.LineItem;
 
 public class CostAndUsageReportProcessorTest {
     private static final String resourcesDir = "src/test/resources";

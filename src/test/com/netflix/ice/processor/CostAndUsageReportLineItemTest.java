@@ -25,7 +25,6 @@ import java.util.Date;
 import org.junit.Test;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.netflix.ice.common.LineItem;
 
 public class CostAndUsageReportLineItemTest {
     private static final String resourcesDir = "src/test/resources";

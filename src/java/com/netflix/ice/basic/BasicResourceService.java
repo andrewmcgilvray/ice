@@ -27,11 +27,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagConfig;
 import com.netflix.ice.common.TagMappings;
+import com.netflix.ice.processor.LineItem;
 import com.netflix.ice.processor.TagMappers;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;

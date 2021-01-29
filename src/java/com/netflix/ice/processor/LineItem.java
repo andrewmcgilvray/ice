@@ -15,7 +15,7 @@
  *     limitations under the License.
  *
  */
-package com.netflix.ice.common;
+package com.netflix.ice.processor;
 
 import java.util.Map;
 

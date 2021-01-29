@@ -28,17 +28,13 @@ import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.google.common.collect.Lists
 import com.google.common.collect.Maps
 
-import com.netflix.ice.basic.BasicLineItemProcessor
 import com.netflix.ice.basic.BasicManagers
 import com.netflix.ice.basic.BasicProductService
 import com.netflix.ice.basic.BasicReservationService
-import com.netflix.ice.basic.BasicResourceService
 import com.netflix.ice.common.Config;
 import com.netflix.ice.common.IceOptions
 import com.netflix.ice.common.ProductService
 import com.netflix.ice.common.PurchaseOption
-import com.netflix.ice.common.ResourceService
-import com.netflix.ice.processor.LineItemProcessor
 import com.netflix.ice.processor.ProcessorConfig
 import com.netflix.ice.processor.ReservationService
 import com.netflix.ice.processor.pricelist.PriceListService

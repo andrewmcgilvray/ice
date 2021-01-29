@@ -15,7 +15,7 @@
  *     limitations under the License.
  *
  */
-package com.netflix.ice.basic;
+package com.netflix.ice.processor;
 
 import static org.junit.Assert.*;
 
@@ -33,27 +33,29 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.netflix.ice.basic.BasicLineItemProcessor.ReformedMetaData;
+import com.netflix.ice.basic.BasicAccountService;
+import com.netflix.ice.basic.BasicProductService;
+import com.netflix.ice.basic.BasicReservationService;
+import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.basic.BasicReservationService.Reservation;
 import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.LineItem;
-import com.netflix.ice.common.LineItem.BillType;
 import com.netflix.ice.common.PurchaseOption;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.Config.TagCoverage;
-import com.netflix.ice.common.LineItem.LineItemType;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagGroupRI;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.CostAndUsageReportLineItemProcessor;
 import com.netflix.ice.processor.CostAndUsageReportLineItem;
+import com.netflix.ice.processor.CostAndUsageReportLineItemProcessor.ReformedMetaData;
 import com.netflix.ice.processor.CostAndUsageReportProcessor;
 import com.netflix.ice.processor.CostAndUsageReport;
 import com.netflix.ice.processor.DataSerializer.CostAndUsage;
-import com.netflix.ice.processor.Datum;
 import com.netflix.ice.processor.ReservationService.ReservationPeriod;
 import com.netflix.ice.processor.Instances;
+import com.netflix.ice.processor.LineItem.BillType;
+import com.netflix.ice.processor.LineItem.LineItemType;
 import com.netflix.ice.processor.LineItemProcessor.Result;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.ReservationArn;
@@ -63,7 +65,7 @@ import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.SavingsPlanArn;
 import com.netflix.ice.tag.UserTagKey;
 
-public class BasicLineItemProcessorTest {
+public class CostAndUsageLineItemProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
     private static final String resourcesDir = "src/test/resources";
@@ -133,11 +135,11 @@ public class BasicLineItemProcessorTest {
         return new CostAndUsageReportLineItem(false, costAndUsageNetUnblendedStartDate, cauReport);
     }
     
-    public BasicLineItemProcessor newBasicLineItemProcessor() {
-    	return newBasicLineItemProcessor(cauLineItem, null);
+    public CostAndUsageReportLineItemProcessor newLineItemProcessor() {
+    	return newLineItemProcessor(cauLineItem, null);
     }
 	
-    public BasicLineItemProcessor newBasicLineItemProcessor(LineItem lineItem, Reservation reservation) {
+    public CostAndUsageReportLineItemProcessor newLineItemProcessor(LineItem lineItem, Reservation reservation) {
 		BasicReservationService reservationService = new BasicReservationService(ReservationPeriod.oneyear, PurchaseOption.PartialUpfront);
 		if (reservation != null)
 			reservationService.injectReservation(reservation);
@@ -149,7 +151,7 @@ public class BasicLineItemProcessorTest {
     private ReformedMetaData testReform(Line line, PurchaseOption purchaseOption) throws IOException {
 		CostAndUsageReportLineItem lineItem = newCurLineItem(manifest2017, null);
 		lineItem.setItems(line.getCauLine(lineItem));
-		return newBasicLineItemProcessor().reform(lineItem, purchaseOption);
+		return newLineItemProcessor().reform(lineItem, purchaseOption);
     }
     
     @Test
@@ -304,7 +306,7 @@ public class BasicLineItemProcessorTest {
 				description, term, start, end, quantity, cost, purchaseOption, term == PricingTerm.reserved ? arn : "");
 		}
 		
-		// For testing reform method in BasicLineItemProcessor
+		// For testing reform method in CostAndUsageReportLineItemProcessor
 		public Line(String product, String operation, String type, String description, PricingTerm term, String cost, String purchaseOption) {
 			init(null, null, null, null, product, type, operation, 
 					description, term, null, null, null, cost, purchaseOption, term == PricingTerm.reserved ? arn : "");
@@ -620,7 +622,7 @@ public class BasicLineItemProcessorTest {
 			Instances instances = null;
 			CostAndUsageData costAndUsageData = new CostAndUsageData(startMilli, null, Lists.<UserTagKey>newArrayList(), TagCoverage.none, accountService, productService);
 			
-			BasicLineItemProcessor lineItemProc = newBasicLineItemProcessor(lineItem, reservation);
+			CostAndUsageReportLineItemProcessor lineItemProc = newLineItemProcessor(lineItem, reservation);
 			
 			if (delayed) {
 				// Make sure we have one hour of cost and usage data so monthly fees get tallied properly
