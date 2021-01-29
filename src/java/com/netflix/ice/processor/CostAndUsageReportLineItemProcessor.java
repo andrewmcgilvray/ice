@@ -907,7 +907,7 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
                 	if (!normFactorStr.isEmpty()) {
 	                	// Determine if we have a multi-AZ reservation by looking at the normalization factor, numberOfReservations, and instance family size
 	                	Double normalizationFactor = Double.parseDouble(lineItem.getLineItemNormalizationFactor());
-	                	double usageTypeTypicalNormalizationFactor = CostAndUsageReportLineItem.computeProductNormalizedSizeFactor(usageTypeStr);
+	                	double usageTypeTypicalNormalizationFactor = LineItem.computeProductNormalizedSizeFactor(usageTypeStr);
 	                	// rough math -- actually would be a factor of two
 	                	if (normalizationFactor / usageTypeTypicalNormalizationFactor > 1.5) {
 	                        usageTypeStr += UsageType.multiAZ;

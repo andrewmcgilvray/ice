@@ -47,7 +47,7 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagGroupRI;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.CostAndUsageReportLineItemProcessor;
-import com.netflix.ice.processor.CostAndUsageReportLineItem;
+import com.netflix.ice.processor.LineItem;
 import com.netflix.ice.processor.CostAndUsageReportLineItemProcessor.ReformedMetaData;
 import com.netflix.ice.processor.CostAndUsageReportProcessor;
 import com.netflix.ice.processor.CostAndUsageReport;
@@ -105,7 +105,7 @@ public class CostAndUsageLineItemProcessorTest {
 
     public static AccountService accountService = null;
     private static ProductService productService = null;
-    public static CostAndUsageReportLineItem cauLineItem;
+    public static LineItem cauLineItem;
     public static ResourceService resourceService;
 
     @BeforeClass
@@ -126,13 +126,13 @@ public class CostAndUsageLineItemProcessorTest {
 		
 	}
     
-    private static CostAndUsageReportLineItem newCurLineItem(String manifestFilename, DateTime costAndUsageNetUnblendedStartDate) throws IOException {
+    private static LineItem newCurLineItem(String manifestFilename, DateTime costAndUsageNetUnblendedStartDate) throws IOException {
 		CostAndUsageReportProcessor cauProc = new CostAndUsageReportProcessor(null);
 		File manifest = new File(resourcesDir, manifestFilename);
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
         CostAndUsageReport cauReport = new CostAndUsageReport(s3ObjectSummary, manifest, cauProc, "");
-        return new CostAndUsageReportLineItem(false, costAndUsageNetUnblendedStartDate, cauReport);
+        return new LineItem(false, costAndUsageNetUnblendedStartDate, cauReport);
     }
     
     public CostAndUsageReportLineItemProcessor newLineItemProcessor() {
@@ -149,7 +149,7 @@ public class CostAndUsageLineItemProcessorTest {
     }
     
     private ReformedMetaData testReform(Line line, PurchaseOption purchaseOption) throws IOException {
-		CostAndUsageReportLineItem lineItem = newCurLineItem(manifest2017, null);
+		LineItem lineItem = newCurLineItem(manifest2017, null);
 		lineItem.setItems(line.getCauLine(lineItem));
 		return newLineItemProcessor().reform(lineItem, purchaseOption);
     }
@@ -157,7 +157,7 @@ public class CostAndUsageLineItemProcessorTest {
     @Test
     public void testGetRegion() throws IOException {
     	CostAndUsageReportLineItemProcessor lineItemProcessor = new CostAndUsageReportLineItemProcessor(accountService, productService, null, resourceService);
-    	CostAndUsageReportLineItem lineItem = newCurLineItem(manifest2017, null);
+    	LineItem lineItem = newCurLineItem(manifest2017, null);
     	
     	// Test case where region is in usage-type prefix
     	Line line = new Line(LineItemType.Usage, "global", "us-west-2", "AWS Systems Manager", "USW2-AWS-Auto-Steps-Tier1", null, null, null, null, null, null, null, null);
@@ -432,7 +432,7 @@ public class CostAndUsageLineItemProcessorTest {
 			return items;
 		}
 		
-		public String[] getCauLine(CostAndUsageReportLineItem lineItem) {
+		public String[] getCauLine(LineItem lineItem) {
 	        String[] items = new String[lineItem.size()];
 			for (int i = 0; i < items.length; i++)
 				items[i] = "";
@@ -587,7 +587,7 @@ public class CostAndUsageLineItemProcessorTest {
 				break;
 			}
 
-			CostAndUsageReportLineItem lineItem = newCurLineItem(manifest, new DateTime(netUnblendedStart, DateTimeZone.UTC));
+			LineItem lineItem = newCurLineItem(manifest, new DateTime(netUnblendedStart, DateTimeZone.UTC));
 			lineItem.setItems(line.getCauLine(lineItem));
 			runProcessTest(lineItem, startMilli, reportMilli, expected, expectedReservation);
 		}

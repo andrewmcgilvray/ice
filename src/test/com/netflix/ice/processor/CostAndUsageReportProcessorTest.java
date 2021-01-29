@@ -44,7 +44,7 @@ public class CostAndUsageReportProcessorTest {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
         CostAndUsageReport cauReport = new CostAndUsageReport(s3ObjectSummary, manifest, cauProc, "");
-        LineItem lineItem = new CostAndUsageReportLineItem(true, null, cauReport);
+        LineItem lineItem = new LineItem(true, null, cauReport);
 		lineItem.setItems(line.split(","));
 		return lineItem;
 	}

@@ -233,7 +233,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 			        // process the file
 			        logger.info("processing " + file.getName() + "...");
 			        
-					CostAndUsageReportLineItem lineItem = new CostAndUsageReportLineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, report);
+					LineItem lineItem = new LineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, report);
 			        
 					data.endMilli = processReportGzip(file, report, lineItem, data.delayedItems, data.costAndUsageData, edpDiscount);
 					
@@ -276,7 +276,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 		if (reportKeys.length == 0)
 			return dataTime.getMillis();
 
-		CostAndUsageReportLineItem lineItem = new CostAndUsageReportLineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, cau);
+		LineItem lineItem = new LineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, cau);
         if (config.resourceService != null)
         	config.resourceService.initHeader(lineItem.getResourceTagsHeader(), report.getS3BucketConfig().getAccountId());
         long endMilli = startMilli;
@@ -350,7 +350,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 		
 		CostAndUsageReport cau = (CostAndUsageReport) report;
 		
-		CostAndUsageReportLineItem lineItem = new CostAndUsageReportLineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, cau);
+		LineItem lineItem = new LineItem(config.useBlended, config.costAndUsageNetUnblendedStartDate, cau);
         if (config.resourceService != null)
         	config.resourceService.initHeader(lineItem.getResourceTagsHeader(), payerAccountId);
         List<String[]> delayedItems = Lists.newArrayList();
@@ -368,7 +368,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         return endMilli;
 	}
 	
-	private long processReportGzip(File file, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
+	private long processReportGzip(File file, CostAndUsageReport report, LineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
         GZIPInputStream gzipInput = null;
         long endMilli = startMilli;
         
@@ -395,7 +395,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         return endMilli;
 	}
 
-	private long processReportFile(String fileName, InputStream in, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
+	private long processReportFile(String fileName, InputStream in, CostAndUsageReport report, LineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
 		CsvParserSettings settings = new CsvParserSettings();
 		settings.setHeaderExtractionEnabled(true);
 		settings.setNullValue("");
@@ -422,7 +422,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         return endMilli;
 	}
 	
-    private long processOneLine(String fileName, List<String[]> delayedItems, String root, CostAndUsageReportLineItem lineItem, CostAndUsageData costAndUsageData, long endMilli, double edpDiscount) {
+    private long processOneLine(String fileName, List<String[]> delayedItems, String root, LineItem lineItem, CostAndUsageData costAndUsageData, long endMilli, double edpDiscount) {
         LineItemProcessor.Result result = lineItemProcessor.process(fileName, reportMilli, delayedItems == null, root, lineItem, costAndUsageData, instances, edpDiscount);
 
         if (result == LineItemProcessor.Result.delay) {
