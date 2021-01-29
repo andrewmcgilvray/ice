@@ -36,7 +36,6 @@ import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.CSVRecord;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
@@ -52,6 +51,8 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.Zone;
 import com.netflix.ice.tag.Zone.BadZone;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 public class Instances {
     private final static Logger logger = LoggerFactory.getLogger(Instances.class);
@@ -157,24 +158,22 @@ public class Instances {
         }        
     }
     
-    protected void readCsv(Reader reader, AccountService accountService, ProductService productService) throws IOException, BadZone {
-    	int numCols = Instance.header().length;
-    	
-    	Iterable<CSVRecord> records = CSVFormat.DEFAULT
-    		      .withHeader(Instance.header())
-    		      .withFirstRecordAsHeader()
-    		      .parse(reader);
+    protected void readCsv(Reader reader, AccountService accountService, ProductService productService) throws IOException, BadZone {   	
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(true);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		CsvParser parser = new CsvParser(settings);
     	
     	ConcurrentMap<String, Instance> dataMap = Maps.newConcurrentMap();
-        String[] values = new String[numCols];
-	    for (CSVRecord record : records) {
-	    	for (int i = 0; i < numCols; i++)
-	    		values[i] = record.get(i);
-	    	
-        	Instance instance = new Instance(values, accountService, productService);
+    	String[] row;
+		parser.beginParsing(reader);
+	    while ((row = parser.parseNext()) != null) {
+        	Instance instance = new Instance(row, accountService, productService);
         	dataMap.put(instance.id, instance);
 
 	    }
+        parser.stopParsing();
 	    data = dataMap;
     }
 }

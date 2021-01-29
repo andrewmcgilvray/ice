@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.csvreader.CsvReader;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
@@ -48,6 +46,8 @@ import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.postproc.AllocationConfig;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.UserTag;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 public class KubernetesReport extends Report {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -244,45 +244,44 @@ public class KubernetesReport extends Report {
 	}
 
 	protected long readFile(String fileName, InputStream in) {
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(false);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		CsvParser parser = new CsvParser(settings);
+		
 
-        CsvReader reader = new CsvReader(new InputStreamReader(in), ',');
         data = Maps.newHashMap();
         
         long endMilli = month.getMillis();
         long lineNumber = 0;
         try {
-            reader.readRecord();
-            
+    		parser.beginParsing(in);
+    		String[] row;
+    		            
             // load the header
-            initIndecies(reader.getValues());
+            initIndecies(parser.parseNext());
+            lineNumber++;
 
-            while (reader.readRecord()) {
-                String[] items = reader.getValues();
+            while ((row = parser.parseNext()) != null) {
+                lineNumber++;
                 try {
-                    long end = processOneLine(items);
+                    long end = processOneLine(row);
                     if (end > endMilli)
                     	endMilli = end;
                 }
                 catch (Exception e) {
-                    logger.error(StringUtils.join(items, ","), e);
+                    logger.error(StringUtils.join(row, ","), e);
                 }
-                lineNumber++;
 
                 if (lineNumber % 500000 == 0) {
                     logger.info("processed " + lineNumber + " lines...");
                 }
             }
+			parser.stopParsing();
         }
-        catch (IOException e ) {
+        catch (Exception e ) {
             logger.error("Error processing " + fileName + " at line " + lineNumber, e);
-        }
-        finally {
-            try {
-                reader.close();
-            }
-            catch (Exception e) {
-                logger.error("Cannot close BufferedReader...", e);
-            }
         }
         logger.info("processed " + lineNumber + " lines from file: " + fileName);
         return endMilli;

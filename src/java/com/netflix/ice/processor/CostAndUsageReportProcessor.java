@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
@@ -31,9 +30,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -379,7 +375,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         try {
             InputStream input = new FileInputStream(file);
             gzipInput = new GZIPInputStream(input);
-        	endMilli = processReportFileUnivocity(file.getName(), gzipInput, report, lineItem, delayedItems, costAndUsageData, edpDiscount);
+        	endMilli = processReportFile(file.getName(), gzipInput, report, lineItem, delayedItems, costAndUsageData, edpDiscount);
         }
         catch (IOException e) {
             if (e.getMessage().equals("Stream closed"))
@@ -399,7 +395,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
         return endMilli;
 	}
 
-	private long processReportFileUnivocity(String fileName, InputStream in, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
+	private long processReportFile(String fileName, InputStream in, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
 		CsvParserSettings settings = new CsvParserSettings();
 		settings.setHeaderExtractionEnabled(true);
 		settings.setNullValue("");
@@ -422,42 +418,10 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
             }
 			
 		}        	
+		parser.stopParsing();
         return endMilli;
 	}
 	
-	private long processReportFile(String fileName, InputStream in, CostAndUsageReport report, CostAndUsageReportLineItem lineItem, List<String[]> delayedItems, CostAndUsageData costAndUsageData, double edpDiscount) {
-    	CSVFormat format = CSVFormat.DEFAULT.withFirstRecordAsHeader();
-    	
-        long endMilli = startMilli;
-        long lineNumber = 0;
-        CSVParser records = null;
-        try {
-        	records = format.parse(new InputStreamReader(in));
-    	    for (CSVRecord record : records) {
-    			lineNumber++;
-                String[] items = new String[record.size()];
-                for (int i = 0; i < record.size(); i++)
-                	items[i] = record.get(i);
-                	
-                try {
-                	lineItem.setItems(items);
-                    endMilli = processOneLine(fileName, delayedItems, report.getRootName(), lineItem, costAndUsageData, endMilli, edpDiscount);
-                }
-                catch (Exception e) {
-                    logger.error("Error on line " + lineNumber + ": " + StringUtils.join(items, ","), e);
-                }
-            }
-        }
-        catch (IOException e ) {
-            logger.error("Error processing " + fileName + " at line " + lineNumber, e);
-        }
-        finally {
-        	if (records != null)
-        		try { records.close(); } catch (IOException e) { logger.error("Cannot close csv parser...", e); };
-        }
-        return endMilli;
-	}
-
     private long processOneLine(String fileName, List<String[]> delayedItems, String root, CostAndUsageReportLineItem lineItem, CostAndUsageData costAndUsageData, long endMilli, double edpDiscount) {
         LineItemProcessor.Result result = lineItemProcessor.process(fileName, reportMilli, delayedItems == null, root, lineItem, costAndUsageData, instances, edpDiscount);
 

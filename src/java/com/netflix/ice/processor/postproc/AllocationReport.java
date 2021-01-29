@@ -20,7 +20,6 @@ import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -44,6 +43,9 @@ import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UserTag;
+import com.univocity.parsers.common.record.Record;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 /**
  * An allocation report contains the following columns:
@@ -535,40 +537,43 @@ public class AllocationReport extends Report {
     protected void readCsv(DateTime month, Reader reader) throws IOException {
     	data = Lists.newArrayList();
     	
-    	Iterable<CSVRecord> records = CSVFormat.DEFAULT
-    		      .withFirstRecordAsHeader()
-    		      .parse(reader);
-    	    	
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(true);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		CsvParser parser = new CsvParser(settings);
+		    	    	
     	header = null;
     	long monthMillis = month.getMillis();
+        long lineNumber = 1;
+		Record record = null;
     	
-	    for (CSVRecord record : records) {
-	    	try {
-		    	if (header == null) {
-		    		// get header
-		    		header = record.getParser().getHeaderNames();
-		    	}
-		    	
+    	try {
+    		parser.beginParsing(reader);
+    		header = Lists.newArrayList(parser.getContext().parsedHeaders());
+            while ((record = parser.parseNextRecord()) != null) {
+            	lineNumber++;
 		    	List<String> inTags = Lists.newArrayList();
 		    	List<String> outTags = Lists.newArrayList();
-		    	int startHour = (int) ((new DateTime(record.get(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
-		    	int endHour = (int) ((new DateTime(record.get(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
-		    	double allocation = Double.parseDouble(record.get(AllocationColumn.Allocation));
+		    	int startHour = (int) ((new DateTime(record.getString(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
+		    	int endHour = (int) ((new DateTime(record.getString(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
+		    	double allocation = Double.parseDouble(record.getString(AllocationColumn.Allocation));
 		    	if (Double.isNaN(allocation) || Double.isInfinite(allocation)) {
 		    		logger.warn("Allocation report entry with NaN or Inf allocation, skipping.");
 		    		continue;
 		    	}
 		    	for (String key: inTagKeys)
-		    		inTags.add(record.get(config.getIn().get(key)));
+		    		inTags.add(record.getString(config.getIn().get(key)));
 		    	for (String key: outTagKeys)
-		    		outTags.add(record.get(config.getOut().get(key)));
+		    		outTags.add(record.getString(config.getOut().get(key)));
 		    	for (int hour = startHour; hour < endHour; hour++)
 		    		add(hour, allocation, inTags, outTags);
-	    	}
-	    	catch (Exception e) {
-	    		logger.error("Error processing record " + record.getRecordNumber() + ": \"" + record.toString() + "\" -- " + e.getMessage());
-	    	}
-	    }
+		    }
+            parser.stopParsing();
+    	}
+    	catch (Exception e) {
+    		logger.error("Error processing record " + lineNumber + ": \"" + record + "\" -- " + e.getMessage());
+    	}
     }
     
     protected void writeCsv(DateTime month, Writer out) throws IOException {
