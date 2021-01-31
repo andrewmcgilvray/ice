@@ -15,6 +15,7 @@ public class AllocationConfig {
 	// Output tag map = UserTag Key is the map key, Report Column name is the map value.
 	private Map<String, String> out;
 	private Map<String, List<TagMappings>> tagMaps;
+	private boolean enableWildcards; // enable use of glob-style wildcards for allocation report tag value matching
 	
 	public S3BucketConfig getS3Bucket() {
 		return s3Bucket;
@@ -45,5 +46,11 @@ public class AllocationConfig {
 	}
 	public void setTagMaps(Map<String, List<TagMappings>> tagMaps) {
 		this.tagMaps = tagMaps;
+	}
+	public boolean isEnableWildcards() {
+		return enableWildcards;
+	}
+	public void setEnableWildcards(boolean enableWildcards) {
+		this.enableWildcards = enableWildcards;
 	}
 }

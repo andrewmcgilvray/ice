@@ -825,7 +825,7 @@ public class VariableRuleProcessorTest {
 		assertEquals("have wrong number of unprocessed clusters", 0, unprocessedClusters.size());
 		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
 		
-		Map<Key, Map<Key, Double>> got = ar.getData().get(testDataHour);
+		AllocationReport.HourData got = ar.getData().get(testDataHour);
 		
 		Map<Key, Double> splits = got.get(ec2r5Key);
 		assertEquals("wrong number of allocations for r5 - should only have namespace1 and unused", 2, splits.size());
@@ -1117,10 +1117,10 @@ public class VariableRuleProcessorTest {
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		vrp.process(data);
 
-		List<Map<Key, Map<Key, Double>>> arData = ar.getData();
+		List<AllocationReport.HourData> arData = ar.getData();
 
 		for (int hour = 0; hour < arData.size(); hour++) {
-			Map<Key, Map<Key, Double>> allocations = arData.get(hour);
+			AllocationReport.HourData allocations = arData.get(hour);
 			for (Key key: allocations.keySet()) {
 				Double total = 0.0;
 				Map<Key, Double> outMap = allocations.get(key);
