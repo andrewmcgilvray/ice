@@ -98,7 +98,6 @@ public class QueryTest {
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
 		QueryConfig oc = new QueryConfig();
 		oc.setFilter(tgfc);
-		oc.setType(RuleConfig.DataType.cost);
 		tgfc.setAccount(Lists.newArrayList(new String[]{"123456789012", "234567890123"}));
 		Map<String, List<String>> userTags = Maps.newHashMap();
 		userTags.put("Key1", Lists.newArrayList("tag1"));
@@ -133,7 +132,6 @@ public class QueryTest {
 		QueryConfig inOperand = new QueryConfig();
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
 		inOperand.setFilter(tgfc);
-		inOperand.setType(RuleConfig.DataType.usage);
 		tgfc.setProduct(Lists.newArrayList("(?!IOTestProduct$)^.*$"));
 		tgfc.setOperation(Lists.newArrayList("(?!OP$)^.*$"));
 		tgfc.setUsageType(Lists.newArrayList("(?!UT$)^.*$"));
@@ -145,7 +143,6 @@ public class QueryTest {
 		inOperand = new QueryConfig();
 		tgfc = new TagGroupFilterConfig();
 		inOperand.setFilter(tgfc);
-		inOperand.setType(RuleConfig.DataType.cost);
 		tgfc.setProduct(Lists.newArrayList("(?!IOTestProduct$)^.*$"));
 		tgfc.setOperation(Lists.newArrayList("(?!OP$)^.*$"));
 		tgfc.setUsageType(Lists.newArrayList("(?!UT$)^.*$"));
@@ -164,7 +161,6 @@ public class QueryTest {
 	public void testOperandSingleValueNoAggregation() throws Exception {
 		QueryConfig oc = new QueryConfig();
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
-		oc.setType(RuleConfig.DataType.cost);
 		tgfc.setAccount(Lists.newArrayList("123456789012"));
 		tgfc.setRegion(Lists.newArrayList("us-east-1"));
 		tgfc.setProduct(Lists.newArrayList("IOTestProduct1"));
@@ -181,7 +177,6 @@ public class QueryTest {
 	public void testOperandSingleValueWithAggregation() throws Exception {
 		QueryConfig oc = new QueryConfig();
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
-		oc.setType(RuleConfig.DataType.cost);
 		tgfc.setAccount(Lists.newArrayList("123456789012"));
 		tgfc.setRegion(Lists.newArrayList("us-east-1"));
 		tgfc.setProduct(Lists.newArrayList("IOTestProduct1"));

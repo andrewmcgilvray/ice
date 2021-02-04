@@ -3,6 +3,7 @@ package com.netflix.ice.processor.postproc;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 
 import com.google.common.collect.Lists;
@@ -15,6 +16,7 @@ import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
+import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.tag.Product;
 
 public class FixedRuleProcessor extends RuleProcessor {
@@ -35,18 +37,18 @@ public class FixedRuleProcessor extends RuleProcessor {
 		// in case we can reuse them. This saves a lot of time on operands that
 		// aggregate a large amount of data into a single value and are not grouping
 		// by any user tags.
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
 				
 		logger.info("Post-process with rule " + getConfig().getName() + " on non-resource data");
-		processReadWriteData(data, true, operandSingleValueCache);
+		processData(data, true, operandSingleValueCache);
 		
 		logger.info("Post-process with rule " + getConfig().getName() + " on resource data");
-		processReadWriteData(data, false, operandSingleValueCache);
+		processData(data, false, operandSingleValueCache);
 		
 		return true;
 	}
 	
-	protected void processReadWriteData(CostAndUsageData data, boolean isNonResource, Map<Query, Double[]> operandSingleValueCache) throws Exception {		
+	protected void processData(CostAndUsageData data, boolean isNonResource, Map<Query, CostAndUsage[]> operandSingleValueCache) throws Exception {		
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
@@ -67,9 +69,9 @@ public class FixedRuleProcessor extends RuleProcessor {
 		int maxNum = data.getMaxNum();
 		
 		// Get the aggregated value for the input operand
-		Map<AggregationTagGroup, Double[]> inData = runQuery(rule.getIn(), data, isNonResource, maxNum, rule.config.getName());
+		Map<AggregationTagGroup, CostAndUsage[]> inData = runQuery(rule.getIn(), data, isNonResource, maxNum, rule.config.getName());
 		
-		Map<String, Double[]> opSingleValues = getOperandSingleValues(rule, data, isNonResource, maxNum, operandSingleValueCache);
+		Map<String, CostAndUsage[]> opSingleValues = getOperandSingleValues(rule, data, isNonResource, maxNum, operandSingleValueCache);
 		
 		int results = applyRule(rule, inData, opSingleValues, resultData, isNonResource, maxNum);
 		
@@ -84,11 +86,11 @@ public class FixedRuleProcessor extends RuleProcessor {
 	/*
 	 * Returns a map containing the single operand values needed to compute the results.
 	 */
-	protected Map<String, Double[]> getOperandSingleValues(Rule rule, CostAndUsageData data,
+	protected Map<String, CostAndUsage[]> getOperandSingleValues(Rule rule, CostAndUsageData data,
 			boolean isNonResource, int maxHours,
-			Map<Query, Double[]> operandSingleValueCache) throws Exception {
+			Map<Query, CostAndUsage[]> operandSingleValueCache) throws Exception {
 				
-		Map<String, Double[]> operandSingleValues = Maps.newHashMap();
+		Map<String, CostAndUsage[]> operandSingleValues = Maps.newHashMap();
 		for (String opName: rule.getOperands().keySet()) {			
 			Query op = rule.getOperand(opName);
 			if (!op.isSingleAggregation()) {
@@ -102,11 +104,11 @@ public class FixedRuleProcessor extends RuleProcessor {
 				continue;
 			}
 			
-			Map<AggregationTagGroup, Double[]> opAggTagGroups = runQuery(op, data, isNonResource, maxHours, rule.config.getName());
+			Map<AggregationTagGroup, CostAndUsage[]> opAggTagGroups = runQuery(op, data, isNonResource, maxHours, rule.config.getName());
 			if (opAggTagGroups.size() > 1)
 				throw new Exception("Single value operand \"" + opName + "\" has more than one tag group.");
 			
-			Double[] values = opAggTagGroups.values().iterator().next();
+			CostAndUsage[] values = opAggTagGroups.values().iterator().next();
 			
 			operandSingleValues.put(opName, values);
 			operandSingleValueCache.put(op, values);
@@ -119,8 +121,8 @@ public class FixedRuleProcessor extends RuleProcessor {
 	
 	protected int applyRule(
 			Rule rule,
-			Map<AggregationTagGroup, Double[]> in,
-			Map<String, Double[]> opSingleValues,
+			Map<AggregationTagGroup, CostAndUsage[]> in,
+			Map<String, CostAndUsage[]> opSingleValues,
 			List<DataSerializer> resultData,
 			boolean isNonResource,
 			int maxNum) throws Exception {
@@ -137,26 +139,18 @@ public class FixedRuleProcessor extends RuleProcessor {
 				DataSerializer ds = resultData.get(i);
 				// Remove any existing value from the result data
 				for (int hour = 0; hour < ds.getNum(); hour++)
-					ds.remove(hour, outTagGroup); // TODO: handle case where we only want to remove the type in the rule and not both cost and usage
+					ds.remove(hour, outTagGroup);
 						
-				String expr = rule.getResultValue(i);
-				if (expr != null && !expr.isEmpty()) {
-					//logger.info("process hour data");
-					eval(i, rule, result, expr, null, opSingleValues, ds, outTagGroup, maxNum);
+				if (eval(i, rule, result, null, opSingleValues, ds, outTagGroup, maxNum))
 					numResults++;
-				}
 			}
 			else {
 				for (AggregationTagGroup atg: in.keySet()) {
 				
 					TagGroup outTagGroup = result.tagGroup(atg, accountService, productService, isNonResource);
 					
-					String expr = rule.getResultValue(i);
-					if (expr != null && !expr.isEmpty()) {
-						//logger.info("process hour data");
-						eval(i, rule, result, expr, in.get(atg), opSingleValues, resultData.get(i), outTagGroup, maxNum);
+					if (eval(i, rule, result, in.get(atg), opSingleValues, resultData.get(i), outTagGroup, maxNum))
 						numResults++;
-					}
 					
 					debug = false;
 				}
@@ -166,45 +160,134 @@ public class FixedRuleProcessor extends RuleProcessor {
 		return numResults;
 	}
 	
-	private void eval(
+	static class Expression {
+		String original;
+		List<String> splits;
+		List<Ref> refs;
+		
+		class Ref {
+			int index;
+			String opName;
+			boolean isCost;
+			boolean isMonthly;
+			
+			Ref(int index, String opName, boolean isCost, boolean isMonthly) {
+				this.index = index;
+				this.opName = opName;
+				this.isCost = isCost;
+				this.isMonthly = isMonthly;
+			}
+		}
+		
+		Expression(String expr, Map<String, Query> ops) {
+			original = expr;
+			splits = Lists.newArrayList();
+			refs = Lists.newArrayList();
+			
+			if (original == null || original.isEmpty()) {
+				original = null;
+				return;
+			}
+			
+			String[] initialSplit = original.split("\\$\\{", -1);
+			for (int i = 0; i < initialSplit.length; i++) {
+				if (initialSplit[i].contains("}")) {
+					// We have one or two pieces with the first being a ref
+					String[] secondarySplit = initialSplit[i].split("}");
+					
+					// Split into opName and cost/usage
+					String[] op = secondarySplit[0].split("\\.");
+					boolean isMonthly = op[0].equals("in") ? false : ops.get(op[0]).isMonthly();
+					refs.add(new Ref(splits.size(), op[0], op[1].equals("cost"), isMonthly));
+					splits.add("${" + secondarySplit[0] + "}");
+					
+					if (secondarySplit.length > 1)
+						splits.add(secondarySplit[1]);
+				}
+				else {
+					splits.add(initialSplit[i]);
+				}
+			}
+		}
+		
+		String expand(CostAndUsage in, Map<String, CostAndUsage[]> opSingleValuesMap, int hour) {
+			if (original == null)
+				return null;
+			
+			List<String> ret = Lists.newArrayListWithCapacity(splits.size());
+			for (Ref ref: refs) {
+				for (int i = ret.size(); i < ref.index; i++)
+					ret.add(splits.get(i));
+				if (ref.opName.equals("in")) {
+					ret.add(Double.toString(ref.isCost ? in.cost : in.usage));
+				}
+				else {
+					CostAndUsage[] opValues = opSingleValuesMap.get(ref.opName);
+					CostAndUsage opValue = opValues == null ? new CostAndUsage() : opValues[ref.isMonthly ? 0 : hour];
+					ret.add(Double.toString(ref.isCost ? opValue.cost : opValue.usage));
+				}
+			}
+			for (int i = ret.size(); i < splits.size(); i++)
+				ret.add(splits.get(i));
+					
+			return String.join("", ret);
+		}
+	}
+	
+	private boolean eval(
 			int index,
 			Rule rule,
 			Rule.Result result,
-			String outExpr, 
-			Double[] inValues, 
-			Map<String, Double[]> opSingleValuesMap,
+			CostAndUsage[] inValues, 
+			Map<String, CostAndUsage[]> opSingleValuesMap,
 			DataSerializer resultData,
 			TagGroup outTagGroup,
 			int maxNum) throws Exception {
 
 		int maxHours = inValues == null ? maxNum : inValues.length;
+		boolean hasCost = !StringUtils.isEmpty(result.getCost());
+		boolean hasUsage = !StringUtils.isEmpty(result.getUsage());
+		
+		if (!hasCost && !hasUsage)
+			return false;
+		
+		Expression costExp = new Expression(result.getCost(), rule.getOperands());
+		Expression usageExp = new Expression(result.getUsage(), rule.getOperands());
 		
 		// Process each hour of data - we'll only have one if 'in' is a monthly operand
 		for (int hour = 0; hour < maxHours; hour++) {
 			// Replace variables
-			String expr = inValues == null ? outExpr : outExpr.replace("${in}", inValues[hour].toString());
+			String cost = inValues == null ? result.getCost() : costExp.expand(inValues[hour], opSingleValuesMap, hour);
+			String usage = inValues == null ? result.getUsage() : usageExp.expand(inValues[hour], opSingleValuesMap, hour);
+			Double costResult = 0.0;
+			Double usageResult = 0.0;
 			
-			for (String opName: rule.getOperands().keySet()) {			
-				// Get the operand values from the proper data source
-				Query op = rule.getOperand(opName);
-				Double[] opValues = op.isSingleAggregation() ? opSingleValuesMap.get(opName) : null;
-				Double opValue = opValues == null ? 0.0 : opValues[op.isMonthly() ? 0 : hour];
-				expr = expr.replace("${" + opName + "}", opValue.toString());
-			}
-			try {
-				Double value = new Evaluator().eval(expr);
+			if (hasCost) {
+				try {
+					costResult = new Evaluator().eval(cost);
+				}
+				catch (Exception e) {
+					logger.error("Error processing expressions \"" + cost + "\", " + e.getMessage());
+					throw e;
+				}
 				if (debug && hour == 0)
-					logger.info("eval(" + index + "): " + outExpr + " = " + expr + " = " + value + ", " + outTagGroup);
-				resultData.add(hour, outTagGroup, result.getType() == RuleConfig.DataType.cost ? value : 0, result.getType() == RuleConfig.DataType.usage ? value : 0);
-			}
-			catch (Exception e) {
-				logger.error("Error processing expression \"" + expr + "\", " + e.getMessage());
-				throw e;
+					logger.info("eval(" + index + ") cost: " + result.getCost() + " = " + cost + " = " + costResult + ", " + outTagGroup);
 			}
 			
-			//if (hour == 0)
-			//	logger.info("eval: " + outExpr + " = "  + expr + " = " + value + ", outTagGroup: " + outTagGroup);
+			if (hasUsage) {
+				try {
+					usageResult = hasUsage ? new Evaluator().eval(usage) : 0.0;
+				}
+				catch (Exception e) {
+					logger.error("Error processing expressions \"" + usage + "\", " + e.getMessage());
+					throw e;
+				}
+				if (debug && hour == 0)
+					logger.info("eval(" + index + ") usage: " + result.getUsage() + " = " + usage + " = " + usageResult + ", " + outTagGroup);
+			}
+			resultData.add(hour, outTagGroup, new CostAndUsage(costResult, usageResult));
 		}
+		return true;
 	}
 	
 	public int getCacheMisses() {

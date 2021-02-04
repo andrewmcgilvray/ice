@@ -45,7 +45,6 @@ import com.netflix.ice.tag.Zone;
 
 
 public class Query {
-	private final RuleConfig.DataType type;
 	private final Map<Rule.TagKey, TagFilters> tagFilters;
 	private final Map<String, TagFilters> userTagFilters;
 	private final Map<String, Integer> userTagFilterIndeces;
@@ -64,9 +63,7 @@ public class Query {
 	
 	private String string = null;
 
-	public Query(QueryConfig queryConfig, List<String> userTagKeys, boolean needCostType) throws Exception {
-		this.type = queryConfig.getType();
-		
+	public Query(QueryConfig queryConfig, List<String> userTagKeys, boolean needCostType) throws Exception {		
 		TagGroupFilterConfig tgfc = queryConfig.getFilter();
 		tagFilters = Maps.newHashMap();
 		
@@ -173,10 +170,6 @@ public class Query {
 		return toString().hashCode();
 	}
 		
-	public RuleConfig.DataType getType() {
-		return type;
-	}
-	
 	public List<Rule.TagKey> getGroupBy() {
 		return this.groupBy;
 	}
@@ -230,7 +223,6 @@ public class Query {
 	public String toString() {
 		if (string == null) {
 			List<String> tags = Lists.newArrayList();
-			tags.add(type.toString());
 			tags.add(tagFilters.toString());
 			tags.add(userTagFilters.toString());
 			tags.add("groupBy:" + groupBy.toString());

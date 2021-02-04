@@ -26,6 +26,7 @@ import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
 import com.netflix.ice.processor.CostAndUsageData.RuleType;
+import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.tag.CostType;
@@ -94,7 +95,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
-		Map<AggregationTagGroup, Double[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
+		Map<AggregationTagGroup, CostAndUsage[]> inDataGroups = runQuery(rule.getIn(), inCauData, false, maxNum, rule.config.getName());
 		
 		int numSourceUserTags = resourceService.getCustomTags().size();		
 
@@ -127,7 +128,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		return true;
 	}
 	
-	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
+	private void performAllocation(CostAndUsageData cauData, Map<AggregationTagGroup, CostAndUsage[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
@@ -150,11 +151,11 @@ public class VariableRuleProcessor extends RuleProcessor {
 		logger.info("  -- performAllocation elapsed time: " + sw);
 	}
 	
-	protected void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups, ExecutorService pool, List<Future<Void>> futures) {
+	protected void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, CostAndUsage[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups, ExecutorService pool, List<Future<Void>> futures) {
 		futures.add(submitAllocateHour(cauData, hour, inDataGroups, maxNum, allocationReport, allocatedTagGroups, pool));
 	}
 	
-	protected Future<Void> submitAllocateHour(final CostAndUsageData cauData, final int hour, final Map<AggregationTagGroup, Double[]> inDataGroups, final int maxNum, final AllocationReport allocationReport, final Set<TagGroup> allocatedTagGroups, ExecutorService pool) {
+	protected Future<Void> submitAllocateHour(final CostAndUsageData cauData, final int hour, final Map<AggregationTagGroup, CostAndUsage[]> inDataGroups, final int maxNum, final AllocationReport allocationReport, final Set<TagGroup> allocatedTagGroups, ExecutorService pool) {
     	return pool.submit(new Callable<Void>() {
     		@Override
     		public Void call() {
@@ -171,13 +172,12 @@ public class VariableRuleProcessor extends RuleProcessor {
     	});
 	}
 		
-	private void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
+	private void allocateHour(CostAndUsageData cauData, int hour, Map<AggregationTagGroup, CostAndUsage[]> inDataGroups, int maxNum, AllocationReport allocationReport, Set<TagGroup> allocatedTagGroups) throws Exception {
 		boolean copy = outCauData != null;
 		int numUserTags = cauData.getNumUserTags();
-		boolean isCost = rule.getIn().getType() == RuleConfig.DataType.cost;
 
 		for (AggregationTagGroup atg: inDataGroups.keySet()) {
-			Double[] inValues = inDataGroups.get(atg);
+			CostAndUsage[] inValues = inDataGroups.get(atg);
 			if (hour >= inValues.length)
 				continue;
 			
@@ -187,10 +187,10 @@ public class VariableRuleProcessor extends RuleProcessor {
 			Product p = copy ? null : tagGroup.product;
 			DataSerializer data = cauData.get(p);
 		
-			if (inValues[hour] == null || inValues[hour] == 0.0)
+			if (inValues[hour] == null || inValues[hour].isZero())
 				continue;
 			
-			processHourData(allocationReport, data, isCost, hour, tagGroup, inValues[hour], allocatedTagGroups);
+			processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
 		}			
 	}
 	
@@ -198,11 +198,11 @@ public class VariableRuleProcessor extends RuleProcessor {
 	 * Copy the query data to the report data set and if requested, generate CostType from
 	 * the operation tag. If not grouping by operation, aggregate the data to remove the operation dimension.
 	 */
-	private Map<AggregationTagGroup, Double[]> copyAndReduce(Map<AggregationTagGroup, Double[]> inDataGroups, int maxNum, int numSourceUserTags) throws Exception {
+	private Map<AggregationTagGroup, CostAndUsage[]> copyAndReduce(Map<AggregationTagGroup, CostAndUsage[]> inDataGroups, int maxNum, int numSourceUserTags) throws Exception {
 		StopWatch sw = new StopWatch();
 		sw.start();
 		
- 		Map<AggregationTagGroup, Double[]> aggregatedInDataGroups = Maps.newHashMap();
+ 		Map<AggregationTagGroup, CostAndUsage[]> aggregatedInDataGroups = Maps.newHashMap();
  		List<String> userTagKeys = outCauData.getUserTagKeysAsStrings();
 		int costTypeIndex = userTagKeys == null ? -1 : userTagKeys.indexOf("CostType");
 		boolean addedOperationForCostType = rule.getIn().addedOperationForCostType();
@@ -217,7 +217,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		Aggregation outAggregation = new Aggregation(groupByTags, groupByUserTagIndeces);
 		
 		for (AggregationTagGroup atg: inDataGroups.keySet()) {
-			Double[] inValues = inDataGroups.get(atg);
+			CostAndUsage[] inValues = inDataGroups.get(atg);
 			if (inValues == null)
 				continue;
 						
@@ -238,26 +238,22 @@ public class VariableRuleProcessor extends RuleProcessor {
 			
 			// Get the new AggregationTagGroup that operates on the output data set
 			AggregationTagGroup newAtg = outAggregation.getAggregationTagGroup(tagGroup);
-			Double[] inAggregated = aggregatedInDataGroups.get(newAtg);
+			CostAndUsage[] inAggregated = aggregatedInDataGroups.get(newAtg);
 			if (inAggregated == null) {
-				inAggregated = new Double[maxNum];
+				inAggregated = new CostAndUsage[maxNum];
 				for (int i = 0; i < maxNum; i++)
-					inAggregated[i] = 0.0;
+					inAggregated[i] = new CostAndUsage();
 				aggregatedInDataGroups.put(newAtg, inAggregated);
 			}
 			
 			// Generating a report so put all of the data on the "null" product key.
 			DataSerializer data = outCauData.get(null);
-			boolean isCost = rule.getIn().getType() == RuleConfig.DataType.cost;
 			
 			for (int hour = 0; hour < inValues.length; hour++) {
-				if (inValues[hour] == null || inValues[hour] == 0.0)
-					continue;
-				
-				inAggregated[hour] += inValues[hour];
+				inAggregated[hour] = inAggregated[hour].add(inValues[hour]);
 				
 				// Copy the data to the output report
-				data.add(hour, tagGroup, isCost ? inValues[hour] : 0, isCost ? 0 : inValues[hour]);
+				data.add(hour, tagGroup, inValues[hour]);
 			}			
 		}
 		logger.info("  -- copyAndReduce elapsed time: " + sw + ", aggregated groups: " + aggregatedInDataGroups.keySet().size());
@@ -312,10 +308,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		return ar;
 	}	
 	
-	protected void processHourData(AllocationReport report, DataSerializer data, boolean isCost, int hour, TagGroup tg, Double total, Set<TagGroup> allocatedTagGroups) throws Exception {
-		if (total == null || total == 0.0)
-			return;
-				
+	protected void processHourData(AllocationReport report, DataSerializer data, int hour, TagGroup tg, CostAndUsage total, Set<TagGroup> allocatedTagGroups) throws Exception {
 		Map<AllocationReport.Key, Double> hourData = report.getData(hour, tg);
 		if (hourData == null || hourData.isEmpty()) {
 			return;
@@ -324,26 +317,26 @@ public class VariableRuleProcessor extends RuleProcessor {
 		// Remove the source value - we'll add any unallocated back at the end
 		data.remove(hour, tg);
 
-		double unAllocated = total;
+		CostAndUsage unAllocated = total;
 		for (AllocationReport.Key key: hourData.keySet()) {
-			double allocated = total * hourData.get(key);
-			if (allocated == 0.0)
+			CostAndUsage allocated = total.mul(hourData.get(key));
+			if (allocated.isZero())
 				continue;
 			
 			TagGroup allocatedTagGroup = report.getOutputTagGroup(key, tg);
 			
 			allocatedTagGroups.add(allocatedTagGroup);
 			
-			data.add(hour,  allocatedTagGroup, isCost ? allocated : 0, isCost ? 0 : allocated);
+			data.add(hour,  allocatedTagGroup, allocated);
 			
-			unAllocated -= allocated;
+			unAllocated = unAllocated.sub(allocated);
 		}
 		
 		double threshold = 0.000000001;
 		// Unused cost can go negative if, for example, a K8s cluster is over-subscribed, so test the absolute value.
-		if (Math.abs(unAllocated) > threshold) {
+		if (Math.abs(unAllocated.cost) > threshold || Math.abs(unAllocated.usage) > threshold) {
 			// Put the remaining cost on the original tagGroup
-			data.put(hour, tg, new DataSerializer.CostAndUsage(isCost ? unAllocated : 0, isCost ? 0 : unAllocated));
+			data.put(hour, tg, unAllocated);
 		}
 		//boolean overAllocated = unAllocated < -threshold;
 		//if (overAllocated)
@@ -373,14 +366,14 @@ public class VariableRuleProcessor extends RuleProcessor {
 		Query query = new Query(inConfig, resourceService.getCustomTags(), false);
 		
 		int maxNum = data.getMaxNum();
-		Map<AggregationTagGroup, Double[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());
+		Map<AggregationTagGroup, CostAndUsage[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());
 		
 		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), data.getStartMilli(), rule.config.isReport(), 
 				outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings(), resourceService);
 		int numUserTags = resourceService.getCustomTags().size();
 		
 		for (AggregationTagGroup atg: inData.keySet()) {
-			Double[] inValues = inData.get(atg);
+			CostAndUsage[] inValues = inData.get(atg);
 
 			int maxHours = inValues == null ? maxNum : inValues.length;			
 			

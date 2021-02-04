@@ -55,32 +55,24 @@ public class BillingDataConfigTest {
 		"    end: 2022-11\n" + 
 		"    operands:\n" + 
 		"      data:\n" + 
-		"        type: usage\n" + 
 		"        filter:\n" + 
 		"          usageType: ['${region}-DataTransfer-Out-Bytes']\n" + 
 		"    in:\n" + 
-		"      type: usage\n" + 
 		"      filter:\n" + 
 		"        product: [Product]\n" + 
 		"        usageType: ['..-Requests-[12].*']\n" + 
 		"    patterns:\n" + 
 		"      region: '(..)-.*'\n" + 
 		"    results:\n" + 
-		"      - type: cost\n" + 
-		"        out:\n" + 
-		"          product: ComputedCost\n" + 
-		"          usageType: ${region}-Requests\n" + 
-		"        value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
-		"      - type: usage\n" + 
-		"        out:\n" + 
-		"          product: ComputedCost\n" + 
-		"          usageType: ${region}-Requests\n" + 
-		"        value: '${in} - (${data} * 4 * 8 / 2)'\n" +
+		"    - out:\n" + 
+		"        product: ComputedCost\n" + 
+		"        usageType: ${region}-Requests\n" + 
+		"      cost: '(${in.usage} - (${data.usage} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
+		"      usage: '${in.usage} - (${data.usage} * 4 * 8 / 2)'\n" +
 		"  - name: kubernetes-breakout\n" + 
 		"    start: 2019-11\n" + 
 		"    end: 2022-11\n" + 
 		"    in:\n" + 
-		"      type: cost\n" + 
 		"      filter:\n" + 
 		"        product: [Product]\n" + 
 		"        userTags:\n" + 

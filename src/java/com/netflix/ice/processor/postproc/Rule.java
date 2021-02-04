@@ -192,11 +192,7 @@ public class Rule {
 	public Result getResult(int index) {
 		return results.get(index);
 	}
-	
-	public String getResultValue(int index) {
-		return config.getResults().get(index).getValue();
-	}
-	
+		
 	/**
 	 * Get the matching group 1 from the supplied string using the requested regex pattern.
 	 * If no group is supplied in the regex and the string matches, then return group 0 (the entire string).
@@ -236,15 +232,19 @@ public class Rule {
 				}
 			}
 		}
+		
+		public String getCost() {
+			return config.getCost();
+		}
+		
+		public String getUsage() {
+			return config.getUsage();
+		}
 
 		public String getProduct() {
 			return config.getOut().getProduct();
 		}
 		
-		public RuleConfig.DataType getType() {
-			return config.getType();
-		}
-
 		public boolean isSingle() {
 			return config.isSingle();
 		}

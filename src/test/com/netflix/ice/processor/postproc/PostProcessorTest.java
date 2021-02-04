@@ -58,7 +58,7 @@ public class PostProcessorTest {
 
 	private RuleConfig getConfig(String yaml) throws JsonParseException, JsonMappingException, IOException {		
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 		RuleConfig rc = new RuleConfig();
 		return mapper.readValue(yaml, rc.getClass());
 	}
@@ -87,7 +87,6 @@ public class PostProcessorTest {
 				"  aggregate: [monthly]\n" + 
 				"  includeCostType: true\n" + 
 				"in:\n" + 
-				"  type: cost\n" + 
 				"  filter:\n" + 
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -119,7 +118,7 @@ public class PostProcessorTest {
         List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
         
         PostProcessor pp = new PostProcessor(rules, "", as, ps, rs, null, 0);
-        pp.aggregateSummaryData(ds, true, daily, monthly);
+        pp.aggregateSummaryData(ds, daily, monthly);
         
         assertEquals("wrong number of monthly entries", 1, monthly.size());
         assertEquals("wrong number of daily entries", 31, daily.size());

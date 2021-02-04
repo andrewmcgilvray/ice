@@ -18,19 +18,11 @@
 package com.netflix.ice.processor.postproc;
 
 public class ResultConfig {
-	private RuleConfig.DataType type;	
 	private TagGroupConfig out;
-	private String value;
+	private String cost;
+	private String usage;
 	private boolean single;
 	
-	public RuleConfig.DataType getType() {
-		return type;
-	}
-
-	public void setType(RuleConfig.DataType type) {
-		this.type = type;
-	}
-
 	public TagGroupConfig getOut() {
 		return out;
 	}
@@ -39,11 +31,18 @@ public class ResultConfig {
 		this.out = out;
 	}
 
-	public String getValue() {
-		return value;
+	public String getCost() {
+		return cost;
 	}
-	public void setValue(String value) {
-		this.value = value;
+	public void setCost(String cost) {
+		this.cost = cost;
+	}
+	
+	public String getUsage() {
+		return usage;
+	}
+	public void setUsage(String usage) {
+		this.usage = usage;
 	}
 	
 	public boolean isSingle() {

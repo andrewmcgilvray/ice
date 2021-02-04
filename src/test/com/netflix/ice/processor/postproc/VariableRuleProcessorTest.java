@@ -127,7 +127,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-11\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -214,7 +213,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-11\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    region: [eu-west-1]\n" +
 				"    userTags:\n" +
@@ -263,7 +261,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-11\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    region: [us-east-1]\n" +
 				"    userTags:\n" +
@@ -330,7 +327,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-11\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -397,7 +393,6 @@ public class VariableRuleProcessorTest {
 				"report:\n" +
 				"  aggregate: [monthly]\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -436,7 +431,6 @@ public class VariableRuleProcessorTest {
 				"report:\n" +
 				"  aggregate: [monthly]\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -505,7 +499,6 @@ public class VariableRuleProcessorTest {
 				"report:\n" +
 				"  aggregate: [monthly]\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -586,7 +579,6 @@ public class VariableRuleProcessorTest {
 				"  aggregate: [monthly]\n" +
 				"  includeCostType: true\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -673,7 +665,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-01\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Role: [compute]\n" +
@@ -747,7 +738,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-01\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Cluster: [cluster]\n" +
@@ -874,7 +864,6 @@ public class VariableRuleProcessorTest {
 				"start: 2019-01\n" +
 				"end: 2022-11\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    account: [" + a1 + "]\n" +
 				"    userTags:\n" +
@@ -902,9 +891,9 @@ public class VariableRuleProcessorTest {
 
 		String[] clusterTags = new String[]{ "dev-usw2b", "k8s-prod-usw2a", "k8s-usw2a" };
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[0], "compute", "", "Dev", "", "", "", ""}, 40.0, 0),
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[1], "compute", "", "Dev", "", "", "", ""}, 40.0, 0),
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0, 0),
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[0], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[1], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
+        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
         };
 		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 395;
@@ -928,7 +917,7 @@ public class VariableRuleProcessorTest {
 		double[] expectedAllocatedCosts = new double[]{ 0.3934, 0.4324, 0.4133 };
 		double[] expectedUnusedCosts = new double[]{ 11.4360, 11.9054, 20.9427 };
 		int [] expectedAllocationCounts = new int[]{ 10, 8, 11};
-		Map<TagGroup, CostAndUsage> hourCostData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
+		Map<TagGroup, CostAndUsage> hourData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
 
 		for (int i = 0; i < clusterTags.length; i++) {
 			String clusterTag = clusterTags[i];
@@ -938,16 +927,16 @@ public class VariableRuleProcessorTest {
 			ResourceGroup arg = ResourceGroup.getResourceGroup(atags);
 			TagGroup atg = tg.withResourceGroup(arg);
 
-			CostAndUsage allocatedCau = hourCostData.get(atg);
+			CostAndUsage allocatedCau = hourData.get(atg);
 			assertNotNull("No allocated cost for kube-system namespace with cluster tag " + clusterTag, allocatedCau);
 			assertEquals("Incorrect allocated cost with cluster tag " + clusterTag, expectedAllocatedCosts[i], allocatedCau.cost, 0.0001);
 			String[] unusedTags = new String[]{ clusterTag, "compute", "unused", "Dev", "unused", "unused", "", "" };
 			TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
-			CostAndUsage unusedCau = hourCostData.get(unusedTg);
+			CostAndUsage unusedCau = hourData.get(unusedTg);
 			assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCosts[i], unusedCau.cost, 0.0001);
 
 			int count = 0;
-			for (TagGroup tg1: hourCostData.keySet()) {
+			for (TagGroup tg1: hourData.keySet()) {
 				if (tg1.resourceGroup.getUserTags()[0].name.equals(clusterTags[i]))
 					count++;
 			}
@@ -955,10 +944,11 @@ public class VariableRuleProcessorTest {
 		}
 
 		// Add up all the cost values to see if we get back to 120.0 (Three tagGroups with 40.0 each)
-		double total = 0.0;
-		for (CostAndUsage v: hourCostData.values())
-			total += v.cost;
-		assertEquals("Incorrect total cost when adding unused and allocated values", 120.0, total, 0.001);
+		CostAndUsage total = new CostAndUsage(0, 0);
+		for (CostAndUsage v: hourData.values())
+			total = total.add(v);
+		assertEquals("Incorrect total cost when adding unused and allocated values", 120.0, total.cost, 0.001);
+		assertEquals("Incorrect total usage when adding unused and allocated values", 9.0, total.usage, 0.001);
 	}
 
 	@Test
@@ -973,7 +963,6 @@ public class VariableRuleProcessorTest {
 				"start: 2020-10\n" +
 				"end: 2099-01\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    account: [" + a1 + "]\n" +
 				"    userTags:\n" +
@@ -1064,7 +1053,6 @@ public class VariableRuleProcessorTest {
 				"start: 2020-10\n" +
 				"end: 2099-01\n" +
 				"in:\n" +
-				"  type: cost\n" +
 				"  filter:\n" +
 				"    account: [" + a1 + "]\n" +
 				"    userTags:\n" +

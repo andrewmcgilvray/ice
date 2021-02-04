@@ -157,7 +157,6 @@ public class PostProcessor {
 				
 	protected void writeReports(Rule rule, CostAndUsageData cauData) throws Exception {
 		DataSerializer data = cauData.get(null);
-		boolean isCost = rule.config.getIn().getType() == RuleConfig.DataType.cost;
 		Query in = rule.getIn();
 		
 		Collection<RuleConfig.Aggregation> aggregate = rule.config.getReport().getAggregate();
@@ -165,14 +164,14 @@ public class PostProcessor {
 		if (aggregate.contains(RuleConfig.Aggregation.hourly)) {
 			String filename = reportName(cauData.getStart(), rule.config.getName(), RuleConfig.Aggregation.hourly);
 			ReportWriter writer = new ReportWriter(reportSubPrefix, filename, rule.config.getReport(), workBucketConfig.localDir, cauData.getStart(), 
-										rule.config.getIn().getType(), in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data, RuleConfig.Aggregation.hourly);		
+										in.getGroupBy(), cauData.getUserTagKeysAsStrings(), data, RuleConfig.Aggregation.hourly);		
 			writer.archive();
 		}
 		if (aggregate.contains(RuleConfig.Aggregation.monthly) || aggregate.contains(RuleConfig.Aggregation.daily)) {
 			List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
 			List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
 			
-			aggregateSummaryData(data, isCost, daily, monthly);
+			aggregateSummaryData(data, daily, monthly);
 			if (aggregate.contains(RuleConfig.Aggregation.monthly)) {
 				writeReport(cauData.getStart(), cauData.getUserTagKeysAsStrings(), rule, monthly, RuleConfig.Aggregation.monthly);
 			}
@@ -195,13 +194,12 @@ public class PostProcessor {
         rwData.enableTagGroupCache(true);
         rwData.setData(data, 0);
 		ReportWriter writer = new ReportWriter(reportSubPrefix, filename, rule.config.getReport(), workBucketConfig.localDir, 
-									month, rule.config.getIn().getType(), in.getGroupBy(), userTagKeys, rwData, aggregation);		
+									month, in.getGroupBy(), userTagKeys, rwData, aggregation);		
 		writer.archive();		
 	}
 	
     protected void aggregateSummaryData(
     		DataSerializer data,
-    		boolean isCost,
             List<Map<TagGroup, DataSerializer.CostAndUsage>> daily,
             List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly
     		) {

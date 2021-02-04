@@ -5,7 +5,7 @@ import java.util.List;
 import com.google.common.collect.Lists;
 
 /**
- * QueryConfig specifies the set of tags used to filter and aggregate usage or cost data for
+ * QueryConfig specifies the set of tags used to filter and aggregate cost and usage data for
  * input to a post processor result.
  * 
  * The filter properties are used to filter on specific values and patterns for tags and userTags.
@@ -25,7 +25,6 @@ import com.google.common.collect.Lists;
  * The monthly attribute can be set to produce a single value for the month rather than per hour.
  */
 public class QueryConfig {
-	private RuleConfig.DataType type;
 	private TagGroupFilterConfig filter;
 	private List<Rule.TagKey> groupBy;
 	private List<String> groupByTags;
@@ -35,7 +34,6 @@ public class QueryConfig {
 	}
 	
 	public QueryConfig(QueryConfig copyMe) {
-		type = copyMe.type;
 		filter = copyMe.filter == null ? null : new TagGroupFilterConfig(copyMe.filter);
 		groupBy = copyMe.groupBy == null ? null : Lists.newArrayList(copyMe.groupBy);
 		groupByTags = copyMe.groupByTags == null ? null : Lists.newArrayList(copyMe.groupByTags);
@@ -48,13 +46,6 @@ public class QueryConfig {
 	
 	public void setMonthly(boolean monthly) {
 		this.monthly = monthly;
-	}
-
-	public RuleConfig.DataType getType() {
-		return type;
-	}
-	public void setType(RuleConfig.DataType type) {
-		this.type = type;
 	}
 
 	public TagGroupFilterConfig getFilter() {

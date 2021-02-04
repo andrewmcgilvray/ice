@@ -34,15 +34,16 @@ public class ReportWriter {
 	private ReportConfig config;
 	private String localDir;
 	private DateTime month;
-	boolean isCost;
 	private List<String> header;
 	private List<Rule.TagKey> tagKeys;
 	private List<String> userTagKeys;
 	private DataSerializer data;
 	private RuleConfig.Aggregation aggregation;
+	private boolean hasCost;
+	private boolean hasUsage;
 	
 	public ReportWriter(String reportSubPrefix, String filename, ReportConfig config, String localDir,
-			DateTime month, RuleConfig.DataType type,
+			DateTime month,
 			List<Rule.TagKey> tagKeys, List<String> userTagKeys,
 			DataSerializer data, RuleConfig.Aggregation aggregation) throws Exception {
 		
@@ -52,15 +53,19 @@ public class ReportWriter {
 		this.localDir = localDir;
 		
 		this.month = month;
-		this.isCost = type == RuleConfig.DataType.cost;
 		this.tagKeys = tagKeys;
 		this.userTagKeys = userTagKeys;
 		this.data = data;
 		this.aggregation = aggregation;
 		header = Lists.newArrayList();
 		header.add("Date");
-		header.add(isCost ? "Cost" : "Usage");
-		if (type == RuleConfig.DataType.usage) {
+		this.hasCost = config.getTypes().contains(ReportConfig.DataType.cost);
+		if (hasCost) {
+			header.add("Cost");
+		}
+		this.hasUsage = config.getTypes().contains(ReportConfig.DataType.usage);
+		if (hasUsage) {
+			header.add("Usage");
 			header.add("Units");
 		}
 		for (Rule.TagKey tk: tagKeys) {
@@ -118,14 +123,20 @@ public class ReportWriter {
     		Map<TagGroup, DataSerializer.CostAndUsage> hourData = data.getData(index);
     		for (TagGroup tg: hourData.keySet()) {
     			DataSerializer.CostAndUsage cau = hourData.get(tg);
-    			double v = cau == null ? 0 : isCost ? cau.cost : cau.usage;
     			
     			List<String> cols = Lists.newArrayList();
     			cols.add(dateString); // StartDate
-    			cols.add(Double.toString(v));
-    			if (!isCost)
-    				cols.add(tg.usageType.unit);
     			
+    			if (hasCost) {
+    				double v = cau == null ? 0 : cau.cost;
+        			cols.add(Double.toString(v));
+    			}
+    			if (hasUsage) {
+    				double v = cau == null ? 0 : cau.usage;
+        			cols.add(Double.toString(v));
+    				cols.add(tg.usageType.unit);
+    			}
+    			    			
     			for (Rule.TagKey tk: tagKeys) {    				
     				switch (tk) {
     				case account:	cols.add(tg.account.getId()); cols.add(tg.account.getName()); break;

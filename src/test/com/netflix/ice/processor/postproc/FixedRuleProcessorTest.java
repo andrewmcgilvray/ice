@@ -81,23 +81,17 @@ public class FixedRuleProcessorTest {
 			"start: 2019-11\n" + 
 			"end: 2022-11\n" + 
 			"in:\n" + 
-			"  type: usage\n" + 
 			"  filter:\n" + 
 			"    product: [" + Product.Code.CloudFront.serviceCode + "]\n" + 
 			"    usageType: ['..-Requests-[12].*']\n" + 
 			"patterns:\n" +
 			"  region: '(..)-.*'\n" +
 			"results:\n" + 
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      product: ComputedCost\n" + 
-			"      usageType: ${region}-Requests\n" + 
-			"    value: '${in} * 0.01 / 1000'\n" + 
-			"  - type: usage\n" + 
-			"    out:\n" + 
-			"      product: ComputedCost\n" + 
-			"      usageType: ${region}-Requests\n" + 
-			"    value: '${in}'\n";
+			"- out:\n" + 
+			"    product: ComputedCost\n" + 
+			"    usageType: ${region}-Requests\n" + 
+			"  cost: '${in.usage} * 0.01 / 1000'\n" + 
+			"  usage: '${in.usage}'\n";
 
 	@Test
 	public void testRunQuery() throws Exception {
@@ -109,7 +103,7 @@ public class FixedRuleProcessorTest {
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		
-		Map<AggregationTagGroup, Double[]> inMap = frp.runQuery(rule.getIn(), cauData, true, cauData.getMaxNum(), rule.config.getName());
+		Map<AggregationTagGroup, CostAndUsage[]> inMap = frp.runQuery(rule.getIn(), cauData, true, cauData.getMaxNum(), rule.config.getName());
 		
 		assertEquals("Wrong number of matched tags", 6, inMap.size());
 		// Scan map and make sure we have 4 US and 2 EU
@@ -138,12 +132,12 @@ public class FixedRuleProcessorTest {
 		for (TagGroupSpec spec: specs) {
 			TagGroup tg = spec.getTagGroup(a1, as, ps);
 			AggregationTagGroup atg = rule.getIn().aggregation.getAggregationTagGroup(tg);
-			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0], 0.001);
+			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0].usage, 0.001);
 		}
 	}
 	
 	@Test
-	public void testProcessReadWriteData() throws Exception {
+	public void testProcessData() throws Exception {
 		
 		CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
 		cauData.enableTagGroupCache(true);
@@ -151,10 +145,10 @@ public class FixedRuleProcessorTest {
 		loadComputedCostData(data);
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
 		
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
-		frp.processReadWriteData(cauData, true, operandSingleValueCache);
+		frp.processData(cauData, true, operandSingleValueCache);
 
 		assertEquals("Wrong number of entries in the single value cache", 0, operandSingleValueCache.size());
 
@@ -194,7 +188,7 @@ public class FixedRuleProcessorTest {
 	}
 	
 	@Test
-	public void testProcessReadWriteDataWithResources() throws Exception {
+	public void testProcessDataWithResources() throws Exception {
 		
 		DataSerializer data = new DataSerializer(2);
 		loadComputedCostDataWithResources(data);
@@ -205,10 +199,10 @@ public class FixedRuleProcessorTest {
 
 		
 		Rule rule = new Rule(getConfig(computedCostYaml), as, ps, rs.getCustomTags());
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		frp.debug = true;
-		frp.processReadWriteData(cauData, false, operandSingleValueCache);
+		frp.processData(cauData, false, operandSingleValueCache);
 		
 		Product outProduct = ps.getProductByServiceCode("ComputedCost");
 		DataSerializer outData = cauData.get(outProduct);
@@ -238,21 +232,14 @@ public class FixedRuleProcessorTest {
 		"start: 2019-11\n" + 
 		"end: 2022-11\n" + 
 		"in:\n" + 
-		"  type: cost\n" +
 		"  groupBy: [account,region,zone]\n" + 
 		"results:\n" + 
-		"  - type: cost\n" + 
-		"    out:\n" + 
-		"      product: ComputedCost\n" + 
-		"      operation: \n" + 
-		"      usageType: Dollar\n" + 
-		"    value: '${in} * 0.03'\n" + 
-		"  - type: usage\n" + 
-		"    out:\n" + 
-		"      product: ComputedCost\n" + 
-		"      operation: \n" + 
-		"      usageType: Dollar\n" + 
-		"    value: '${in}'\n";
+		"- out:\n" + 
+		"    product: ComputedCost\n" + 
+		"    operation: \n" + 
+		"    usageType: Dollar\n" + 
+		"  cost: '${in.cost} * 0.03'\n" + 
+		"  usage: '${in.cost}'\n";
 	
 	private void loadSurchargeData(DataSerializer data) throws Exception {
 		String productCode = Product.Code.CloudFront.serviceCode;
@@ -295,7 +282,7 @@ public class FixedRuleProcessorTest {
 		Rule rule = new Rule(getConfig(surchargeConfigYaml), as, ps, rs.getCustomTags());
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 				
-		Map<AggregationTagGroup, Double[]> inMap = frp.runQuery(rule.getIn(), cauData, true, cauData.getMaxNum(), rule.config.getName());
+		Map<AggregationTagGroup, CostAndUsage[]> inMap = frp.runQuery(rule.getIn(), cauData, true, cauData.getMaxNum(), rule.config.getName());
 		
 		assertEquals("Wrong number of matched tags", 4, inMap.size());
 		// Scan map and make sure we have 2 us-east-1 and 2 eu-west-1
@@ -312,16 +299,43 @@ public class FixedRuleProcessorTest {
 		assertEquals("Wrong number of EU tagGroups", 2, eu);
 		
 		TagGroupSpec[] specs = new TagGroupSpec[]{
-				new TagGroupSpec(a1, "us-east-1", productCode, "", "", 0, 63000),
-				new TagGroupSpec(a1, "eu-west-1", productCode, "", "", 0, 70000),
+				new TagGroupSpec(a1, "us-east-1", productCode, "", "", 63000, 0),
+				new TagGroupSpec(a1, "eu-west-1", productCode, "", "", 70000, 0),
 		};
 		
 		for (TagGroupSpec spec: specs) {
 			TagGroup tg = spec.getTagGroup(a1, as, ps);
 			AggregationTagGroup atg = rule.getIn().aggregation.getAggregationTagGroup(tg);
-			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0], 0.001);
+			double got = inMap.get(atg)[0].cost;
+			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.cost, got, 0.001);
 			tg = spec.getTagGroup(a2, as, ps);
-			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.usage, inMap.get(atg)[0], 0.001);
+			atg = rule.getIn().aggregation.getAggregationTagGroup(tg);
+			got = inMap.get(atg)[0].cost;
+			assertEquals("Wrong aggregation for " + tg.operation + " " + tg.usageType, spec.value.cost, got, 0.001);
+		}
+		
+		// Now process 
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
+		frp.processData(cauData, true, operandSingleValueCache);
+		
+		DataSerializer outData = cauData.get(null);
+		
+		assertEquals("Wrong number of entries in the single value cache", 0, operandSingleValueCache.size());
+
+		specs = new TagGroupSpec[]{
+				new TagGroupSpec(a1, "us-east-1", "ComputedCost", "None", "Dollar", 1890, 63000),
+				new TagGroupSpec(a1, "eu-west-1", "ComputedCost", "None", "Dollar", 2100, 70000),
+				new TagGroupSpec(a2, "us-east-1", "ComputedCost", "None", "Dollar", 1890, 63000),
+				new TagGroupSpec(a2, "eu-west-1", "ComputedCost", "None", "Dollar", 2100, 70000),
+		};
+
+		// Should have 4 new items from the aggregated input
+		for (TagGroupSpec spec: specs) {
+			TagGroup computedCost = spec.getTagGroup(as, ps);
+			CostAndUsage value = outData.get(0, computedCost);
+			assertNotNull("No value for computed cost", value);
+			assertEquals("Wrong cost for computed cost", spec.value.cost, value.cost, .001);
+			assertEquals("Wrong usage for computed cost", spec.value.usage, value.usage, .001);
 		}
 	}
 
@@ -331,7 +345,6 @@ public class FixedRuleProcessorTest {
 			"end: 2022-11\n" + 
 			"operands:\n" + 
 			"  total:\n" + 
-			"    type: cost\n" +
 			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      product: ['(?!GlobalFee$)^.*$']\n" + 
@@ -339,7 +352,6 @@ public class FixedRuleProcessorTest {
 			"    groupBy: []\n" +
 			"    groupByTags: []\n" +
 			"  lump-cost:\n" +
-			"    type: cost\n" + 
 			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
@@ -353,30 +365,27 @@ public class FixedRuleProcessorTest {
 			"    groupBy: []\n" +
 			"    groupByTags: []\n" +
 			"in:\n" + 
-			"  type: cost\n" + 
 			"  filter:\n" + 
 			"    product: ['(?!GlobalFee$)^.*$']\n" +
 	        "    operation: ['(?!.*Savings - |.*Lent )^.*$'] # ignore lent and savings\n" +
 			"  groupBy: [account,region]\n" +
 	        "  groupByTags: [Key1]\n" +
 			"results:\n" + 
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      product: GlobalFee\n" +
-			"      operation: Split\n" +
-			"      usageType: Dollar\n" + 
-			"    value: '${lump-cost} * ${in} / ${total}'\n" + 
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      account: " + a1 + "\n" +
-			"      region: global\n" +
-			"      product: GlobalFee\n" + 
-			"      operation: None\n" +
-			"      usageType: Dollar\n" + 
-			"      userTags:\n" + 
-			"        Key1: TagA\n" + 
-			"    single: true\n" + 
-			"    value: 0\n";
+			"- out:\n" + 
+			"    product: GlobalFee\n" +
+			"    operation: Split\n" +
+			"    usageType: Dollar\n" + 
+			"  cost: '${lump-cost.cost} * ${in.cost} / ${total.cost}'\n" + 
+			"- out:\n" + 
+			"    account: " + a1 + "\n" +
+			"    region: global\n" +
+			"    product: GlobalFee\n" + 
+			"    operation: None\n" +
+			"    usageType: Dollar\n" + 
+			"    userTags:\n" + 
+			"      Key1: TagA\n" + 
+			"  single: true\n" + 
+			"  cost: 0\n";
 
 	@Test
 	public void testGlobalSplit() throws Exception {
@@ -407,8 +416,8 @@ public class FixedRuleProcessorTest {
 		assertTrue("total operand incorrectly indicates it has no aggregation", rule.getOperand("total").hasAggregation());
 		assertTrue("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
 
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(cauData, true, operandSingleValueCache);
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
+		frp.processData(cauData, true, operandSingleValueCache);
 		
 		DataSerializer outData = cauData.get(null);
 		Map<TagGroup, CostAndUsage> m = outData.getData(0);
@@ -481,8 +490,8 @@ public class FixedRuleProcessorTest {
 		assertTrue("total operand incorrectly indicates it has no aggregation", rule.getOperand("total").hasAggregation());
 		assertTrue("lump-cost operand incorrectly indicates it has no aggregation", rule.getOperand("lump-cost").hasAggregation());
 
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(cauData, false, operandSingleValueCache);
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
+		frp.processData(cauData, false, operandSingleValueCache);
 
 		DataSerializer outData = cauData.get(globalFee);
 		Map<TagGroup, CostAndUsage> m = outData.getData(0);
@@ -524,14 +533,12 @@ public class FixedRuleProcessorTest {
 			"end: 2022-11\n" + 
 			"operands:\n" + 
 			"  total:\n" + 
-			"    type: cost\n" +
 			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      product: ['(?!GlobalFee$)^.*$']\n" + 
 			"    groupBy: []\n" +
 			"    groupByTags: []\n" +
 			"  lump-cost:\n" +
-			"    type: cost\n" + 
 			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
@@ -541,17 +548,15 @@ public class FixedRuleProcessorTest {
 			"      usageType: [Dollar]\n" + 
 			"      singleTagGroup: true\n" + 
 			"in:\n" + 
-			"  type: cost\n" + 
 			"  filter:\n" + 
 			"    product: ['(?!GlobalFee$)^.*$']\n" +
 			"  groupBy: [account,region]\n" +
 			"results:\n" + 
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      product: GlobalFee\n" +
-			"      operation: Split\n" +
-			"      usageType: Dollar\n" + 
-			"    value: '${lump-cost} * ${in} / ${total}'\n";
+			"- out:\n" + 
+			"    product: GlobalFee\n" +
+			"    operation: Split\n" +
+			"    usageType: Dollar\n" + 
+			"  cost: '${lump-cost.cost} * ${in.cost} / ${total.cost}'\n";
 
 	@Test
 	public void testMonthlySplitByHour() throws Exception {
@@ -578,8 +583,8 @@ public class FixedRuleProcessorTest {
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		frp.debug = true;
 
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(cauData, true, operandSingleValueCache);
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
+		frp.processData(cauData, true, operandSingleValueCache);
 		DataSerializer outData = cauData.get(null);
 
 		Map<TagGroup, CostAndUsage> m = outData.getData(0);
@@ -611,14 +616,12 @@ public class FixedRuleProcessorTest {
 			"end: 2022-11\n" + 
 			"operands:\n" + 
 			"  total:\n" + 
-			"    type: cost\n" +
 			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      product: ['(?!GlobalFee$)^.*$']\n" + 
 			"    groupBy: []\n" +
 			"    groupByTags: []\n" +
 			"  lump-cost:\n" +
-			"    type: cost\n" + 
 			"    monthly: true\n" +
 			"    filter:\n" + 
 			"      account: [" + a1 + "]\n" +
@@ -628,18 +631,16 @@ public class FixedRuleProcessorTest {
 			"      usageType: [Dollar]\n" + 
 			"      singleTagGroup: true\n" + 
 			"in:\n" + 
-			"  type: cost\n" + 
 			"  monthly: true\n" +
 			"  filter:\n" + 
 			"    product: ['(?!GlobalFee$)^.*$']\n" +
 			"  groupBy: [account,region]\n" +
 			"results:\n" + 
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      product: GlobalFee\n" +
-			"      operation: Split\n" +
-			"      usageType: Dollar\n" + 
-			"    value: '${lump-cost} * ${in} / ${total}'\n";
+			"- out:\n" + 
+			"    product: GlobalFee\n" +
+			"    operation: Split\n" +
+			"    usageType: Dollar\n" + 
+			"  cost: '${lump-cost.cost} * ${in.cost} / ${total.cost}'\n";
 
 	@Test
 	public void testMonthlySplitByMonth() throws Exception {
@@ -666,8 +667,8 @@ public class FixedRuleProcessorTest {
 		FixedRuleProcessor frp = new FixedRuleProcessor(rule, as, ps);
 		frp.debug = true;
 
-		Map<Query, Double[]> operandSingleValueCache = Maps.newHashMap();
-		frp.processReadWriteData(cauData, true, operandSingleValueCache);
+		Map<Query, CostAndUsage[]> operandSingleValueCache = Maps.newHashMap();
+		frp.processData(cauData, true, operandSingleValueCache);
 		DataSerializer outData = cauData.get(null);
 				
 		Map<TagGroup, CostAndUsage> m = outData.getData(0);

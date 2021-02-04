@@ -31,6 +31,11 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     	public final double cost;
     	public final double usage;
     	
+    	public CostAndUsage() {
+    		this.cost = 0;
+    		this.usage = 0;
+    	}
+    	
     	public CostAndUsage(double cost, double usage) {
     		this.cost = cost;
     		this.usage = usage;
@@ -45,7 +50,7 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     	}
     	
     	public CostAndUsage add(CostAndUsage value) {
-    		if (value == null)
+    		if (value == null || value.isZero())
     			return this;
     		
     		return new CostAndUsage(cost + value.cost, usage + value.usage);
@@ -57,6 +62,17 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     		
     		return new CostAndUsage(cost + otherCost, usage + otherUsage);
     	}
+    	
+    	public CostAndUsage sub(CostAndUsage value) {
+    		if (value == null || value.isZero())
+    			return this;
+    		
+    		return new CostAndUsage(cost - value.cost, usage - value.usage);
+    	}
+    	
+    	public CostAndUsage mul(double value) {
+    		return new CostAndUsage(cost * value, usage * value);
+    	}  	
     }
     
     

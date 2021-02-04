@@ -45,32 +45,27 @@ public class RuleTest {
 			"end: 2022-11\n" + 
 			"operands:\n" + 
 			"  accountAgg:\n" + 
-			"    type: usage\n" +
 			"    groupBy: [region,zone,product,operation,usageType]\n" +
 			"    filter:\n" + 
 			"      usageType: ['Usage']\n" + 
 			"  accountFilterByList:\n" + 
-			"    type: usage\n" +
 			"    filter:\n" + 
 			"      account: [1,2,3]\n" +
 			"      usageType: ['Usage']\n" + 
 			"  accountExFilter:\n" + 
-			"    type: usage\n" +
 			"    filter:\n" + 
 			"      account: [1,2,3]\n" +
 			"      usageType: ['Usage']\n" + 
 			"      exclude: [account,usageType]\n" + 
 			"in:\n" + 
-			"  type: usage\n" + 
 			"  filter:\n" + 
 			"    product: [Test]\n" + 
 			"    usageType: ['..-Usage']\n" +
 			"results:\n" +
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      product: Foo\n" + 
-			"      usageType: Bar\n" + 
-			"    value: '0'\n";
+			"- out:\n" + 
+			"    product: Foo\n" + 
+			"    usageType: Bar\n" + 
+			"  cost: '0'\n";
 	
 	@Test
 	public void testOperandHasAggregation() throws Exception {
@@ -86,7 +81,6 @@ public class RuleTest {
 			"start: 2019-11\n" + 
 			"end: 2022-11\n" + 
 			"in:\n" + 
-			"  type: usage\n" + 
 			"  filter:\n" + 
 			"    product: [Test]\n" + 
 			"    usageType: ['..-Requests-Tier[12]']\n" +
@@ -94,11 +88,10 @@ public class RuleTest {
 			"  region: '(..)-.*'\n" +
 			"  tier: '.*([12])'\n" +
 			"results:\n" +
-			"  - type: cost\n" + 
-			"    out:\n" + 
-			"      product: Foo\n" + 
-			"      usageType: '${region}-Bar-${tier}'\n" + 
-			"    value: '0'\n";
+			"- out:\n" + 
+			"    product: Foo\n" + 
+			"    usageType: '${region}-Bar-${tier}'\n" + 
+			"  cost: '0'\n";
 	@Test
 	public void testGetTag() throws Exception {
 		Rule rule = new Rule(getConfig(patternTestYaml), as, ps, rs.getCustomTags());
@@ -114,20 +107,18 @@ public class RuleTest {
 				"start: 2019-11\n" + 
 				"end: 2022-11\n" + 
 				"in:\n" + 
-				"  type: usage\n" + 
 				"  filter:\n" + 
 				"    product: [Test]\n" + 
 				"results:\n" +
-				"  - type: cost\n" + 
-				"    out:\n" + 
-				"      account: 123456789012\n" + 
-				"      region: us-east-1\n" + 
-				"      product: " + Product.Code.Ec2.toString() + "\n" + 
-				"      operation: OP1\n" + 
-				"      usageType: UT1\n" + 
-				"      userTags:\n" + 
-				"        Key1: tag1\n" + 
-				"    value: '0'\n";
+				"- out:\n" + 
+				"    account: 123456789012\n" + 
+				"    region: us-east-1\n" + 
+				"    product: " + Product.Code.Ec2.toString() + "\n" + 
+				"    operation: OP1\n" + 
+				"    usageType: UT1\n" + 
+				"    userTags:\n" + 
+				"      Key1: tag1\n" + 
+				"  cost: '0'\n";
 
 		RuleConfig ruleConfig = getConfig(ruleYaml);
 		Rule r = new Rule(ruleConfig, as, ps, rs.getCustomTags());

@@ -141,7 +141,7 @@ public class AllocationReport extends Report {
 	    		Pattern p = this.patterns.get(i);
 	    		if (!tag.isEmpty()) {
 	    			if (p == null) {
-	    				if (!tag.equals(this.key.tags.get(i)))
+	    				if (!this.key.tags.get(i).isEmpty() && !this.key.tags.get(i).equals(key.tags.get(i)))
 		    	    		return false;
 	    			}
 	    			else {
