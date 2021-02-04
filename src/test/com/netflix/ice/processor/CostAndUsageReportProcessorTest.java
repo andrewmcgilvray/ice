@@ -27,7 +27,6 @@ import org.apache.commons.lang.StringUtils;
 import org.junit.Test;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.netflix.ice.common.LineItem;
 
 public class CostAndUsageReportProcessorTest {
     private static final String resourcesDir = "src/test/resources";
@@ -45,7 +44,7 @@ public class CostAndUsageReportProcessorTest {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
         CostAndUsageReport cauReport = new CostAndUsageReport(s3ObjectSummary, manifest, cauProc, "");
-        LineItem lineItem = new CostAndUsageReportLineItem(true, null, cauReport);
+        LineItem lineItem = new LineItem(true, null, cauReport);
 		lineItem.setItems(line.split(","));
 		return lineItem;
 	}

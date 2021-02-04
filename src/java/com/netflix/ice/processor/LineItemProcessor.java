@@ -17,7 +17,6 @@
  */
 package com.netflix.ice.processor;
 
-import com.netflix.ice.common.LineItem;
 
 /**
  * Interface to process each line item in billing file.

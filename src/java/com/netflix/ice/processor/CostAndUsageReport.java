@@ -24,7 +24,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.Reader;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -35,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.netflix.ice.common.AwsUtils;
@@ -45,7 +48,8 @@ public class CostAndUsageReport extends MonthlyReport {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     public static final DateTimeFormatter billingPeriodDateFormat = DateTimeFormat.forPattern("yyyyMMdd'T'HHmmss.SSSZ").withZone(DateTimeZone.UTC);
     
-	private Manifest manifest = null;
+	private Manifest manifest;
+	private Set<Integer> usedColumnIndeces = Sets.newHashSet();
 	
 	public CostAndUsageReport(S3ObjectSummary s3ObjectSummary, S3BucketConfig s3BucketConfig, MonthlyReportProcessor processor, String rootName) {
 		super(s3ObjectSummary, s3BucketConfig, processor, rootName);
@@ -155,6 +159,19 @@ public class CostAndUsageReport extends MonthlyReport {
 			return found ? i : -1;
 		}
 		
+		public List<Column> getCategoryColumns(String category) {
+			List<Column> catColumns = Lists.newArrayList();
+			for (int i = 0; i < columns.length; i++) {
+				if (columns[i].category.equals(category)) {
+					for (int j = i; j < columns.length && columns[j].category.equals(category); j++) {
+						catColumns.add(columns[j]);
+					}
+					break;
+				}
+			}
+			return catColumns;
+		}
+		
 		public String[] getCategoryHeader(String category) {
 			for (int i = 0; i < columns.length; i++) {
 				if (columns[i].category.equals(category)) {
@@ -185,12 +202,26 @@ public class CostAndUsageReport extends MonthlyReport {
 		return manifest.getCategoryEndIndex(category);
 	}
 	
+	public List<Column> getCategoryColumns(String category) {
+		return manifest.getCategoryColumns(category);
+	}
+	
 	public String[] getCategoryHeader(String category) {
 		return manifest.getCategoryHeader(category);
 	}
 
 	public int getColumnIndex(String category, String name) {
-		return manifest.getColumnIndex(category, name);
+		int index = manifest.getColumnIndex(category, name);
+		usedColumnIndeces.add(index);
+		return index;
+	}
+	
+	public void addCategoryAsUsed(String category) {
+		
+	}
+	
+	public Collection<Integer> getUsedColumnIndeces() {
+		return usedColumnIndeces;
 	}
 
 	@Override

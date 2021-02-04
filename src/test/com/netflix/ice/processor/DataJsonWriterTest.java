@@ -62,36 +62,37 @@ public class DataJsonWriterTest {
 	}
 	
 	class Data {
-		class TestReadWriteData extends ReadWriteData {
-			void setData(TagGroup tg, Double value, int i) {
+		class TestDataSerializer extends DataSerializer {
+			public TestDataSerializer(int numUserTags) {
+				super(numUserTags);
+			}
+
+			void setData(TagGroup tg, Double cost, Double usage, int i) {
 	            if (i >= data.size()) {
 	                getCreateData(i);
 	            }
-	            data.get(i).put(tg, value);
+	            data.get(i).put(tg, new CostAndUsage(cost, usage));
 			}
 		}
-	    public Map<Product, ReadWriteData> usageDataByProduct;
-	    public Map<Product, ReadWriteData> costDataByProduct;
+	    public Map<Product, DataSerializer> dataByProduct;
+	    public int numUserTags;
 		
-	    public Data() {
-	    	usageDataByProduct = Maps.newHashMap();
-	    	costDataByProduct = Maps.newHashMap();
+	    public Data(int numUserTags) {
+	    	this.dataByProduct = Maps.newHashMap();
+	    	this.numUserTags = numUserTags;
 	    }
 	    	    
 	    public void add(TagGroup tg, Double cost, Double usage) {
-    		if (!costDataByProduct.containsKey(tg.product))
-    			costDataByProduct.put(tg.product, new TestReadWriteData());
-    		if (!usageDataByProduct.containsKey(tg.product))
-    			usageDataByProduct.put(tg.product, new TestReadWriteData());
+    		if (!dataByProduct.containsKey(tg.product))
+    			dataByProduct.put(tg.product, new TestDataSerializer(numUserTags));
     			
-    		((TestReadWriteData)costDataByProduct.get(tg.product)).setData(tg, cost, 0);
-    		((TestReadWriteData)usageDataByProduct.get(tg.product)).setData(tg, usage, 0);
+    		((TestDataSerializer)dataByProduct.get(tg.product)).setData(tg, cost, usage, 0);
 	    }
 	}
 	
 	@Test
 	public void testWrite() throws Exception {
-		Data data = new Data();
+		Data data = new Data(2);
 		
 		data.add(getTagGroup(Code.S3, "CopyObject", "Requests-Tier1", null), 1.11, 1.0);
 		data.add(getTagGroup(Code.S3, "GetObject", "Requests-Tier2", new String[]{"foo", "bar"}), 2.22, 2.0);
@@ -102,7 +103,7 @@ public class DataJsonWriterTest {
 		tagKeys.add(UserTagKey.get("Tag1"));
 		tagKeys.add(UserTagKey.get("Tag2"));
 		
-		DataJsonWriter djw = new DataJsonWriter(dt, tagKeys, data.costDataByProduct, data.usageDataByProduct);
+		DataJsonWriter djw = new DataJsonWriter(dt, tagKeys, data.dataByProduct);
 		
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		djw.writer = new OutputStreamWriter(out);		

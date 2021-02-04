@@ -29,7 +29,6 @@ import org.junit.Test;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.processor.CostAndUsageReport.Manifest;
 
 public class CostAndUsageReportTest {

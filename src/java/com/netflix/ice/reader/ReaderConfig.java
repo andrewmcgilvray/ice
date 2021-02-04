@@ -160,8 +160,7 @@ public class ReaderConfig extends Config {
             for (ConsolidateType consolidateType: ConsolidateType.values()) {
             	if (consolidateType == ConsolidateType.hourly && !hourlyData && product != null)
             		continue;
-            	futures.add(readData(product, consolidateType, interval, managers.getCostManager(product, consolidateType), null, pool));
-            	futures.add(readData(product, consolidateType, interval, managers.getUsageManager(product, consolidateType), null, pool));
+            	futures.add(readData(product, consolidateType, interval, managers.getDataManager(product, consolidateType), null, pool));
                 // Prime the tag coverage cache
                 if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
                 	futures.add(readData(product, consolidateType, interval, managers.getTagCoverageManager(product, consolidateType), userTagKeys, pool));
@@ -210,9 +209,9 @@ public class ReaderConfig extends Config {
         }
         else {
         	if (userTagList == null)
-        		dataManager.getData(interval, new TagLists(), null, AggregateType.both, null, usageUnit, 0);
+        		dataManager.getData(true, interval, new TagLists(), null, AggregateType.both, null, usageUnit, 0);
         	else
-        		dataManager.getData(interval, new TagLists(), null, AggregateType.both, 0, userTagKeys);
+        		dataManager.getData(true, interval, new TagLists(), null, AggregateType.both, 0, userTagKeys);
         }
     }
     

@@ -28,17 +28,13 @@ import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.google.common.collect.Lists
 import com.google.common.collect.Maps
 
-import com.netflix.ice.basic.BasicLineItemProcessor
 import com.netflix.ice.basic.BasicManagers
 import com.netflix.ice.basic.BasicProductService
 import com.netflix.ice.basic.BasicReservationService
-import com.netflix.ice.basic.BasicResourceService
 import com.netflix.ice.common.Config;
 import com.netflix.ice.common.IceOptions
 import com.netflix.ice.common.ProductService
 import com.netflix.ice.common.PurchaseOption
-import com.netflix.ice.common.ResourceService
-import com.netflix.ice.processor.LineItemProcessor
 import com.netflix.ice.processor.ProcessorConfig
 import com.netflix.ice.processor.ReservationService
 import com.netflix.ice.processor.pricelist.PriceListService
@@ -152,7 +148,6 @@ class BootStrap {
 				properties.setProperty(IceOptions.BILLING_ICE_CONFIG_TAGS_BASENAME, prop.getProperty(IceOptions.BILLING_ICE_CONFIG_TAGS_BASENAME, ""));
 				properties.setProperty(IceOptions.BILLING_ICE_CONFIG_POSTPROC_BASENAME, prop.getProperty(IceOptions.BILLING_ICE_CONFIG_POSTPROC_BASENAME, ""));
                 properties.setProperty(IceOptions.ROOT_NAME, prop.getProperty(IceOptions.ROOT_NAME, ""));
-				properties.setProperty(IceOptions.COST_AND_USAGE_START_DATE, prop.getProperty(IceOptions.COST_AND_USAGE_START_DATE, ""));
 				properties.setProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, prop.getProperty(IceOptions.COST_AND_USAGE_NET_UNBLENDED_START_DATE, ""));
 				properties.setProperty(IceOptions.EDP_DISCOUNTS, prop.getProperty(IceOptions.EDP_DISCOUNTS, ""));
 				properties.setProperty(IceOptions.REPORT_SUB_PREFIX, prop.getProperty(IceOptions.REPORT_SUB_PREFIX, ""));

@@ -25,7 +25,6 @@ import org.joda.time.DateTime;
 import org.junit.Test;
 
 import com.amazonaws.services.ec2.model.Tag;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.processor.CanonicalReservedInstances.RecurringCharge;
 
 public class CanonicalReservedInstancesTest {

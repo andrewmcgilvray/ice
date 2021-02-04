@@ -24,8 +24,8 @@ import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.processor.postproc.AllocationReport.HourData;
 import com.netflix.ice.processor.postproc.AllocationReport.Key;
-import com.netflix.ice.processor.postproc.TagGroupSpec.DataType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 
@@ -234,10 +234,10 @@ public class AllocationReportTest {
 		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		
         TagGroupSpec[] data = new TagGroupSpec[]{
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", "A"}, 50.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "B"}, 250.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "C"}, 700.0),
-        		new TagGroupSpec(DataType.cost, a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "D"}, 0.0),
+        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", "A"}, 50.0, 0),
+        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "B"}, 250.0, 0),
+        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "C"}, 700.0, 0),
+        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "D"}, 0.0, 0),
          };
         Key[] outputKeys = {
         		new Key(Lists.newArrayList(new String[]{"compute"})),
@@ -258,6 +258,93 @@ public class AllocationReportTest {
             TagGroup got = ar.getOutputTagGroup(outputKeys[i], tgs.getTagGroup(as, ps));
             assertEquals("resource group doesn't match", expected[i], got.resourceGroup);
         }
+	}
+	
+	@Test
+	public void testHourData() {
+		Map<Key, Double> allocations = Maps.newHashMap();
+		allocations.put(new Key(Lists.newArrayList(new String[]{"TenPercent"})), 0.10);
+		allocations.put(new Key(Lists.newArrayList(new String[]{"FiftyPercent"})), 0.50);
+		
+		HourData hourData = new HourData();
+		Key key = new Key(Lists.newArrayList(new String[]{"Apple","Banana","Cantalope"}));
+		hourData.put(key, allocations, false);
+		
+		// Test exact match
+		assertTrue("key not found", hourData.containsKey(key));
+		assertEquals("value not correct", allocations, hourData.get(key));
+		assertEquals("wrong number of keys", 1, hourData.keySet().size());
+		List<Key> candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 1, candidates.size());
+		
+		// Test more general key
+		Key hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","Banana",""}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, false);
+		
+		assertFalse("key found", hourData.containsKey(key));
+		assertNull("value not correct", hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 1, candidates.size());
+		
+		// Test non-match
+		hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","Banana","Cucumber"}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, false);
+		
+		assertFalse("key found", hourData.containsKey(key));
+		assertNull("value not correct", hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 0, candidates.size());
+		
+		// Test wildcard tag without enabling wildcards
+		hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","B?nan?","C*"}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, false);
+		
+		assertFalse("key found", hourData.containsKey(key));
+		assertNull("value not correct", hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 0, candidates.size());
+		
+		// Test wildcard tag
+		hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","B?nan?","C*"}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, true);
+		
+		assertTrue("key not found", hourData.containsKey(key));
+		assertEquals("value not correct", allocations, hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 1, candidates.size());
+		
+		// Test more general wildcard tag
+		hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","B?nan?",""}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, true);
+		
+		assertFalse("key found", hourData.containsKey(key));
+		assertNull("value not correct", hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 1, candidates.size());
+		
+		// These should not match
+		hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","B?na","C*"}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, true);
+		
+		assertFalse("key found", hourData.containsKey(key));
+		assertNull("value not correct", hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 0, candidates.size());
+		
+		hourDataKey = new Key(Lists.newArrayList(new String[]{"Apple","B?nana","C"}));
+		hourData = new HourData();
+		hourData.put(hourDataKey, allocations, true);
+		
+		assertFalse("key found", hourData.containsKey(key));
+		assertNull("value not correct", hourData.get(key));
+		candidates = hourData.getCandidates(key);
+		assertEquals("wrong number of candidates", 0, candidates.size());		
 	}
 	
 

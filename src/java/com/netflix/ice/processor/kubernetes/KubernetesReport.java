@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -36,18 +35,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.csvreader.CsvReader;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.common.ResourceService;
+import com.netflix.ice.processor.LineItem;
 import com.netflix.ice.processor.Report;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.postproc.AllocationConfig;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.UserTag;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 public class KubernetesReport extends Report {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -110,6 +110,7 @@ public class KubernetesReport extends Report {
     private Map<String, List<List<String[]>>> data = null;
     // Map of output tag keys to Kubernetes deployment parameters
     private Map<String, KubernetesColumn> deployParams;
+    private Type typeToProcess;
 
 	public KubernetesReport(AllocationConfig allocationConfig, DateTime month, ResourceService resourceService) throws Exception {
     	super();
@@ -136,6 +137,10 @@ public class KubernetesReport extends Report {
 		if (clusterNameBuilder != null && !allocationConfig.getIn().keySet().containsAll(clusterNameBuilder.getReferencedTags()))
 			throw new Exception("Cluster name formulae refer to tags not in the input tag key list");
 		
+		String t = config.getType();
+		// Default to Type.Namespace if not specified
+		typeToProcess = (t == null || t.isEmpty()) ? Type.Namespace : Type.valueOf(t);
+
 		deployParams = Maps.newHashMap();
 		if (config.getOut() != null) {
 			for (String deployParam: config.getOut().keySet()) {
@@ -244,45 +249,44 @@ public class KubernetesReport extends Report {
 	}
 
 	protected long readFile(String fileName, InputStream in) {
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(false);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		CsvParser parser = new CsvParser(settings);
+		
 
-        CsvReader reader = new CsvReader(new InputStreamReader(in), ',');
         data = Maps.newHashMap();
         
         long endMilli = month.getMillis();
         long lineNumber = 0;
         try {
-            reader.readRecord();
-            
+    		parser.beginParsing(in);
+    		String[] row;
+    		            
             // load the header
-            initIndecies(reader.getValues());
+            initIndecies(parser.parseNext());
+            lineNumber++;
 
-            while (reader.readRecord()) {
-                String[] items = reader.getValues();
+            while ((row = parser.parseNext()) != null) {
+                lineNumber++;
                 try {
-                    long end = processOneLine(items);
+                    long end = processOneLine(row);
                     if (end > endMilli)
                     	endMilli = end;
                 }
                 catch (Exception e) {
-                    logger.error(StringUtils.join(items, ","), e);
+                    logger.error(StringUtils.join(row, ","), e);
                 }
-                lineNumber++;
 
                 if (lineNumber % 500000 == 0) {
                     logger.info("processed " + lineNumber + " lines...");
                 }
             }
+			parser.stopParsing();
         }
-        catch (IOException e ) {
+        catch (Exception e ) {
             logger.error("Error processing " + fileName + " at line " + lineNumber, e);
-        }
-        finally {
-            try {
-                reader.close();
-            }
-            catch (Exception e) {
-                logger.error("Cannot close BufferedReader...", e);
-            }
         }
         logger.info("processed " + lineNumber + " lines from file: " + fileName);
         return endMilli;
@@ -339,6 +343,14 @@ public class KubernetesReport extends Report {
 	}
 	
 	private long processOneLine(String[] item) {
+		// Check to see if we're processing this type of line item
+		Type type = getType(item);		
+		// If we have a Type column, the typeToProcess field determines
+		// the scope to use for breaking out the cost.
+		// Each scope duplicates the data set, so we only want to process one.
+		if (type != Type.None && type != typeToProcess)
+			return startMillis;		
+		
 		DateTime startDate = new DateTime(item[reportIndeces.get(KubernetesColumn.StartDate)], DateTimeZone.UTC);
 		long millisStart = startDate.getMillis();
 		DateTime endDate = new DateTime(item[reportIndeces.get(KubernetesColumn.EndDate)], DateTimeZone.UTC);

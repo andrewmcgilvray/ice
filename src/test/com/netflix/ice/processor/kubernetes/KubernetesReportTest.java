@@ -137,7 +137,6 @@ public class KubernetesReportTest {
 		"start: 2019-11\n" + 
 		"end: 2022-11\n" + 
 		"in:\n" + 
-		"  type: cost\n" + 
 		"  filter:\n" + 
 		"    product: [Product]\n" + 
 		"    userTags:\n" + 

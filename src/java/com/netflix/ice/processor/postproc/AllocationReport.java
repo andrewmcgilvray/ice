@@ -15,12 +15,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -44,6 +44,9 @@ import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UserTag;
+import com.univocity.parsers.common.record.Record;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 /**
  * An allocation report contains the following columns:
@@ -61,7 +64,7 @@ import com.netflix.ice.tag.UserTag;
  */
 public class AllocationReport extends Report {
     Logger logger = LoggerFactory.getLogger(getClass());
-    
+
     enum AllocationColumn {
     	StartDate,
     	EndDate,
@@ -76,10 +79,147 @@ public class AllocationReport extends Report {
 	private List<Integer> inTagIndeces; // ResourceGroup user tag indeces for the input tags
 	private List<Integer> outTagIndeces; // ResourceGroup user tag indeces for the output tags
 	private List<Set<String>> inTagValues; // Values used in the allocation report for each input tag key. Used to resolve empty strings for values in the report.
-	private List<Map<Key, Map<Key, Double>>> data;	
+	private List<HourData> data;	
 	private List<String> header;
 	private List<TagMappers> taggers;
 	private List<String> newTagKeys;
+	
+	/**
+	 * KeyMatcher supports the glob style wildcards '*' and '?' in tag names
+	 */
+	public static class KeyMatcher {
+		private Key key;
+		private Map<Key, Double> value;
+		private List<Pattern> patterns;
+		
+		private KeyMatcher(Key key, Map<Key, Double> value) {
+			this.key = key;
+			this.value = value;
+			this.patterns = Lists.newArrayListWithCapacity(key.tags.size());
+			for (String tag: key.tags) {
+				Pattern p = null;
+				if (tag.contains("*"))
+					p = Pattern.compile(tag.replace("*", ".*"));
+				if (tag.contains("?"))
+					p = Pattern.compile(tag.replace("?", "."));
+				patterns.add(p);
+			}
+		}
+		
+		static boolean hasWildcard(Key key) {
+			for (String tag: key.tags) {
+				if (tag.contains("*") || tag.contains("?"))
+					return true;
+			}
+			return false;
+		}
+		
+		boolean contains(Key key) {
+			for (int i = 0; i < key.tags.size(); i++) {
+				Pattern p = patterns.get(i);
+				if (p != null) {
+					if (!p.matcher(key.tags.get(i)).matches())
+						return false;
+				}
+				else {
+					// If no pattern, tag must match exactly
+					if (!key.tags.get(i).equals(this.key.tags.get(i)))
+						return false;
+				}
+			}
+			return true;
+		}
+		
+		/**
+		 * Determine if the provided key includes this key
+		 * @param key
+		 * @return
+		 */
+		boolean includes(Key key) {
+	    	for (int i = 0; i < key.tags.size(); i++) {
+	    		String tag = key.tags.get(i);
+	    		Pattern p = this.patterns.get(i);
+	    		if (!tag.isEmpty()) {
+	    			if (p == null) {
+	    				if (!this.key.tags.get(i).isEmpty() && !this.key.tags.get(i).equals(key.tags.get(i)))
+		    	    		return false;
+	    			}
+	    			else {
+	    				if (!p.matcher(tag).matches())
+	    					return false;
+	    			}
+	    		}
+	    			
+	    	}
+	    	return true;
+		}
+	}
+	
+	public static class HourData {
+		private Map<Key, Map<Key, Double>> dataMap;
+		private Map<Key, KeyMatcher> wildcards;
+		
+		protected HourData() {
+			dataMap = Maps.newHashMap();
+			wildcards = Maps.newHashMap();
+		}
+		
+		boolean containsKey(Key key) {
+			boolean found = dataMap.containsKey(key);
+			if (!found && wildcards.size() > 0) {
+				for (KeyMatcher km: wildcards.values()) {
+					if (km.contains(key)) {
+						found = true;
+						break;
+					}
+				}
+			}
+			return found;
+		}
+		
+		Map<Key, Double> get(Key key) {
+			if (dataMap.containsKey(key))
+				return dataMap.get(key);
+			for (KeyMatcher km: wildcards.values()) {
+				if (km.contains(key))
+					return km.value;
+			}
+			return null;
+		}
+		
+		Map<Key, Double> put(Key key, Map<Key, Double> value, boolean withWildcards) {
+			if (withWildcards && KeyMatcher.hasWildcard(key)) {
+				KeyMatcher existing = wildcards.put(key, new KeyMatcher(key, value));
+				return existing == null ? null : existing.value;
+			}
+			return dataMap.put(key, value);
+		}
+		
+		Set<Key> keySet() {
+			if (wildcards.size() == 0)
+				return dataMap.keySet();
+			else if (dataMap.size() == 0)
+				return wildcards.keySet();
+			Set<Key> keys = Sets.newHashSet(dataMap.keySet());
+			keys.addAll(wildcards.keySet());
+			return keys;
+		}
+		
+		List<Key> getCandidates(Key key) {
+			// Find matches that are less specific than the provided key.
+			// i.e. keys that have no value for some of the tags
+			List<Key> candidates = Lists.newArrayList();
+			for (Key k: dataMap.keySet()) {
+				if (k.includes(key))
+					candidates.add(k);
+			}
+			for (KeyMatcher km: wildcards.values()) {
+				if (km.includes(key))
+					candidates.add(km.key);
+			}
+			return candidates;
+		}
+	}
 
 	public AllocationReport(AllocationConfig config, long startMillis, boolean isReport, List<String> userTagKeys, ResourceService resourceService) throws Exception {
     	super();
@@ -174,7 +314,7 @@ public class AllocationReport extends Report {
 		return header;
 	}
 	
-	protected List<Map<Key, Map<Key, Double>>> getData() {
+	protected List<HourData> getData() {
 		return data;
 	}
 	
@@ -236,7 +376,7 @@ public class AllocationReport extends Report {
 	 * a non-empty input value if no other entry with that value exists.
 	 */
 	private Key findMostSpecificKey(int hour, List<String> inTags) {		
-		Map<Key, Map<Key, Double>> hourData = data.get(hour);
+		HourData hourData = data.get(hour);
 		
 		// Check for an exact match first
 		Key key = new Key(inTags);
@@ -244,11 +384,7 @@ public class AllocationReport extends Report {
 			return key;
 		
 		// No exact match, walk through the more general options
-		List<Key> candidates = Lists.newArrayList();
-		for (Key k: hourData.keySet()) {
-			if (k.includes(key))
-				candidates.add(k);
-		}
+		List<Key> candidates = hourData.getCandidates(key);
 		key = null;
 		int maxValues = -1;
 		for (Key k: candidates) {
@@ -285,9 +421,9 @@ public class AllocationReport extends Report {
 	
 	public void add(int hour, double allocation, List<String> inTags, List<String> outTags) {
 		while (data.size() <= hour) {
-			data.add(Maps.<Key, Map<Key, Double>>newHashMap());
+			data.add(new HourData());
 		}
-		Map<Key, Map<Key, Double>> hourData = data.get(hour);
+		HourData hourData = data.get(hour);
 		
 		// Maintain sets of values for each input tag key
 		for (int i = 0; i < inTags.size(); i++)
@@ -297,7 +433,7 @@ public class AllocationReport extends Report {
 		Map<Key, Double> values = hourData.get(k);
 		if (values == null) {
 			values = Maps.newHashMap();
-			hourData.put(k, values);
+			hourData.put(k, values, config.isEnableWildcards());
 		}
 		Key outKey = new Key(outTags);
 		Double existing = values.get(outKey);
@@ -311,7 +447,7 @@ public class AllocationReport extends Report {
 	public Map<Key, Double> overAllocatedKeys() {
 		Map<Key, Double> keys = Maps.newHashMap();
 		for (int hour = 0; hour < data.size(); hour++) {
-			Map<Key, Map<Key, Double>> allocations = data.get(hour);
+			HourData allocations = data.get(hour);
 			for (Key key: allocations.keySet()) {
 				Double total = 0.0;
 				Map<Key, Double> outMap = allocations.get(key);
@@ -383,7 +519,7 @@ public class AllocationReport extends Report {
 	    }
 	    
 	    /**
-	     * Return true if the key is more general than the specified key.
+	     * Return true if this key is more general than the specified key.
 	     * @return
 	     */
 	    public boolean includes(Key key) {
@@ -535,40 +671,43 @@ public class AllocationReport extends Report {
     protected void readCsv(DateTime month, Reader reader) throws IOException {
     	data = Lists.newArrayList();
     	
-    	Iterable<CSVRecord> records = CSVFormat.DEFAULT
-    		      .withFirstRecordAsHeader()
-    		      .parse(reader);
-    	    	
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(true);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		CsvParser parser = new CsvParser(settings);
+		    	    	
     	header = null;
     	long monthMillis = month.getMillis();
+        long lineNumber = 1;
+		Record record = null;
     	
-	    for (CSVRecord record : records) {
-	    	try {
-		    	if (header == null) {
-		    		// get header
-		    		header = record.getParser().getHeaderNames();
-		    	}
-		    	
+    	try {
+    		parser.beginParsing(reader);
+    		header = Lists.newArrayList(parser.getContext().parsedHeaders());
+            while ((record = parser.parseNextRecord()) != null) {
+            	lineNumber++;
 		    	List<String> inTags = Lists.newArrayList();
 		    	List<String> outTags = Lists.newArrayList();
-		    	int startHour = (int) ((new DateTime(record.get(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
-		    	int endHour = (int) ((new DateTime(record.get(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
-		    	double allocation = Double.parseDouble(record.get(AllocationColumn.Allocation));
+		    	int startHour = (int) ((new DateTime(record.getString(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
+		    	int endHour = (int) ((new DateTime(record.getString(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
+		    	double allocation = Double.parseDouble(record.getString(AllocationColumn.Allocation));
 		    	if (Double.isNaN(allocation) || Double.isInfinite(allocation)) {
 		    		logger.warn("Allocation report entry with NaN or Inf allocation, skipping.");
 		    		continue;
 		    	}
 		    	for (String key: inTagKeys)
-		    		inTags.add(record.get(config.getIn().get(key)));
+		    		inTags.add(record.getString(config.getIn().get(key)));
 		    	for (String key: outTagKeys)
-		    		outTags.add(record.get(config.getOut().get(key)));
+		    		outTags.add(record.getString(config.getOut().get(key)));
 		    	for (int hour = startHour; hour < endHour; hour++)
 		    		add(hour, allocation, inTags, outTags);
-	    	}
-	    	catch (Exception e) {
-	    		logger.error("Error processing record " + record.getRecordNumber() + ": \"" + record.toString() + "\" -- " + e.getMessage());
-	    	}
-	    }
+		    }
+            parser.stopParsing();
+    	}
+    	catch (Exception e) {
+    		logger.error("Error processing record " + lineNumber + ": \"" + record + "\" -- " + e.getMessage());
+    	}
     }
     
     protected void writeCsv(DateTime month, Writer out) throws IOException {
@@ -579,7 +718,7 @@ public class AllocationReport extends Report {
     	CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(headerArray));
     	
     	for (int hour = 0; hour < data.size(); hour++) {
-    		Map<Key, Map<Key, Double>> hourAllocation = data.get(hour);
+    		HourData hourAllocation = data.get(hour);
     		for (Key key: hourAllocation.keySet()) {
     			Map<Key, Double> outMap = hourAllocation.get(key);
     			for (Key outKey: outMap.keySet()) {

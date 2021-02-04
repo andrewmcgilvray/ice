@@ -7,15 +7,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.common.AccountService;
@@ -74,21 +75,25 @@ public class ReadOnlyDataTest {
 	}
 	
     private void serialize(OutputStreamWriter out, ReadOnlyData data) throws IOException {
-    	out.write("num,data,account,region,zone,product,operation,usageType,usageUnits,resource\n");
+    	out.write("num,cost,usage,account,region,zone,product,operation,usageType,usageUnits,resource\n");
 
         for (Integer i = 0; i < data.getNum(); i++) {
-            Double[] values = data.getData(i);
+            ReadOnlyData.Data values = data.getData(i);
             if (values == null)
             	continue;
-        	for (int j = 0; j < values.length; j++) {
+            double[] cost = values.getCost();
+            double[] usage = values.getUsage();
+        	for (int j = 0; j < values.size(); j++) {
 	            TagGroup tg = data.tagGroups.get(j);
 	            
-	            Double v = values[j];
-	            if (v == null || v == 0.0)
+	            double c = cost[j];
+	            double u = usage[j];
+	            if (c == 0.0 && u == 0.0)
 	            	continue;
 	            
 	            out.write(i.toString() + ",");
-	            out.write(v == null ? "0," : (v.toString() + ","));
+	            out.write(Double.toString(c) + ",");
+	            out.write(Double.toString(u) + ",");
 	            TagGroup.Serializer.serializeCsv(out, tg);
 	            out.write("\n");
         	}
@@ -97,9 +102,10 @@ public class ReadOnlyDataTest {
     
     private void dump(ReadOnlyData data) {
     	for (int i = 0; i < data.getNum(); i++) {
-    		Double[] ds = data.getData(i);
-    		if (ds != null) {
-	    		List<Double> d = Lists.newArrayList(ds);
+    		ReadOnlyData.Data ds = data.getData(i);
+    		if (ds != null && ds.getCost() != null) {
+    			Double[] doubleArray = ArrayUtils.toObject(ds.getCost());
+	    		List<Double> d = Arrays.asList(doubleArray);
 	    		logger.info("  " + i + ": " + d);    		
     		}
     	}

@@ -38,11 +38,6 @@ import java.util.Map;
  * The 'results' list holds the expression and tag group information for the values to be computed and written to the cost and usage data sets.
  */
 public class RuleConfig {
-	public enum DataType {
-		cost,
-		usage;
-	}
-	
 	private String name;
 	private String start;
 	private String end;

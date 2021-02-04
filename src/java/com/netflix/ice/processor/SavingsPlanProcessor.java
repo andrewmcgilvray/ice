@@ -51,26 +51,24 @@ public class SavingsPlanProcessor {
 
     	logger.info("---------- Process " + data.getSavingsPlans().size() + " Savings Plans for " + (product == null ? "Non-resource" : product));
 
-		ReadWriteData usageData = data.getUsage(product);
-		ReadWriteData costData = data.getCost(product);
-
-		if (usageData == null || costData == null) {
+		if (data.get(product) == null) {
 			logger.warn("   No data for " + product);
 			return;
 		}
 		
-		for (int i = 0; i < usageData.getNum(); i++) {
+		for (int i = 0; i < data.getNum(product); i++) {
 			// For each hour of usage...
-			processHour(product, i, usageData, costData);
+			processHour(product, i);
 		}		
 	}
 	
-	private void processHour(Product product, int hour, ReadWriteData usageData, ReadWriteData costData) {
-	    Map<TagGroup, Double> usageMap = usageData.getData(hour);
+	private void processHour(Product product, int hour) {
+		DataSerializer ds = data.get(product);
+	    Map<TagGroup, DataSerializer.CostAndUsage> dataMap = ds.getData(hour);
 		Map<SavingsPlanArn, SavingsPlan> savingsPlans = data.getSavingsPlans();
 
 		List<TagGroupSP> spTagGroups = Lists.newArrayList();
-	    for (TagGroup tagGroup: usageMap.keySet()) {
+	    for (TagGroup tagGroup: dataMap.keySet()) {
 	    	if (!(tagGroup instanceof TagGroupSP) || (product != null && product != tagGroup.product) || !tagGroup.operation.isBonus())
 	    		continue;
 	    	
@@ -85,8 +83,7 @@ public class SavingsPlanProcessor {
 	    		logger.error("No savings plan in the map at hour " + hour + " for tagGroup: " + bonusTg);
 	    		continue;
 	    	}
-	    	double cost = costData.remove(hour, bonusTg);
-	    	double usage = usageData.remove(hour, bonusTg);
+	    	DataSerializer.CostAndUsage cau = ds.remove(hour, bonusTg);
 	    	
     		String accountId = sp.tagGroup.arn.getAccountId();
 	    	if (sp.paymentOption != PurchaseOption.NoUpfront) {
@@ -99,11 +96,11 @@ public class SavingsPlanProcessor {
 	    			amortOp = Operation.getSavingsPlanBorrowedAmortized(sp.paymentOption);
 	    			// Create Lent records for account that owns the savings plan
 	        		TagGroup tg = TagGroup.getTagGroup(accountService.getAccountById(accountId), bonusTg.region, bonusTg.zone, bonusTg.product, Operation.getSavingsPlanLentAmortized(sp.paymentOption), bonusTg.usageType, bonusTg.resourceGroup);
-	    	    	add(costData, hour, tg, cost * sp.normalizedAmortization);
+	    	    	ds.add(hour, tg, cau.cost * sp.normalizedAmortization, 0);
 	    		}	    		
 	    		
 	    		TagGroup tg = bonusTg.withOperation(amortOp);
-	    		add(costData, hour, tg, cost * sp.normalizedAmortization);
+    	    	ds.add(hour, tg, cau.cost * sp.normalizedAmortization, 0);
 	    	}
 	    	
     		Operation op = null;
@@ -115,33 +112,20 @@ public class SavingsPlanProcessor {
     			
     			// Create Lent records for account that owns the savings plan
         		TagGroup tg = TagGroup.getTagGroup(accountService.getAccountById(accountId), bonusTg.region, bonusTg.zone, bonusTg.product, Operation.getSavingsPlanLent(sp.paymentOption), bonusTg.usageType, bonusTg.resourceGroup);
-        		add(usageData, hour, tg, usage);
-        		// Output cost for all payment types (including all upfront which is 0 so that they get into the tag db)
-    	    	add(costData, hour, tg, cost * sp.normalizedRecurring);
+    	    	ds.add(hour, tg, cau.cost * sp.normalizedRecurring, cau.usage);
     		}
     		
     		TagGroup tg = bonusTg.withOperation(op);
-    		add(usageData, hour, tg, usage);
-    		// Output cost for all payment types (including all upfront which is 0 so that they get into the tag db)
-	    	add(costData, hour, tg, cost * sp.normalizedRecurring);
+	    	ds.add(hour, tg, cau.cost * sp.normalizedRecurring, cau.usage);
 	    }
 	    
 	    // Scan the usage and cost maps to clean up any leftover entries with TagGroupSP
-	    cleanup(hour, usageData, "usage", savingsPlans);
-	    cleanup(hour, costData, "cost", savingsPlans);
+	    cleanup(hour, ds, savingsPlans);
 	}
-	
-	private void add(ReadWriteData data, int hour, TagGroup tg, double value) {
-		Double amount = data.get(hour, tg);
-		if (amount == null)
-			amount = 0.0;
-		amount += value;
-		data.put(hour, tg, amount);
-	}
-	
-	private void cleanup(int hour, ReadWriteData data, String which, Map<SavingsPlanArn, SavingsPlan> savingsPlans) {
+		
+	private void cleanup(int hour, DataSerializer ds, Map<SavingsPlanArn, SavingsPlan> savingsPlans) {
 	    List<TagGroupSP> spTagGroups = Lists.newArrayList();
-	    for (TagGroup tagGroup: data.getTagGroups(hour)) {
+	    for (TagGroup tagGroup: ds.getTagGroups(hour)) {
 	    	if (tagGroup instanceof TagGroupSP) {
 	    		spTagGroups.add((TagGroupSP) tagGroup);
 	    	}
@@ -157,12 +141,12 @@ public class SavingsPlanProcessor {
 //	    		logger.info("Bonus savings plan at hour " + hour + ": " + savingsPlans.get(tg.arn));
 //	    	}
 
-	    	Double v = data.remove(hour, tg);
+	    	DataSerializer.CostAndUsage v = ds.remove(hour, tg);
 	    	TagGroup newTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
-	    	add(data, hour, newTg, v);
+	    	ds.add(hour, newTg, v);
 	    }
 	    for (Tag t: leftovers.keySet()) {
-	    	logger.info("Found " + leftovers.get(t) + " unconverted " + which + " SP TagGroups on hour " + hour + " for operation " + t);
+	    	logger.info("Found " + leftovers.get(t) + " unconverted SP TagGroups on hour " + hour + " for operation " + t);
 	    }
 	}
 }

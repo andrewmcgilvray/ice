@@ -38,7 +38,7 @@ import com.netflix.ice.basic.BasicResourceService;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.processor.ReadWriteData;
+import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
@@ -58,26 +58,27 @@ public class PostProcessorTest {
 
 	private RuleConfig getConfig(String yaml) throws JsonParseException, JsonMappingException, IOException {		
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 		RuleConfig rc = new RuleConfig();
 		return mapper.readValue(yaml, rc.getClass());
 	}
 	
 	class Datum {
 		int num;
-		Double value;
+		DataSerializer.CostAndUsage value;
 		TagGroup tg;
 		
-		public Datum(int num, Double value, TagGroup tg) {
+		public Datum(int num, double cost, double usage, TagGroup tg) {
 			this.num = num;
-			this.value = value;
+			this.value = new DataSerializer.CostAndUsage(cost, usage);
 			this.tg = tg;
 		}
 	}
 
 	@Test
 	public void testAggregateSummaryData() throws Exception {
-		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
+		String[] userTagKeys = {"Key1","Key2"};
+		BasicResourceService rs = new BasicResourceService(ps, userTagKeys, false);
 		String reportYaml = "" +
 				"name: report-test\n" + 
 				"start: 2019-11\n" + 
@@ -86,7 +87,6 @@ public class PostProcessorTest {
 				"  aggregate: [monthly]\n" + 
 				"  includeCostType: true\n" + 
 				"in:\n" + 
-				"  type: cost\n" + 
 				"  filter:\n" + 
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
@@ -95,30 +95,30 @@ public class PostProcessorTest {
 		List<RuleConfig> rules = Lists.newArrayList(getConfig(reportYaml));
     	Account a = as.getAccountById("111111111111");
         Datum[] data = new Datum[]{
-        		new Datum(0,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(0, 25.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),
-        		new Datum(0, 30.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"}))),
-        		new Datum(0, 40.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"}))),
-        		new Datum(1,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(2,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(24,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(25,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(742,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(743,  5.0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(0,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(0, 25.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),
+        		new Datum(0, 30.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"}))),
+        		new Datum(0, 40.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"}))),
+        		new Datum(1,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(2,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(24,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(25,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(742,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(743,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
         };
 
-		ReadWriteData rwData = new ReadWriteData();
-		rwData.enableTagGroupCache(true);
+		DataSerializer ds = new DataSerializer(userTagKeys.length);
+		ds.enableTagGroupCache(true);
 	    for (int i = 0; i < data.length; i++) {
 	    	Datum d = data[i];
-	    	rwData.add(d.num, d.tg, d.value);	
+	    	ds.add(d.num, d.tg, d.value);	
 	    }
 		
-        List<Map<TagGroup, Double>> daily = Lists.newArrayList();
-        List<Map<TagGroup, Double>> monthly = Lists.newArrayList();
+        List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
+        List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
         
         PostProcessor pp = new PostProcessor(rules, "", as, ps, rs, null, 0);
-        pp.aggregateSummaryData(rwData, daily, monthly);
+        pp.aggregateSummaryData(ds, daily, monthly);
         
         assertEquals("wrong number of monthly entries", 1, monthly.size());
         assertEquals("wrong number of daily entries", 31, daily.size());

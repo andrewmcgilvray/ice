@@ -15,8 +15,14 @@ import com.netflix.ice.processor.postproc.RuleConfig.Aggregation;
  *
  */
 public class ReportConfig {
+	public enum DataType {
+		cost,
+		usage;
+	}
+	
 	private S3BucketConfig s3Bucket;
 	private List<Aggregation> aggregate;
+	private List<DataType> types;
 	private boolean includeCostType;
 
 	public S3BucketConfig getS3Bucket() {
@@ -36,6 +42,12 @@ public class ReportConfig {
 	}
 	public void setIncludeCostType(boolean includeCostType) {
 		this.includeCostType = includeCostType;
+	}
+	public List<DataType> getTypes() {
+		return types;
+	}
+	public void setTypes(List<DataType> types) {
+		this.types = types;
 	}
 
 }

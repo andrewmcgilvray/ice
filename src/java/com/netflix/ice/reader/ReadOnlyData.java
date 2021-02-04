@@ -32,31 +32,86 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReadOnlyData extends ReadOnlyGenericData<Double> {
+public class ReadOnlyData extends ReadOnlyGenericData<ReadOnlyData.Data> {
     protected Logger logger = LoggerFactory.getLogger(getClass());
+
+    public static class Data {
+    	private double[] cost;
+    	private double[] usage;
+    	
+    	public Data(int size) {
+    		cost = new double[size];
+    		usage = new double[size];
+    	}
+    	
+    	public Data(double[] cost, double[] usage) {
+    		this.cost = cost;
+    		this.usage = usage;
+    	}
+    	
+    	public int size() {
+    		return Math.max(cost.length, usage.length);
+    	}
+    	
+    	public double[] getCost() {
+    		return cost;
+    	}
+    	
+    	public double[] getUsage() {
+    		return usage;
+    	}
+    	
+    	public void add(Data from) {
+            for (int i = 0; i < from.cost.length; i++) {
+            	cost[i] += from.cost[i];
+            	usage[i] += from.usage[i];
+            }
+    	}
+    	
+    	public boolean hasCostData() {
+        	// Check for values in the data array and ignore if all zeros
+            for (int i = 0; i < cost.length; i++) {
+            	if (cost[i] != 0.0)
+            		return true;
+            }
+            return false;
+    	}
+    	
+    	public boolean hasUsageData() {
+        	// Check for values in the data array and ignore if all zeros
+            for (int i = 0; i < usage.length; i++) {
+            	if (usage[i] != 0.0)
+            		return true;
+            }
+            return false;
+    	}
+    }
+    
+    
     
     public ReadOnlyData(int numUserTags) {
-        super(new Double[][]{}, Lists.<TagGroup>newArrayList(), numUserTags);
+        super(new Data[]{}, Lists.<TagGroup>newArrayList(), numUserTags);
     }
     
-    public ReadOnlyData(Double[][] data, List<TagGroup> tagGroups, int numUserTags) {
+    public ReadOnlyData(Data[] data, List<TagGroup> tagGroups, int numUserTags) {
         super(data, tagGroups, numUserTags);
     }
-
+    
 	@Override
-	protected Double[][] newDataMatrix(int size) {
-		return new Double[size][];
+	protected Data[] newDataMatrix(int size) {
+		return new Data[size];
 	}
-
+	
 	@Override
-	protected Double[] newDataArray(int size) {
-		return new Double[size];
-	}
-
-	@Override
-	protected Double readValue(DataInput in) throws IOException {
-		Double v = in.readDouble();
-		return v == null || v == 0 ? null : v;
+	protected Data readDataArray(DataInput in) throws IOException {
+        Data data = new Data(tagGroups.size());
+        double[] cost = data.getCost();
+        double[] usage = data.getUsage();
+        for (int i = 0; i < tagGroups.size(); i++) {
+            cost[i] = in.readDouble();
+            usage[i] = in.readDouble();
+        }
+        return data;
 	}
 	
 	@Override
@@ -81,12 +136,19 @@ public class ReadOnlyData extends ReadOnlyGenericData<Double> {
             
     		// Copy the data
             for (int i = 0; i < data.length; i++)  {
-            	Double[] oldData = data[i];
-            	Double[] newData = null;
+            	Data oldData = data[i];
+            	Data newData = null;
             	if (oldData != null) {            		
-            		newData = newDataArray(columnMap.size());
-	            	for (int j = 0; j < columnMap.size(); j++)
-	            		newData[j] = oldData[columnMap.get(j)];
+            		newData = new Data(columnMap.size());
+            		double[] oldCost = oldData.getCost();
+            		double[] oldUsage = oldData.getUsage();
+            		double[] newCost = newData.getCost();
+            		double[] newUsage = newData.getUsage();
+            		
+	            	for (int j = 0; j < columnMap.size(); j++) {
+	            		newCost[j] = oldCost[columnMap.get(j)];
+	            		newUsage[j] = oldUsage[columnMap.get(j)];
+	            	}
             	}
 	            data[i] = newData;
             }

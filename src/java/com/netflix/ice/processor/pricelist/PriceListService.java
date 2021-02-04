@@ -24,7 +24,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.Map;
@@ -37,7 +36,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.csvreader.CsvReader;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.AwsUtils;
@@ -52,6 +51,8 @@ import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
 import com.netflix.ice.processor.pricelist.InstancePrices.Tenancy;
 import com.netflix.ice.processor.pricelist.VersionIndex.Version;
 import com.netflix.ice.reader.InstanceMetrics;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 public class PriceListService {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -497,10 +498,10 @@ public class PriceListService {
 		};
 		
 		if (items.length != 2) {
-			throw new Exception("Wrong number of items in header line. Expected 2: " + items);
+			throw new Exception("Wrong number of items in header line. Expected 2: " + Lists.newArrayList(items));
 		}
 		if (!lines[index].equals(items[0])) {
-			throw new Exception("Wrong header line. Expected " + lines[index] + ", got: " + items);
+			throw new Exception("Wrong header line. Expected " + lines[index] + ", got: " + Lists.newArrayList(items));
 		}
 		switch(index) {
 		case 0:
@@ -601,48 +602,49 @@ public class PriceListService {
     
     private boolean importPriceList(InputStream stream, InstancePrices prices) {
         boolean hasErrors = false;
-        CsvReader reader = new CsvReader(new InputStreamReader(stream), ',');
-
-        try {            
-            // process multi-line header
-            for (int i = 0; i < 5; i++) {
-                reader.readRecord();
-            	checkHeader(i, reader.getValues());
-            }
-            
-            reader.readRecord();
-            Getter getter = new Getter(reader.getValues());
-
-            while (reader.readRecord()) {
-                String[] items = reader.getValues();
-                try {
-                	// Only process USD prices
-                	if (!getter.value(items, Column.Currency).equals("USD"))
-                		continue;
-                	
-                	Product product = getProduct(prices, getter, items);
-                	if (product == null)
-                		continue;
-                	
-                	addTerm(product, getter, items);
-                }
-                catch (Exception e) {
-                    logger.error(StringUtils.join(items, ","), e);
-                }
-            }
-        }
-        catch (Exception e ) {
-        	logger.error("Error processing price list data: ", e);
-        	hasErrors = true;
-        }
-        finally {
-            try {
-                reader.close();
-            }
-            catch (Exception e) {
-                logger.error("Cannot close BufferedReader...", e);
-            }
-        }
+        
+		CsvParserSettings settings = new CsvParserSettings();
+		settings.setHeaderExtractionEnabled(false);
+		settings.setNullValue("");
+		settings.setEmptyValue("");
+		CsvParser parser = new CsvParser(settings);
+		
+		try {
+			parser.beginParsing(stream);
+			String[] row;
+	        // process multi-line header
+	        for (int i = 0; i < 5; i++) {
+	            row = parser.parseNext();
+	        	checkHeader(i, row);
+	        }
+	        
+	        Getter getter = new Getter(parser.parseNext());
+	        long lineNumber = 6;
+			
+			while ((row = parser.parseNext()) != null) {
+				lineNumber++;
+	            try {
+	            	// Only process USD prices
+	            	if (!getter.value(row, Column.Currency).equals("USD"))
+	            		continue;
+	            	
+	            	Product product = getProduct(prices, getter, row);
+	            	if (product == null)
+	            		continue;
+	            	
+	            	addTerm(product, getter, row);
+	            }
+	            catch (Exception e) {
+	                logger.error("Error on line " + lineNumber + ": " + StringUtils.join(row, ","), e);
+	            }
+			}
+			parser.stopParsing();
+		}
+	    catch (Exception e ) {
+	        logger.error("Error processing price list data: ", e);
+	        hasErrors = true;
+	    }			
+        
         return hasErrors;
     }
     

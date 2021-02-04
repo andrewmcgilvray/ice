@@ -36,12 +36,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.LineItem;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagConfig;
 import com.netflix.ice.processor.CostAndUsageReport;
-import com.netflix.ice.processor.CostAndUsageReportLineItem;
+import com.netflix.ice.processor.LineItem;
 import com.netflix.ice.processor.config.BillingDataConfig;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Product;
@@ -68,7 +67,7 @@ public class BasicResourceServiceTest {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
 		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null, "");
-		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
+		LineItem li = new LineItem(false, null, caur);		
 		String[] item = {
 				"123456789012", // PayerAccountId
 				"DiscountedUsage", // LineItemType
@@ -188,7 +187,7 @@ public class BasicResourceServiceTest {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
 		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "LineItemTest-Manifest.json"), null, "");
-		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
+		LineItem li = new LineItem(false, null, caur);		
 		li.setItems(item);
 		
 		// Check for value in alias list
@@ -217,7 +216,7 @@ public class BasicResourceServiceTest {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
 		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null, "");
-		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
+		LineItem li = new LineItem(false, null, caur);		
 		String[] item = {
 				"123456789012", // PayerAccountId
 				"DiscountedUsage", // LineItemType
@@ -297,11 +296,9 @@ public class BasicResourceServiceTest {
 				"Environment", "Department", "Email"
 			};
 		
-		class TestLineItem extends LineItem {
-			final String[] items;
-			
+		class TestLineItem extends LineItem {			
 			TestLineItem(String[] items) {
-				this.items = items;
+				super(items);
 			}
 			
 		    @Override
@@ -378,7 +375,7 @@ public class BasicResourceServiceTest {
 		S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
 		s3ObjectSummary.setLastModified(new Date());
 		CostAndUsageReport caur = new CostAndUsageReport(s3ObjectSummary, new File(resourcesDir, "ResourceTest-Manifest.json"), null, "");
-		LineItem li = new CostAndUsageReportLineItem(false, null, caur);		
+		LineItem li = new LineItem(false, null, caur);		
 		
 		rs.initHeader(li.getResourceTagsHeader(), payerAccount.getId());
 		

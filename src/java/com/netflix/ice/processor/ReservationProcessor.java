@@ -237,10 +237,8 @@ public abstract class ReservationProcessor {
 			Map<Product, InstancePrices> prices) throws Exception {
 		
 		this.prices = prices;
-		ReadWriteData usageData = data.getUsage(product);
-		ReadWriteData costData = data.getCost(product);
 
-		if (usageData == null || costData == null)
+		if (data.get(product) == null)
 			return;
 		
 		this.product = product;
@@ -248,7 +246,7 @@ public abstract class ReservationProcessor {
     	logger.info("---------- Process " + (product == null ? "Non-resource" : product));
     	
 		if (debugHour >= 0)
-			printUsage("before", usageData, costData);
+			printUsage("before", data);
 				
     	instanceMetrics = priceListService.getInstanceMetrics();
 		
@@ -257,7 +255,7 @@ public abstract class ReservationProcessor {
 		processReservations(reservationService, data, startMilli);
 				
 		if (debugHour >= 0)
-			printUsage("after", usageData, costData);		
+			printUsage("after", data);		
 	}
 	
 	abstract protected void processReservations(
@@ -265,37 +263,22 @@ public abstract class ReservationProcessor {
 			CostAndUsageData data,
 			Long startMilli);	
 		
-	protected void printUsage(String when, ReadWriteData usageData, ReadWriteData costData) {
+	protected void printUsage(String when, CostAndUsageData data) {
 		logger.info("---------- usage and cost for hour " + debugHour + " " + when + " processing ----------------");
-	    Map<TagGroup, Double> usageMap = usageData.getData(debugHour);
+		Map<TagGroup, DataSerializer.CostAndUsage> dataMap = data.get(product).getData(debugHour);
+	    // Copy tag groups to a TreeSet so they're sorted
+		SortedSet<TagGroup> tagGroups = Sets.newTreeSet();
+		tagGroups.addAll(data.getTagGroups(product));
 		
-		SortedSet<TagGroup> usageTags = Sets.newTreeSet();
-		usageTags.addAll(usageData.getTagGroups());
-		for (TagGroup tagGroup: usageTags) {
+		for (TagGroup tagGroup: tagGroups) {
 			if (!(tagGroup.operation instanceof Operation.ReservationOperation))
 				continue;
 			if (tagGroup.operation == Operation.ondemandInstances || tagGroup.operation == Operation.spotInstances)
 				continue;
 			if ((tagGroup.product.hasReservations())
-					&& usageMap.get(tagGroup) != null 
+					&& dataMap.get(tagGroup) != null 
 					&& debugReservations(debugHour, tagGroup, ((Operation.ReservationOperation) tagGroup.operation).getPurchaseOption())) {
-				logger.info("usage " + usageMap.get(tagGroup) + " for tagGroup: " + tagGroup);
-			}
-		}
-
-		Map<TagGroup, Double> costMap = costData.getData(debugHour);
-
-		SortedSet<TagGroup> costTags = Sets.newTreeSet();
-		costTags.addAll(costData.getTagGroups());
-		for (TagGroup tagGroup: costTags) {
-			if (!(tagGroup.operation instanceof Operation.ReservationOperation))
-				continue;
-			if (tagGroup.operation == Operation.ondemandInstances || tagGroup.operation == Operation.spotInstances)
-				continue;
-			if ((tagGroup.product.hasReservations())
-					&& costMap.get(tagGroup) != null 
-					&& debugReservations(debugHour, tagGroup, ((Operation.ReservationOperation) tagGroup.operation).getPurchaseOption())) {
-				logger.info("cost " + costMap.get(tagGroup) + " for tagGroup: " + tagGroup);
+				logger.info(dataMap.get(tagGroup) + " for tagGroup: " + tagGroup);
 			}
 		}
 		logger.info("---------- end of usage and cost report ----------------");

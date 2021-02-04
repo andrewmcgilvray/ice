@@ -23,9 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
+import org.joda.time.Interval;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.Config.WorkBucketConfig;
@@ -37,17 +39,20 @@ import com.netflix.ice.reader.DataManager;
 import com.netflix.ice.reader.InstanceMetricsService;
 import com.netflix.ice.reader.ReadOnlyData;
 import com.netflix.ice.reader.TagGroupManager;
+import com.netflix.ice.reader.TagLists;
 import com.netflix.ice.reader.UsageUnit;
+import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
+import com.netflix.ice.tag.UserTag;
 import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
 /**
  * This class reads data from s3 bucket and feeds the data to UI
  */
-public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> implements DataManager {
+public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyData.Data> implements DataManager {
 
     protected InstanceMetricsService instanceMetricsService;
     protected int numUserTags;
@@ -107,51 +112,32 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> im
     	return value * multiplier;    		
     }
 
-	@Override
-    protected void addData(Double[] from, Double[] to) {
-        for (int i = 0; i < from.length; i++) {
-        	if (from[i] == null)
-        		continue;
-        	else if (to[i] == null)
-        		to[i] = from[i];
-        	else
-        		to[i] += from[i];
-        }
-    }
-	
-    @Override
-    protected boolean hasData(Double[] data) {
-    	// Check for values in the data array and ignore if all zeros
-    	for (Double d: data) {
-    		if (d != null && d != 0.0)
-    			return true;
-    	}
-    	return false;
-    }
-
-	@Override
-	protected Double[] getResultArray(int size) {
-        return new Double[size];
-	}
-
-	@Override
-    protected Double aggregate(List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit, Double[] data) {
-		Double result = 0.0;
+    private double aggregate(List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit, double[] data) {
+		double result = 0.0;
 		if (data != null) {
 	        for (int i = 0; i < columns.size(); i++) {
-	        	Double d = data[columns.get(i)];
-	        	if (d != null && d != 0.0)
+	        	double d = data[columns.get(i)];
+	        	if (d != 0.0)
 	        		result += adjustForUsageUnit(usageUnit, tagGroups.get(i).usageType, d);
 	        }
 		}
         return result;
 	}
 
-	@Override
-	protected Map<Tag, double[]> processResult(Map<Tag, Double[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
+    private int aggregate(boolean isCost, ReadOnlyData data, int from, int to, double[] result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit) {		
+        int fromIndex = from;
+        for (int resultIndex = to; resultIndex < result.length && fromIndex < data.getNum(); resultIndex++) {
+        	ReadOnlyData.Data fromData = data.getData(fromIndex++);
+        	if (fromData != null)
+        		result[resultIndex] = aggregate(columns, tagGroups, usageUnit, isCost ? fromData.getCost() : fromData.getUsage());
+        }
+        return fromIndex - from;
+	}
+	
+	private Map<Tag, double[]> processResult(boolean isCost, Map<Tag, double[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
 		Map<Tag, double[]> result = Maps.newTreeMap();
 		for (Tag t: data.keySet()) {
-			result.put(t, ArrayUtils.toPrimitive(data.get(t), 0.0));
+			result.put(t, data.get(t));
 		}
 		
 		if (aggregate != AggregateType.none && result.values().size() > 0) {
@@ -165,6 +151,116 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, Double> im
 		
 		return result;
 	}
+
+    /*
+     * Aggregate all the data matching the tags in tagLists at requested time for the specified to and from indices.
+     */
+    private int aggregateData(boolean isCost, DateTime time, TagLists tagLists, int from, int to, double[] result, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+        ReadOnlyData data = getReadOnlyData(time);
+
+        // Figure out which columns we're going to aggregate
+        List<Integer> columnIndecies = Lists.newArrayList();
+        List<TagGroup> tagGroups = Lists.newArrayList();
+        
+    	getColumns(groupBy, tag, userTagGroupByIndex, data, tagLists, columnIndecies, tagGroups);
+    	return aggregate(isCost, data, from, to, result, columnIndecies, tagGroups, usageUnit);
+    }
+        
+    private double[] getData(boolean isCost, Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+    	Interval adjusted = getAdjustedInterval(interval);
+        DateTime start = adjusted.getStart();
+        DateTime end = adjusted.getEnd();
+
+        double[] result = new double[getSize(interval)];
+
+        do {
+            int resultIndex = getResultIndex(start, interval);
+            int fromIndex = getFromIndex(start, interval);            
+            int count = aggregateData(isCost, start, tagLists, fromIndex, resultIndex, result, usageUnit, groupBy, tag, userTagGroupByIndex);
+            fromIndex += count;
+            resultIndex += count;
+
+            if (consolidateType  == ConsolidateType.hourly)
+                start = start.plusMonths(1);
+            else if (consolidateType  == ConsolidateType.daily)
+                start = start.plusYears(1);
+            else
+                break;
+        }
+        while (start.isBefore(end));
+        
+        return result;
+    }
+    
+    private boolean hasData(double[] d) {
+    	for (int i = 0; i < d.length; i++) {
+    		if (d[i] != 0.0)
+    			return true;
+    	}
+    	return false;
+    }
+    
+    private void addData(double[] from, double[] to) {
+    	for (int i = 0; i < to.length; i++) {
+    		to[i] += from[i];
+    	}
+    }
+
+    private Map<Tag, double[]> getGroupedData(boolean isCost, Interval interval, Map<Tag, TagLists> tagListsMap, UsageUnit usageUnit, TagType groupBy, int userTagGroupByIndex) {
+        Map<Tag, double[]> rawResult = Maps.newTreeMap();
+//        StopWatch sw = new StopWatch();
+//        sw.start();
+        
+        // For each of the groupBy values
+        for (Tag tag: tagListsMap.keySet()) {
+            try {
+                //logger.info("Tag: " + tag + ", TagLists: " + tagListsMap.get(tag));
+                double[] data = getData(isCost, interval, tagListsMap.get(tag), usageUnit, groupBy, tag, userTagGroupByIndex);
+                
+            	// Check for values in the data array and ignore if all zeros
+                if (hasData(data)) {
+	                if (groupBy == TagType.Tag) {
+	                	Tag userTag = tag.name.isEmpty() ? UserTag.get(UserTag.none) : tag;
+	                	
+	        			if (rawResult.containsKey(userTag)) {
+	        				// aggregate current data with the one already in the map
+	        				addData(data, rawResult.get(userTag));
+	        			}
+	        			else {
+	        				// Put in map using the user tag
+	        				rawResult.put(userTag, data);
+	        			}
+	                }
+	                else {
+	                	rawResult.put(tag, data);
+	                }
+                }
+            }
+            catch (ExecutionException e) {
+                logger.error("error in getData for " + tag + " " + interval, e);
+            }
+        }
+//        sw.stop();
+//        logger.info("getGroupedData elapsed time " + sw);
+        return rawResult;
+    }
+
+    private Map<Tag, double[]> getRawData(boolean isCost, Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex) {
+    	//logger.info("Entered with groupBy: " + groupBy + ", userTagGroupByIndex: " + userTagGroupByIndex + ", tagLists: " + tagLists);
+    	Map<Tag, TagLists> tagListsMap = tagGroupManager.getTagListsMap(interval, tagLists, groupBy, exclude, userTagGroupByIndex);
+    	return getGroupedData(isCost, interval, tagListsMap, usageUnit, groupBy, userTagGroupByIndex);
+    }
+
+	@Override
+    protected Map<Tag, double[]> getData(boolean isCost, Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex, List<UserTagKey> tagKeys) {
+    	StopWatch sw = new StopWatch();
+    	sw.start();
+    	Map<Tag, double[]> rawResult = getRawData(isCost, interval, tagLists, groupBy, aggregate, exclude, usageUnit, userTagGroupByIndex);
+        Map<Tag, double[]> result = processResult(isCost, rawResult, groupBy, aggregate, tagKeys);
+        logger.debug("getData elapsed time: " + sw);
+        return result;
+    }
+
 
 
 }

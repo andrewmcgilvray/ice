@@ -54,6 +54,7 @@ import com.netflix.ice.common.Config.TagCoverage;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagGroupRI;
+import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.ReservationService.ReservationPeriod;
 import com.netflix.ice.processor.ReservationService.ReservationKey;
 import com.netflix.ice.processor.config.AccountConfig;
@@ -141,29 +142,6 @@ public class BillingFileProcessorTest {
 			return reservationProcessor;
 		}
 	}
-	class DetailedBillingReportTest implements ReportTest {
-		private ReservationProcessor reservationProcessor = null;
-
-		public long Process(ProcessorConfig config, DateTime start,
-				CostAndUsageData costAndUsageData,
-				Instances instances) throws Exception {
-			
-			DetailedBillingReportProcessor dbrProcessor = new DetailedBillingReportProcessor(config);
-			reservationProcessor = dbrProcessor.getReservationProcessor();
-			File dbr = new File(resourcesReportDir, "aws-billing-detailed-line-items-with-resources-and-tags-2017-08.csv.zip");
-			S3ObjectSummary s3ObjectSummary = new S3ObjectSummary();
-			s3ObjectSummary.setKey("/aws-billing-detailed-line-items-with-resources-and-tags-2017-08.csv.zip");
-			s3ObjectSummary.setLastModified(new Date());
-			DetailedBillingReportProcessor.BillingFile report = dbrProcessor.new BillingFile(s3ObjectSummary, dbrProcessor, "");
-			
-	        return dbrProcessor.processReport(start, report, dbr,
-	        		costAndUsageData, instances);
-		}
-		
-		public ReservationProcessor getReservationProcessor() {
-			return reservationProcessor;
-		}
-	}
 	
 	public void testFileData(ReportTest reportTest, String prefix, ProductService productService) throws Exception {
         ReservationPeriod reservationPeriod = ReservationPeriod.valueOf(properties.getProperty(IceOptions.RESERVATION_PERIOD, "oneyear"));
@@ -242,8 +220,7 @@ public class BillingFileProcessorTest {
         reportTest.getReservationProcessor().process(config.reservationService, costAndUsageData, null, config.startDate, prices);
         
         logger.info("Finished processing reports, ready to compare results on " + 
-        		costAndUsageData.getUsage(null).getTagGroups().size() + " usage tags and " + 
-        		costAndUsageData.getCost(null).getTagGroups().size() + " cost tags");
+        		costAndUsageData.get(null).getTagGroups().size() + " tags");
         
 		// Read the file with tags to ignore if present
         File ignoreFile = new File(resourcesReportDir, "ignore.csv");
@@ -258,44 +235,33 @@ public class BillingFileProcessorTest {
     		}
         }
                 
-        File expectedUsage = new File(resourcesReportDir, prefix+"usage.csv");
-        if (!expectedUsage.exists()) {
+        File expected = new File(resourcesReportDir, prefix+"cau.csv");
+        if (!expected.exists()) {
         	// Comparison file doesn't exist yet, write out our current results
-        	logger.info("Saving reference usage data...");
-            writeData(costAndUsageData.getUsage(null), "Cost", expectedUsage);
+        	logger.info("Saving reference data...");
+            writeData(costAndUsageData.get(null), expected);
         }
         else {
         	// Compare results against the expected data
         	logger.info("Comparing against reference usage data...");
-        	compareData(costAndUsageData.getUsage(null), "Usage", expectedUsage, config.accountService, productService, ignore);
-        }
-        File expectedCost = new File(resourcesReportDir, prefix+"cost.csv");
-        if (!expectedCost.exists()) {
-        	// Comparison file doesn't exist yet, write out our current results
-        	logger.info("Saving reference cost data...");
-            writeData(costAndUsageData.getCost(null), "Cost", expectedCost);
-        }
-        else {
-        	// Compare results against the expected data
-        	logger.info("Comparing against reference cost data...");
-        	compareData(costAndUsageData.getCost(null), "Cost", expectedCost, config.accountService, productService, ignore);
+        	compareData(costAndUsageData.get(null), expected, config.accountService, productService, ignore);
         }
 	}
 		
-	private void writeData(ReadWriteData data, String dataType, File outputFile) {
+	private void writeData(DataSerializer data, File outputFile) {
 		FileWriter out;
 		try {
 			out = new FileWriter(outputFile);
 	        data.serializeCsv(out, null);
 	        out.close();
 		} catch (Exception e) {
-			logger.error("Error writing " + dataType + " file " + e);
+			logger.error("Error writing file " + e);
 		}
 	}
-	
-	private void compareData(ReadWriteData data, String dataType, File expectedFile, AccountService accountService, ProductService productService, Set<TagGroup> ignore) {
+
+	private void compareData(DataSerializer data, File expectedFile, AccountService accountService, ProductService productService, Set<TagGroup> ignore) {
 		// Read in the expected data
-		ReadWriteData expectedData = new ReadWriteData();
+		DataSerializer expectedData = new DataSerializer(0);
 		
 		// Will print out tags that have the following usage type family. Set to null to disable.
 		String debugFamily = null; // "t2";
@@ -306,39 +272,42 @@ public class BillingFileProcessorTest {
 			expectedData.deserializeCsv(accountService, productService, in);
 			in.close();
 		} catch (Exception e) {
-			logger.error("Error reading " + dataType + " expected data file " + e);
+			logger.error("Error reading expected data file " + e);
 		}
 		
 		
 		// See that number of hours matches
-		assertEquals(dataType+" number of hours doesn't match", expectedData.getNum(), data.getNum());
+		assertEquals("Number of hours doesn't match", expectedData.getNum(), data.getNum());
 		// For each hour see that the length and entries match
 		for (int i = 0; i < data.getNum(); i++) {
-			Map<TagGroup, Double> expected = expectedData.getData(i);
-			Map<TagGroup, Double> got = Maps.newHashMap();
-			for (Entry<TagGroup, Double> entry: data.getData(i).entrySet()) {
+			Map<TagGroup, CostAndUsage> expected = expectedData.getData(i);
+			Map<TagGroup, CostAndUsage> got = Maps.newHashMap();
+			for (Entry<TagGroup, CostAndUsage> entry: data.getData(i).entrySet()) {
 				TagGroup tg = entry.getKey();
 				// Convert any TagGroupRIs to TagGroups since the RI version isn't reconstituted from file
 				if (tg instanceof TagGroupRI) {
 					tg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
 				}
-				got.put(tg, entry.getValue());
+				CostAndUsage cau = entry.getValue();
+				if (!cau.isZero())
+					got.put(tg, cau);
 			}
-			int expectedLen = expected.keySet().size();
 	        Set<TagGroup> keys = Sets.newTreeSet();
 	        keys.addAll(got.keySet());
 			int gotLen = keys.size();
 
-	        if (expectedLen != gotLen)
-	        	logger.info(dataType+" number of items for hour " + i + " doesn't match, expected " + expectedLen + ", got " + gotLen);
-			
 			// Count all the tags found vs. not found and output the error printouts in sorted order
 			int numFound = 0;
 			int numNotFound = 0;
 			Set<TagGroup> notFound = Sets.newTreeSet();
-			for (Entry<TagGroup, Double> entry: expected.entrySet()) {
-				Double gotValue = got.get(entry.getKey());
-				if (gotValue == null) {
+			int expectedLen = 0;
+			for (Entry<TagGroup, CostAndUsage> entry: expected.entrySet()) {
+				CostAndUsage expectedValue = entry.getValue();
+				if (!expectedValue.isZero())
+					expectedLen++;
+				
+				CostAndUsage gotValue = got.get(entry.getKey());
+				if (gotValue == null && !expectedValue.isZero()) {
 					if (debugFamily == null || entry.getKey().usageType.name.contains(debugFamily))
 						notFound.add(entry.getKey());
 					numNotFound++;
@@ -346,6 +315,11 @@ public class BillingFileProcessorTest {
 				else
 					numFound++;
 			}
+			
+	        if (expectedLen != gotLen)
+	        	logger.info("Number of items for hour " + i + " doesn't match, expected " + expectedLen + ", got " + gotLen);
+			
+			
 			int numPrinted = 0;
 			for (TagGroup tg: notFound) {
 				logger.info("Tag not found: " + tg + ", value: " + expected.get(tg));
@@ -356,8 +330,8 @@ public class BillingFileProcessorTest {
 			// Scan for values in got but not in expected
 			int numExtra = 0;
 			Set<TagGroup> extras = Sets.newTreeSet();
-			for (Entry<TagGroup, Double> entry: got.entrySet()) {
-				Double expectedValue = expected.get(entry.getKey());
+			for (Entry<TagGroup, CostAndUsage> entry: got.entrySet()) {
+				CostAndUsage expectedValue = expected.get(entry.getKey());
 				if (expectedValue == null) {
 					if (debugFamily == null || entry.getKey().usageType.name.contains(debugFamily))
 						extras.add(entry.getKey());
@@ -381,18 +355,20 @@ public class BillingFileProcessorTest {
 			int numMatches = 0;
 			int numMismatches = 0;
 			if (numFound > 0) {
-				for (Entry<TagGroup, Double> entry: got.entrySet()) {
+				for (Entry<TagGroup, CostAndUsage> entry: got.entrySet()) {
 					if (ignore != null && ignore.contains(entry.getKey()))
 						continue;
 					
-					Double gotValue = entry.getValue();
-					Double expectedValue = expected.get(entry.getKey());
+					CostAndUsage gotValue = entry.getValue();
+					CostAndUsage expectedValue = expected.get(entry.getKey());
 					if (expectedValue != null) {
-						if (Math.abs(expectedValue - gotValue) < 0.001)
+						if (Math.abs(expectedValue.cost - gotValue.cost) < 0.001 &&
+							Math.abs(expectedValue.usage - gotValue.usage) < 0.001) {
 							numMatches++;
+						}
 						else {
 							if (numMismatches < 100 && (debugFamily == null || entry.getKey().usageType.name.contains(debugFamily)))
-								logger.info(dataType+" non-matching entry for hour " + i + " with tag " + entry.getKey() + ", expected " + expectedValue + ", got " + gotValue);
+								logger.info("Non-matching entry for hour " + i + " with tag " + entry.getKey() + ", expected " + expectedValue + ", got " + gotValue);
 							numMismatches++;				
 						}
 					}
@@ -402,7 +378,7 @@ public class BillingFileProcessorTest {
 				assertEquals("Hour "+i+" has " + numMismatches + " incorrect data values", 0, numMismatches);
 			}
 			assertEquals("Hour "+i+" has " + numNotFound + " tags that were not found", 0, numNotFound);
-			assertEquals(dataType+" number of items for hour " + i + " doesn't match, expected " + expectedLen + ", got " + gotLen, expectedLen, gotLen);			
+			assertEquals("Number of items for hour " + i + " doesn't match, expected " + expectedLen + ", got " + gotLen, expectedLen, gotLen);			
 		}
 	}
 	
@@ -434,51 +410,5 @@ public class BillingFileProcessorTest {
 		testFileData(new CostAndUsageTest(), "cau-", productService);
 	}
 	
-	@Test
-	public void testDetailedBillingReport() throws Exception {
-		init(resourcesReportDir + "ice.properties");
-		ProductService productService = new BasicProductService();
-		// Load products since DBRs don't have product codes (we normally pull them from the pricing service)
-		productService.getProduct(Product.Code.Ec2Instance);
-		productService.getProduct(Product.Code.RdsInstance);
-		productService.getProduct("AWS Support (Developer)", "AWSDeveloperSupport");
-		productService.getProduct("AWS CloudTrail", "AWSCloudTrail");
-		productService.getProduct("AWS Config", "AWSConfig");
-		productService.getProduct("AWS Lambda", "AWSLambda");
-		productService.getProduct(Product.Code.DataTransfer);
-		productService.getProduct("Amazon Simple Queue Service", "AWSQueueService");
-		productService.getProduct(Product.Code.ApiGateway);
-		productService.getProduct(Product.Code.CloudWatch);
-		productService.getProduct("Amazon DynamoDB", "AmazonDynamoDB");
-		productService.getProduct(Product.Code.Ec2);
-		productService.getProduct(Product.Code.Ebs);
-		productService.getProduct(Product.Code.Eip);
-		productService.getProduct(Product.Code.ElastiCache);
-		productService.getProduct(Product.Code.Rds);
-		productService.getProduct(Product.Code.S3);
-		productService.getProduct("Amazon Simple Notification Service", "AmazonSNS");
-		productService.getProduct("Amazon Virtual Private Cloud", "AmazonVPC");
-		productService.getProduct("AWS Key Management Service", "awskms");
-		productService.getProduct("Amazon SimpleDB", "AmazonSimpleDB");
-		productService.getProduct("AWS Direct Connect", "AWSDirectConnect");
-		productService.getProduct("Amazon Route 53", "AmazonRoute53");
-		productService.getProduct("Amazon Simple Email Service", "AmazonSES");
-		productService.getProduct("Amazon Glacier", "AmazonGlacier");
-		productService.getProduct(Product.Code.CloudFront);
-		productService.getProduct("Amazon EC2 Container Registry (ECR)", "AmazonECR");
-		productService.getProduct(Product.Code.Elasticsearch);
-		productService.getProduct("AWS Service Catalog", "AWSServiceCatalog");
-		productService.getProduct("Amazon WorkSpaces", "AmazonWorkSpaces");
-		productService.getProduct("AWS Data Pipeline", "datapipeline");
-		productService.getProduct("Amazon WorkDocs", "AmazonWorkDocs");
-		productService.getProduct(Product.Code.Emr);
-		productService.getProduct("Amazon Mobile Analytics", "mobileanalytics");
-		productService.getProduct("AWS Directory Service", "AWSDirectoryService");
-		productService.getProduct("Amazon Elastic File System", "AmazonEFS");
-		productService.getProduct("Amazon Kinesis", "AmazonKinesis");
-		productService.getProduct(Product.Code.Redshift);
-				
-		testFileData(new DetailedBillingReportTest(), "dbr-", productService);
-	}
 	
 }

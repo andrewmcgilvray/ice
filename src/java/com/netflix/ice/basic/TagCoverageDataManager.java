@@ -21,7 +21,9 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
+import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
@@ -39,12 +41,14 @@ import com.netflix.ice.reader.ReadOnlyTagCoverageData;
 import com.netflix.ice.reader.TagGroupManager;
 import com.netflix.ice.reader.TagLists;
 import com.netflix.ice.reader.UsageUnit;
+import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
+import com.netflix.ice.tag.UserTag;
 import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
-public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TagCoverageMetrics> implements DataManager {
+public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TagCoverageMetrics[]> implements DataManager {
     //private final static Logger staticLogger = LoggerFactory.getLogger(TagCoverageDataManager.class);
 	
 	protected List<UserTagKey> userTagKeys;
@@ -59,8 +63,7 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 		return userTagKeys.size();
 	}
     
-	@Override
-	protected void addData(TagCoverageMetrics[] from, TagCoverageMetrics[] to) {
+	private void addData(TagCoverageMetrics[] from, TagCoverageMetrics[] to) {
         for (int i = 0; i < from.length; i++) {
         	if (from[i] == null)
         		continue;
@@ -84,13 +87,7 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 	    return result;
 	}
 
-	@Override
-	protected TagCoverageMetrics[] getResultArray(int size) {
-		return new TagCoverageMetrics[size];
-	}
-
-	@Override
-	protected TagCoverageMetrics aggregate(List<Integer> columns,
+	private TagCoverageMetrics aggregate(List<Integer> columns,
 			List<TagGroup> tagGroups, UsageUnit usageUnit,
 			TagCoverageMetrics[] data) {
 		
@@ -105,8 +102,18 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
         return result;
 	}
 
-	@Override
-	protected boolean hasData(TagCoverageMetrics[] data) {
+    private int aggregate(ReadOnlyTagCoverageData data, int from, int to, TagCoverageMetrics[] result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit) {		
+        int fromIndex = from;
+        int resultIndex = to;
+        while (resultIndex < result.length && fromIndex < data.getNum()) {
+        	TagCoverageMetrics[] fromData = data.getData(fromIndex++);
+            result[resultIndex] = aggregate(columns, tagGroups, usageUnit, fromData);
+            resultIndex++;
+        }
+        return fromIndex - from;
+	}
+	
+	private boolean hasData(TagCoverageMetrics[] data) {
     	// Check for values in the data array and ignore if all zeros
     	for (TagCoverageMetrics d: data) {
     		if (d != null && d.getTotal() > 0)
@@ -119,7 +126,6 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 		return userTagKeys;
 	}
 
-	@Override
     protected Map<Tag, double[]> processResult(Map<Tag, TagCoverageMetrics[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
     	return TagCoverageDataManager.processResult(data, groupBy, aggregate, tagKeys, getUserTagKeys());
     }
@@ -233,8 +239,105 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 		
 		return result;
 	}
+
+    /*
+     * Aggregate all the data matching the tags in tagLists at requested time for the specified to and from indices.
+     */
+    private int aggregateData(DateTime time, TagLists tagLists, int from, int to, TagCoverageMetrics[] result, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+        ReadOnlyTagCoverageData data = getReadOnlyData(time);
+
+        // Figure out which columns we're going to aggregate
+        List<Integer> columnIndecies = Lists.newArrayList();
+        List<TagGroup> tagGroups = Lists.newArrayList();
+        
+    	getColumns(groupBy, tag, userTagGroupByIndex, data, tagLists, columnIndecies, tagGroups);
+    	return aggregate(data, from, to, result, columnIndecies, tagGroups, usageUnit);
+    }
+        
+    private TagCoverageMetrics[] getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+    	Interval adjusted = getAdjustedInterval(interval);
+        DateTime start = adjusted.getStart();
+        DateTime end = adjusted.getEnd();
+
+        TagCoverageMetrics[] result = new TagCoverageMetrics[getSize(interval)];
+
+        do {
+            int resultIndex = getResultIndex(start, interval);
+            int fromIndex = getFromIndex(start, interval);            
+            int count = aggregateData(start, tagLists, fromIndex, resultIndex, result, usageUnit, groupBy, tag, userTagGroupByIndex);
+            fromIndex += count;
+            resultIndex += count;
+
+            if (consolidateType  == ConsolidateType.hourly)
+                start = start.plusMonths(1);
+            else if (consolidateType  == ConsolidateType.daily)
+                start = start.plusYears(1);
+            else
+                break;
+        }
+        while (start.isBefore(end));
+        
+        return result;
+    }
     
+    private Map<Tag, TagCoverageMetrics[]> getGroupedData(Interval interval, Map<Tag, TagLists> tagListsMap, UsageUnit usageUnit, TagType groupBy, int userTagGroupByIndex) {
+        Map<Tag, TagCoverageMetrics[]> rawResult = Maps.newTreeMap();
+//        StopWatch sw = new StopWatch();
+//        sw.start();
+        
+        // For each of the groupBy values
+        for (Tag tag: tagListsMap.keySet()) {
+            try {
+                //logger.info("Tag: " + tag + ", TagLists: " + tagListsMap.get(tag));
+            	TagCoverageMetrics[] data = getData(interval, tagListsMap.get(tag), usageUnit, groupBy, tag, userTagGroupByIndex);
+                
+            	// Check for values in the data array and ignore if all zeros
+                if (hasData(data)) {
+	                if (groupBy == TagType.Tag) {
+	                	Tag userTag = tag.name.isEmpty() ? UserTag.get(UserTag.none) : tag;
+	                	
+	        			if (rawResult.containsKey(userTag)) {
+	        				// aggregate current data with the one already in the map
+	        				addData(data, rawResult.get(userTag));
+	        			}
+	        			else {
+	        				// Put in map using the user tag
+	        				rawResult.put(userTag, data);
+	        			}
+	                }
+	                else {
+	                	rawResult.put(tag, data);
+	                }
+                }
+            }
+            catch (ExecutionException e) {
+                logger.error("error in getData for " + tag + " " + interval, e);
+            }
+        }
+//        sw.stop();
+//        logger.info("getGroupedData elapsed time " + sw);
+        return rawResult;
+    }
+
     public Map<Tag, TagCoverageMetrics[]> getRawData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, int userTagGroupByIndex) {
     	return getRawData(interval, tagLists, groupBy, aggregate, null, null, userTagGroupByIndex);
     }
+    
+    private Map<Tag, TagCoverageMetrics[]> getRawData(Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex) {
+    	//logger.info("Entered with groupBy: " + groupBy + ", userTagGroupByIndex: " + userTagGroupByIndex + ", tagLists: " + tagLists);
+    	Map<Tag, TagLists> tagListsMap = tagGroupManager.getTagListsMap(interval, tagLists, groupBy, exclude, userTagGroupByIndex);
+    	return getGroupedData(interval, tagListsMap, usageUnit, groupBy, userTagGroupByIndex);
+    }
+    
+    
+	@Override
+    protected Map<Tag, double[]> getData(boolean isCost, Interval interval, TagLists tagLists, TagType groupBy, AggregateType aggregate, List<Operation.Identity.Value> exclude, UsageUnit usageUnit, int userTagGroupByIndex, List<UserTagKey> tagKeys) {
+    	StopWatch sw = new StopWatch();
+    	sw.start();
+    	Map<Tag, TagCoverageMetrics[]> rawResult = getRawData(interval, tagLists, groupBy, aggregate, exclude, usageUnit, userTagGroupByIndex);
+        Map<Tag, double[]> result = processResult(rawResult, groupBy, aggregate, tagKeys);
+        logger.debug("getData elapsed time: " + sw);
+        return result;
+    }
+
 }

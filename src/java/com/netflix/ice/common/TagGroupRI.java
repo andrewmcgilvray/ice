@@ -86,4 +86,9 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
         }
     }
 
+    @Override
+    public TagGroup withResourceGroup(ResourceGroup rg) {
+    	return get(account, region, zone, product, operation, usageType, rg, arn);
+    }
+
 }

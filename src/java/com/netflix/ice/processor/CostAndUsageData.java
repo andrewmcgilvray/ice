@@ -57,6 +57,7 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.Config.TagCoverage;
 import com.netflix.ice.common.TagGroupRI;
 import com.netflix.ice.common.TagGroupSP;
+import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.ProcessorConfig.JsonFileType;
 import com.netflix.ice.processor.ReadWriteDataSerializer.TagGroupFilter;
 import com.netflix.ice.processor.pricelist.PriceListService;
@@ -71,8 +72,9 @@ public class CostAndUsageData {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
     private final long startMilli;
-    private Map<Product, ReadWriteData> usageDataByProduct;
-    private Map<Product, ReadWriteData> costDataByProduct;
+    
+    private Map<Product, DataSerializer> dataByProduct;
+    
     private final WorkBucketConfig workBucketConfig;
     private final AccountService accountService;
     private final ProductService productService;
@@ -90,10 +92,10 @@ public class CostAndUsageData {
 	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
 		this.startMilli = startMilli;
         this.userTagKeys = userTagKeys;
-		this.usageDataByProduct = Maps.newHashMap();
-		this.costDataByProduct = Maps.newHashMap();
-        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
-        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        
+        this.dataByProduct = Maps.newHashMap();
+		this.dataByProduct.put(null, new DataSerializer(userTagKeys == null ? 0 : userTagKeys.size()));
+		        
         this.workBucketConfig = workBucketConfig;
         this.accountService = accountService;
         this.productService = productService;
@@ -117,10 +119,8 @@ public class CostAndUsageData {
 	public CostAndUsageData(CostAndUsageData other, List<UserTagKey> userTagKeys) {
 		this.startMilli = other.startMilli;
         this.userTagKeys = userTagKeys;
-		this.usageDataByProduct = Maps.newHashMap();
-		this.costDataByProduct = Maps.newHashMap();
-        this.usageDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
-        this.costDataByProduct.put(null, new ReadWriteData(0)); // Non-resource data has no user tags
+        this.dataByProduct = Maps.newHashMap();
+		this.dataByProduct.put(null, new DataSerializer(userTagKeys.size()));
         this.workBucketConfig = other.workBucketConfig;
         this.accountService = other.accountService;
         this.productService = other.productService;
@@ -149,15 +149,13 @@ public class CostAndUsageData {
 		return cacheTagGroups;
 	}
 	
-	public void enableTagGroupCache(boolean cacheTagGroups) {
-		this.cacheTagGroups = cacheTagGroups;
-		for (ReadWriteData rwd: usageDataByProduct.values())
-			rwd.enableTagGroupCache(cacheTagGroups);
-		for (ReadWriteData rwd: costDataByProduct.values())
-			rwd.enableTagGroupCache(cacheTagGroups);
+	public void enableTagGroupCache(boolean enabled) {
+		this.cacheTagGroups = enabled;
+		for (DataSerializer ds: dataByProduct.values())
+			ds.enableTagGroupCache(enabled);
 		if (tagCoverage != null) {
 			for (ReadWriteTagCoverageData tcd: tagCoverage.values())
-				tcd.enableTagGroupCache(true);
+				tcd.enableTagGroupCache(enabled);
 		}
 	}
 	
@@ -174,24 +172,38 @@ public class CostAndUsageData {
 		return userTagKeysAsStrings;
 	}
 	
-	public ReadWriteData getUsage(Product product) {
-		return usageDataByProduct.get(product);
+	public DataSerializer get(Product product) {
+		return dataByProduct.get(product);
 	}
 	
-	public void putUsage(Product product, ReadWriteData data) {
-		usageDataByProduct.put(product,  data);
+	public void put(Product product, DataSerializer data) {
+		dataByProduct.put(product, data);
 		data.enableTagGroupCache(cacheTagGroups);
 	}
 	
-	public ReadWriteData getCost(Product product) {
-		return costDataByProduct.get(product);
-	}
-	
-	public void putCost(Product product, ReadWriteData data) {
-		costDataByProduct.put(product,  data);
-		data.enableTagGroupCache(cacheTagGroups);
-	}
-	
+    public int getNum(Product product) {
+    	DataSerializer ds = dataByProduct.get(product);
+        return ds == null ? 0 : ds.getNum();
+    }
+
+    public Collection<TagGroup> getTagGroups(Product product) {
+        return dataByProduct.get(product).getTagGroups();
+    }
+    
+    public void add(Product product, int i, TagGroup tagGroup, double cost, double usage) {
+    	DataSerializer ds = dataByProduct.get(product);
+    	if (ds == null) {
+    		ds = new DataSerializer(userTagKeys.size());
+    		dataByProduct.put(product, ds);
+    	}
+        CostAndUsage oldV = ds.get(i, tagGroup);
+        if (oldV != null) {
+        	cost += oldV.cost;
+            usage += oldV.usage;
+        }
+        ds.put(i, tagGroup, new CostAndUsage(cost, usage));
+    }
+
 	public ReadWriteTagCoverageData getTagCoverage(Product product) {
 		return tagCoverage.get(product);
 	}
@@ -204,27 +216,16 @@ public class CostAndUsageData {
 	
 	public void putAll(CostAndUsageData data) {
 		// Add all the data from the supplied CostAndUsageData
+		for (Product product: data.dataByProduct.keySet()) {
+			DataSerializer ds = dataByProduct.get(product);
+			if (ds == null) {
+				dataByProduct.put(product, data.dataByProduct.get(product));
+			}
+			else {
+				ds.putAll(data.dataByProduct.get(product));
+			}
+		}
 		
-		for (Entry<Product, ReadWriteData> entry: data.usageDataByProduct.entrySet()) {
-			ReadWriteData usage = getUsage(entry.getKey());
-			if (usage == null) {
-				usageDataByProduct.put(entry.getKey(), entry.getValue());
-				entry.getValue().enableTagGroupCache(cacheTagGroups);
-			}
-			else {
-				usage.putAll(entry.getValue());
-			}
-		}
-		for (Entry<Product, ReadWriteData> entry: data.costDataByProduct.entrySet()) {
-			ReadWriteData cost = getCost(entry.getKey());
-			if (cost == null) {
-				costDataByProduct.put(entry.getKey(), entry.getValue());
-				entry.getValue().enableTagGroupCache(cacheTagGroups);
-			}
-			else {
-				cost.putAll(entry.getValue());
-			}
-		}
 		if (tagCoverage != null && data.tagCoverage != null) {
 			for (Entry<Product, ReadWriteTagCoverageData> entry: data.tagCoverage.entrySet()) {
 				ReadWriteTagCoverageData tc = getTagCoverage(entry.getKey());
@@ -243,23 +244,16 @@ public class CostAndUsageData {
 	}
 	
     public void cutData(int hours) {
-        for (ReadWriteData data: usageDataByProduct.values()) {
-            data.cutData(hours);
-        }
-        for (ReadWriteData data: costDataByProduct.values()) {
-            data.cutData(hours);
-        }
+        for (DataSerializer ds: dataByProduct.values())
+            ds.cutData(hours);
     }
     
     public int getMaxNum() {
     	// return the maximum number of hours represented in the underlying maps
     	int max = 0;
     	
-        for (ReadWriteData data: usageDataByProduct.values()) {
-            max = max < data.getNum() ? data.getNum() : max;
-        }
-        for (ReadWriteData data: costDataByProduct.values()) {
-            max = max < data.getNum() ? data.getNum() : max;
+        for (DataSerializer ds: dataByProduct.values()) {
+            max = max < ds.getNum() ? ds.getNum() : max;
         }
         return max;
     }
@@ -362,15 +356,13 @@ public class CostAndUsageData {
     	for (JsonFileType jft: jsonFiles)
         	futures.add(archiveJson(jft, instanceMetrics, priceListService, pool));
     	
-        for (Product product: costDataByProduct.keySet()) {
-        	futures.add(archiveTagGroups(startMilli, product, costDataByProduct.get(product).getTagGroups(), pool));
+        for (Product product: dataByProduct.keySet()) {
+        	futures.add(archiveTagGroups(startMilli, product, dataByProduct.get(product).getTagGroups(), pool));
         }
-
-        archiveHourly(usageDataByProduct, "usage_", archiveHourlyData, pool, futures);
-        archiveHourly(costDataByProduct, "cost_", archiveHourlyData, pool, futures);  
-    
-        archiveSummary(startDate, usageDataByProduct, "usage_", pool, futures);
-        archiveSummary(startDate, costDataByProduct, "cost_", pool, futures);
+        
+        archiveHourly(archiveHourlyData, pool, futures);    
+        archiveSummary(startDate, pool, futures);
+        
         archiveSummaryTagCoverage(startDate, pool, futures);
 
         archiveReservations();
@@ -412,18 +404,13 @@ public class CostAndUsageData {
 	}
     
     private void verifyTagGroups() throws Exception {    	
-        for (Product product: costDataByProduct.keySet()) {
+        for (Product product: dataByProduct.keySet()) {
         	boolean verify = product == null || product.isEc2Instance() || product.isRdsInstance() || product.isRedshift() || product.isElastiCache() || product.isElasticsearch();
         	if (!verify)
         		continue;
         	
-            Collection<TagGroup> tagGroups = costDataByProduct.get(product).getTagGroups();            
+            Collection<TagGroup> tagGroups = dataByProduct.get(product).getTagGroups();            
         	verifyTagGroupsForProduct(tagGroups);
-
-        	if (usageDataByProduct.get(product) != null) {
-	            tagGroups = usageDataByProduct.get(product).getTagGroups();
-	            verifyTagGroupsForProduct(tagGroups);
-        	}
         }
     }
     
@@ -454,7 +441,7 @@ public class CostAndUsageData {
     	        String filename = writeJsonFiles.name() + "_all_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".json";
     	        try {
 	    	        DataJsonWriter writer = new DataJsonWriter(filename,
-	    	        		monthDateTime, userTagKeys, writeJsonFiles, costDataByProduct, usageDataByProduct, instanceMetrics, priceListService, workBucketConfig);
+	    	        		monthDateTime, userTagKeys, writeJsonFiles, dataByProduct, instanceMetrics, priceListService, workBucketConfig);
 	    	        writer.archive();
     	        }
     	        catch (Exception e) {
@@ -485,14 +472,16 @@ public class CostAndUsageData {
     	});        
     }
     
-    private void archiveHourly(Map<Product, ReadWriteData> dataMap, String prefix, boolean archiveHourlyData, ExecutorService pool, List<Future<Status>> futures) {
+    private void archiveHourly(boolean archiveHourlyData, ExecutorService pool, List<Future<Status>> futures) {
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
-        for (Product product: dataMap.keySet()) {
+        
+        for (Product product: dataByProduct.keySet()) {
         	if (!archiveHourlyData && product != null && !product.hasReservations() && !product.hasSavingsPlans())
         		continue;
         	
-            String name = prefix + "hourly_" + getProdName(product) + "_" + AwsUtils.monthDateFormat.print(monthDateTime);
-            futures.add(archiveHourlyFile(name, dataMap.get(product), archiveHourlyData, pool));
+            String name = "hourly_" + getProdName(product) + "_" + AwsUtils.monthDateFormat.print(monthDateTime);
+                        
+            futures.add(archiveHourlyFile(name, dataByProduct.get(product), archiveHourlyData, pool));
         }
     }
     
@@ -510,12 +499,12 @@ public class CostAndUsageData {
     	
     }
     
-    private Future<Status> archiveHourlyFile(final String name, final ReadWriteDataSerializer data, final boolean archiveHourlyData, ExecutorService pool) {
+    private Future<Status> archiveHourlyFile(final String name, final ReadWriteDataSerializer serializer, final boolean archiveHourlyData, ExecutorService pool) {
     	return pool.submit(new Callable<Status>() {
     		@Override
     		public Status call() {
     			try {
-	                DataWriter writer = getDataWriter(name, data, false);
+	                DataWriter writer = getDataWriter(name, serializer, false);
 	                writer.archive(archiveHourlyData ? null : new RiSpTagGroupFilter());
 	                writer.delete(); // delete local copy to save disk space since we don't need it anymore
     			}
@@ -528,48 +517,44 @@ public class CostAndUsageData {
     	});
     }
 
-    protected void addValue(List<Map<TagGroup, Double>> list, int index, TagGroup tagGroup, double v) {
-        Map<TagGroup, Double> map = ReadWriteData.getCreateData(list, index);
-        Double existedV = map.get(tagGroup);
-        map.put(tagGroup, existedV == null ? v : existedV + v);
+    protected void addValue(List<Map<TagGroup, DataSerializer.CostAndUsage>> list, int index, TagGroup tagGroup, DataSerializer.CostAndUsage v) {
+        Map<TagGroup, DataSerializer.CostAndUsage> map = DataSerializer.getCreateData(list, index);
+        DataSerializer.CostAndUsage existedV = map.get(tagGroup);
+        map.put(tagGroup, existedV == null ? v : new CostAndUsage(existedV.cost + v.cost, existedV.usage + v.usage));
     }
 
 
-    private void archiveSummary(DateTime startDate, Map<Product, ReadWriteData> dataMap, String prefix,
-    		ExecutorService pool, List<Future<Status>> futures) {
+    private void archiveSummary(DateTime startDate, ExecutorService pool, List<Future<Status>> futures) {
 
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
 
         // Queue the non-resource version first because it takes longer and we
         // don't like to have it last with other threads idle.
-        ReadWriteData data = dataMap.get(null);
-        futures.add(archiveSummaryProductFuture(monthDateTime, startDate, null, data, prefix, pool));
+        futures.add(archiveSummaryProductFuture(monthDateTime, startDate, null, dataByProduct.get(null), pool));
                 
-        for (Product product: dataMap.keySet()) {
+        for (Product product: dataByProduct.keySet()) {
         	if (product == null)
         		continue;
         	
-            data = dataMap.get(product);            
-            futures.add(archiveSummaryProductFuture(monthDateTime, startDate, product, data, prefix, pool));
+            futures.add(archiveSummaryProductFuture(monthDateTime, startDate, product, dataByProduct.get(product), pool));
         }
     }
     
     protected void aggregateSummaryData(
-    		ReadWriteData data,
-    		Collection<TagGroup> tagGroups,
+    		DataSerializer data,
     		int daysFromLastMonth,
-            List<Map<TagGroup, Double>> daily,
-            List<Map<TagGroup, Double>> weekly,
-            List<Map<TagGroup, Double>> monthly
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> daily,
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> weekly,
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly
     		) {
         // aggregate to daily, weekly and monthly
         for (int hour = 0; hour < data.getNum(); hour++) {
             // this month, add to weekly, monthly and daily
-            Map<TagGroup, Double> map = data.getData(hour);
+            Map<TagGroup, DataSerializer.CostAndUsage> map = data.getData(hour);
 
-            for (TagGroup tagGroup: tagGroups) {
-                Double v = map.get(tagGroup);
-                if (v != null && v != 0) {
+            for (TagGroup tagGroup: data.getTagGroups()) {
+            	DataSerializer.CostAndUsage v = map.get(tagGroup);
+                if (v != null) {
                     addValue(monthly, 0, tagGroup, v);
                     addValue(daily, hour/24, tagGroup, v);
                     addValue(weekly, (hour + daysFromLastMonth*24) / 24/7, tagGroup, v);
@@ -577,20 +562,20 @@ public class CostAndUsageData {
             }
         }
     }
-    
+        
     protected void getPartialWeek(
-    		ReadWriteData dailyData,
+    		DataSerializer dailyData,
     		int startDay,
     		int numDays,
     		int week,
     		Collection<TagGroup> tagGroups,
-    		List<Map<TagGroup, Double>> weekly) {
+    		List<Map<TagGroup, DataSerializer.CostAndUsage>> weekly) {
     	
         for (int day = 0; day < numDays; day++) {
-            Map<TagGroup, Double> prevData = dailyData.getData(startDay + day);
+            Map<TagGroup, DataSerializer.CostAndUsage> prevData = dailyData.getData(startDay + day);
             for (TagGroup tagGroup: tagGroups) {
-                Double v = prevData.get(tagGroup);
-                if (v != null && v != 0) {
+            	DataSerializer.CostAndUsage v = prevData.get(tagGroup);
+                if (v != null) {
                     addValue(weekly, week, tagGroup, v);
                 }
             }
@@ -601,15 +586,17 @@ public class CostAndUsageData {
         return new DataWriter(name, data, load, workBucketConfig, accountService, productService);
     }
     
-    protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, Product product, ReadWriteData data, String prefix, Collection<TagGroup> tagGroups) throws Exception {
+    protected void archiveSummaryProduct(DateTime monthDateTime, DateTime startDate, Product product, DataSerializer data) throws Exception {
+    	Collection<TagGroup> tagGroups = data.getTagGroups();
+    	
         // init daily, weekly and monthly
-        List<Map<TagGroup, Double>> daily = Lists.newArrayList();
-        List<Map<TagGroup, Double>> weekly = Lists.newArrayList();
-        List<Map<TagGroup, Double>> monthly = Lists.newArrayList();
+        List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
+        List<Map<TagGroup, DataSerializer.CostAndUsage>> weekly = Lists.newArrayList();
+        List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
 
         // get last month data so we can properly update weekly data for weeks that span two months
         int year = monthDateTime.getYear();
-        ReadWriteData dailyData = null;
+        DataSerializer dailyData = null;
         DataWriter writer = null;
         int daysFromLastMonth = monthDateTime.getDayOfWeek() - 1; // Monday is first day of week == 1
         String prodName = getProdName(product);
@@ -621,8 +608,8 @@ public class CostAndUsageData {
             int lastMonthDayOfYear = monthDateTime.minusMonths(1).getDayOfYear();
             int startDay = lastMonthDayOfYear + lastMonthNumDays - daysFromLastMonth - 1;
             
-            dailyData = new ReadWriteData(numUserTags);
-            writer = getDataWriter(prefix + "daily_" + prodName + "_" + lastMonthYear, dailyData, true);
+            dailyData = new DataSerializer(numUserTags);
+            writer = getDataWriter("daily_" + prodName + "_" + lastMonthYear, dailyData, true);
             getPartialWeek(dailyData, startDay, daysFromLastMonth, 0, tagGroups, weekly);
             if (year != lastMonthYear) {
             	writer.delete(); // don't need local copy of last month daily data any more
@@ -634,22 +621,22 @@ public class CostAndUsageData {
         if (daysInNextMonth == 7)
         	daysInNextMonth = 0;
         
-        aggregateSummaryData(data, tagGroups, daysFromLastMonth, daily, weekly, monthly);
+        aggregateSummaryData(data, daysFromLastMonth, daily, weekly, monthly);
         
         if (daysInNextMonth > 0) {
         	// See if we have data processed for the following month that needs to be added to the last week of this month
         	if (monthDateTime.getMonthOfYear() < 12) {
         		if (writer == null) {
-                    dailyData = new ReadWriteData(numUserTags);
-                    writer = getDataWriter(prefix + "daily_" + prodName + "_" + year, dailyData, true);
+                    dailyData = new DataSerializer(numUserTags);
+                    writer = getDataWriter("daily_" + prodName + "_" + year, dailyData, true);
                     int monthDayOfYear = monthDateTime.plusMonths(1).getDayOfYear() - 1;
                     if (dailyData.getNum() > monthDayOfYear)
                     	getPartialWeek(dailyData, monthDayOfYear, daysInNextMonth, weekly.size() - 1, tagGroups, weekly);
         		}
         	}
         	else {
-                ReadWriteData nextYearDailyData = new ReadWriteData(numUserTags);
-                DataWriter nextYearWriter = getDataWriter(prefix + "daily_" + prodName + "_" + (year + 1), nextYearDailyData, true);
+        		DataSerializer nextYearDailyData = new DataSerializer(numUserTags);
+                DataWriter nextYearWriter = getDataWriter("daily_" + prodName + "_" + (year + 1), nextYearDailyData, true);
                 if (nextYearDailyData.getNum() > 0)
                 	getPartialWeek(nextYearDailyData, 0, daysInNextMonth, weekly.size() - 1, tagGroups, weekly);
                 nextYearWriter.delete();
@@ -658,18 +645,16 @@ public class CostAndUsageData {
         
         // archive daily
         if (writer == null) {
-            dailyData = new ReadWriteData(numUserTags);
-            writer = getDataWriter(prefix + "daily_" + prodName + "_" + year, dailyData, true);
+            dailyData = new DataSerializer(numUserTags);
+            writer = getDataWriter("daily_" + prodName + "_" + year, dailyData, true);
         }
-        dailyData.enableTagGroupCache(true);
         dailyData.setData(daily, monthDateTime.getDayOfYear() -1);
         writer.archive();
 
         // archive monthly
-        ReadWriteData monthlyData = new ReadWriteData(numUserTags);
+        DataSerializer monthlyData = new DataSerializer(numUserTags);
         int numMonths = Months.monthsBetween(startDate, monthDateTime).getMonths();            
-        writer = getDataWriter(prefix + "monthly_" + prodName, monthlyData, true);
-        monthlyData.enableTagGroupCache(true);
+        writer = getDataWriter("monthly_" + prodName, monthlyData, true);
         monthlyData.setData(monthly, numMonths);            
         writer.archive();
 
@@ -680,26 +665,25 @@ public class CostAndUsageData {
             index = 0;
         else
             index = Weeks.weeksBetween(startDate, weekStart).getWeeks() + (startDate.dayOfWeek() == weekStart.dayOfWeek() ? 0 : 1);
-        ReadWriteData weeklyData = new ReadWriteData(numUserTags);
-        writer = getDataWriter(prefix + "weekly_" + prodName, weeklyData, true);
-        weeklyData.enableTagGroupCache(true);
+        DataSerializer weeklyData = new DataSerializer(numUserTags);
+        writer = getDataWriter("weekly_" + prodName, weeklyData, true);
         weeklyData.setData(weekly, index);
         writer.archive();
     }
     
     private Future<Status> archiveSummaryProductFuture(final DateTime monthDateTime, final DateTime startDate, final Product product,
-    		final ReadWriteData data, final String prefix, ExecutorService pool) {
+    		final DataSerializer data, ExecutorService pool) {
     	return pool.submit(new Callable<Status>() {
     		@Override
     		public Status call() {
     			try {
-    				archiveSummaryProduct(monthDateTime, startDate, product, data, prefix, data.getTagGroups());  
+    				archiveSummaryProduct(monthDateTime, startDate, product, data);  
     			}
     			catch (Exception e) {
     				e.printStackTrace();
-    				return new Status(prefix + "<interval>_" + getProdName(product), e);
+    				return new Status(getProdName(product), e);
     			}
-				return new Status(prefix + "<interval>_" + getProdName(product));
+				return new Status(getProdName(product));
     		}
         });
     }

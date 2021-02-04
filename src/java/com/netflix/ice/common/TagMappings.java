@@ -30,11 +30,11 @@ import java.util.Map;
  * 
  * Previously defined rules may be stopped by specifying the mapped value as an empty string.
  * 
- * Rules are specified using a hierarcy of terms and associated operations.
+ * Rules are specified using a hierarchy of terms and associated operations.
  * Supported operations are:
  * 
- *   isoneof - used to test if a tag key has one of the values in a list of supplied values
- *   isnotoneof - used to test if a tag key is not one of the values in a list
+ *   isOneOf - used to test if a tag key has one of the values in a list of supplied values
+ *   isNotOneOf - used to test if a tag key is not one of the values in a list
  *   
  *   or - logical or of the evaluated results of all child terms
  *   and - logical and of the evaluated results of all child terms

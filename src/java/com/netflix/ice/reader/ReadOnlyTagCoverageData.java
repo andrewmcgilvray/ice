@@ -24,7 +24,7 @@ import com.google.common.collect.Lists;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.TagCoverageMetrics;
 
-public class ReadOnlyTagCoverageData extends ReadOnlyGenericData<TagCoverageMetrics> {
+public class ReadOnlyTagCoverageData extends ReadOnlyGenericData<TagCoverageMetrics[]> {
 
 	public ReadOnlyTagCoverageData(int numUserTags) {
 		super(new TagCoverageMetrics[][]{}, Lists.<TagGroup>newArrayList(), numUserTags);
@@ -34,16 +34,15 @@ public class ReadOnlyTagCoverageData extends ReadOnlyGenericData<TagCoverageMetr
 	protected TagCoverageMetrics[][] newDataMatrix(int size) {
 		return new TagCoverageMetrics[size][];
 	}
-
+	
 	@Override
-	protected TagCoverageMetrics[] newDataArray(int size) {
-		return new TagCoverageMetrics[size];
-	}
-
-	@Override
-	protected TagCoverageMetrics readValue(DataInput in) throws IOException {
-		Boolean hasValue = in.readBoolean();
-		return hasValue ? TagCoverageMetrics.deserialize(in, numUserTags) : null;
-	}
-
+	protected TagCoverageMetrics[] readDataArray(DataInput in) throws IOException {
+		TagCoverageMetrics[] data = new TagCoverageMetrics[tagGroups.size()];
+        for (int j = 0; j < tagGroups.size(); j++) {
+    		Boolean hasValue = in.readBoolean();
+    		if (hasValue)
+    			data[j] = TagCoverageMetrics.deserialize(in, numUserTags);
+        }
+        return data;
+ 	}
 }

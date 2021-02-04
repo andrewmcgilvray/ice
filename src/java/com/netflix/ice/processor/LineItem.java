@@ -17,21 +17,47 @@
  */
 package com.netflix.ice.processor;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.LineItem;
+import com.netflix.ice.processor.CostAndUsageReport.Column;
 import com.netflix.ice.tag.Region;
 
-public class CostAndUsageReportLineItem extends LineItem {
+public class LineItem {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
+    public static final DateTimeFormatter amazonBillingDateFormat = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss").withZone(DateTimeZone.UTC);
+    public static final DateTimeFormatter amazonBillingDateFormat2 = DateTimeFormat.forPattern("yyyy/MM/dd HH:mm:ss").withZone(DateTimeZone.UTC);
+    public static final DateTimeFormatter amazonBillingDateFormatISO = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZone(DateTimeZone.UTC);
+
+    private int lineNumber = 0;
+    
+	protected int accountIdIndex;
+	protected int payerAccountIdIndex;
+	protected int productIndex;
+	protected int zoneIndex;
+	protected int reservedIndex;
+	protected int descriptionIndex;
+	protected int usageTypeIndex;
+	protected int operationIndex;
+	protected int usageQuantityIndex;
+	protected int startTimeIndex;
+	protected int endTimeIndex;
+	protected int rateIndex;
+	protected int costIndex;
+	protected int resourceIndex;
+    
+	protected String[] items;
+    
     private int lineItemIdIndex;
     private int billTypeIndex;
     private final int resourceTagStartIndex;
@@ -85,8 +111,15 @@ public class CostAndUsageReportLineItem extends LineItem {
 		normalizationFactors.put("large", 4.0);
 		normalizationFactors.put("xlarge", 8.0);
 	}
+	
+	// For testing
+	protected LineItem(String[] items) {
+		resourceTagStartIndex = -1;
+		resourceTagsHeader = null;
+		this.items = items;
+	}
 	    	
-    public CostAndUsageReportLineItem(boolean useBlended, DateTime costAndUsageNetUnblendedStartDate, CostAndUsageReport report) {
+    public LineItem(boolean useBlended, DateTime costAndUsageNetUnblendedStartDate, CostAndUsageReport report) {
     	lineItemIdIndex = report.getColumnIndex("identity",  "LineItemId");
     	billTypeIndex = report.getColumnIndex("bill", "BillType");
         payerAccountIdIndex = report.getColumnIndex("bill", "PayerAccountId");
@@ -127,6 +160,10 @@ public class CostAndUsageReportLineItem extends LineItem {
         
         resourceTagStartIndex = report.getCategoryStartIndex("resourceTags");
         resourceTagsHeader = report.getCategoryHeader("resourceTags");
+        // Call getColumnIndex for each resource column so it's marked as used for the CSV parser
+        List<Column> resourceColumns = report.getCategoryColumns("resourceTags");
+        for (Column c: resourceColumns)
+        	report.getColumnIndex(c.category, c.name);
         
         purchaseOptionIndex = report.getColumnIndex("pricing", "PurchaseOption");
         lineItemTypeIndex = report.getColumnIndex("lineItem", "LineItemType");
@@ -195,9 +232,13 @@ public class CostAndUsageReportLineItem extends LineItem {
     	return StringUtils.join(values, ",");
     }
     
-    @Override
+	public String[] getItems() {
+		return items;
+	}
+	
     public void setItems(String[] items) {
-    	super.setItems(items);
+    	this.items = items;
+    	lineNumber++;
         lineItemType = null;
         try {
         	lineItemType = LineItemType.valueOf(items[lineItemTypeIndex]);
@@ -211,16 +252,155 @@ public class CostAndUsageReportLineItem extends LineItem {
     	return resourceTagStartIndex + resourceTagsHeader.length;
     }
      
+    public int getLineNumber() {
+    	return lineNumber;
+    }
+    
+    public String getAccountId() {
+    	return items[accountIdIndex];
+    }
+    
+    public String getPayerAccountId() {
+    	return items[payerAccountIdIndex];
+    }
+    
+    public String getProduct() {
+    	return items[productIndex];
+    }
+    
+    public String getZone() {
+    	return items[zoneIndex];
+    }
+    
+    public String getReserved() {
+    	return items[reservedIndex];
+    }
+    
+    public String getDescription() {
+    	return items[descriptionIndex];
+    }
+    
+    public String getOperation() {
+    	return items[operationIndex];
+    }
+    
+    public String getStartTime() {
+    	return items[startTimeIndex];
+    }
+    
+    public String getEndTime() {
+    	return items[endTimeIndex];
+    }
+    
+    public String getRate() {
+    	return items[rateIndex];
+    }
+    
+    public String getResource() {
+    	return resourceIndex >= 0 ? items[resourceIndex] : null;
+    }
+    
+    public void setResource(String resourceId) {
+    	items[resourceIndex] = resourceId;
+    }
+    
+    public boolean hasResources() {
+    	return resourceIndex >= 0 && items.length > resourceIndex;
+    }
+
     public int getBillTypeIndex() {
     	return billTypeIndex;
     }
-    
-    @Override
+
+	public int getAccountIdIndex() {
+		return accountIdIndex;
+	}
+
+	public int getPayerAccountIdIndex() {
+		return payerAccountIdIndex;
+	}
+
+	public int getProductIndex() {
+		return productIndex;
+	}
+
+	public int getZoneIndex() {
+		return zoneIndex;
+	}
+
+	public int getReservedIndex() {
+		return reservedIndex;
+	}
+
+	public int getDescriptionIndex() {
+		return descriptionIndex;
+	}
+
+	public int getUsageTypeIndex() {
+		return usageTypeIndex;
+	}
+
+	public int getOperationIndex() {
+		return operationIndex;
+	}
+
+	public int getUsageQuantityIndex() {
+		return usageQuantityIndex;
+	}
+
+	public int getStartTimeIndex() {
+		return startTimeIndex;
+	}
+
+	public int getEndTimeIndex() {
+		return endTimeIndex;
+	}
+
+	public int getRateIndex() {
+		return rateIndex;
+	}
+
+	public int getCostIndex() {
+		return costIndex;
+	}
+
+	public int getResourceIndex() {
+		return resourceIndex;
+	}
+	
+	/**
+	 * BillType
+	 */
+	public static enum BillType {
+		Anniversary,
+		Purchase,
+		Refund;
+	}
+
+	/**
+	 * LineItemType is one of the columns from AWS Cost and Usage reports
+	 */
+	public static enum LineItemType {
+		Credit,
+		DiscountedUsage,
+		EdpDiscount,
+		Fee,
+		Refund,
+		RIFee,
+		RiVolumeDiscount,
+		Tax,
+		Usage,
+		SavingsPlanUpfrontFee,
+		SavingsPlanRecurringFee,
+		SavingsPlanCoveredUsage,
+		SavingsPlanNegation,
+		PrivateRateDiscount;
+	}
+
     public BillType getBillType() {
     	return BillType.valueOf(items[billTypeIndex]);
     }
     
-    @Override
     public String getCost() {
     	if (lineItemType == LineItemType.DiscountedUsage) {
     		String recurringFee = getRecurringFeeForUsage();
@@ -230,17 +410,14 @@ public class CostAndUsageReportLineItem extends LineItem {
     	return items[costIndex];
     }
 
-    @Override
     public long getStartMillis() {
         return amazonBillingDateFormatISO.parseMillis(items[startTimeIndex]);
     }
 
-    @Override
     public long getEndMillis() {
         return amazonBillingDateFormatISO.parseMillis(items[endTimeIndex]);
     }
     
-    @Override
     public String getUsageType() {
     	String purchaseOption = getPurchaseOption();
     	String usageType = null;
@@ -252,7 +429,6 @@ public class CostAndUsageReportLineItem extends LineItem {
     	return usageType;
     }
     
-    @Override
     public String[] getResourceTagsHeader() {
     	String[] header = new String[resourceTagsHeader.length];
     	for (int i = 0; i < resourceTagsHeader.length; i++)
@@ -261,21 +437,18 @@ public class CostAndUsageReportLineItem extends LineItem {
     	return header;
     }
 
-    @Override
     public int getResourceTagsSize() {
     	if (items.length - resourceTagStartIndex <= 0)
     		return 0;
     	return items.length - resourceTagStartIndex;
     }
 
-    @Override
     public String getResourceTag(int index) {
     	if (items.length <= resourceTagStartIndex + index)
     		return "";
     	return items[resourceTagStartIndex + index];
     }
 
-    @Override
     public Map<String, String>  getResourceTags() {
     	Map<String, String> tags = Maps.newHashMap();
     	for (int i = 0; i < resourceTagsHeader.length && i+resourceTagStartIndex < items.length; i++) {
@@ -290,7 +463,6 @@ public class CostAndUsageReportLineItem extends LineItem {
     	return tags;
     }
     
-    @Override
     public boolean isReserved() {
     	if (reservedIndex > items.length) {
     		logger.error("Line item record too short. Reserved index = " + reservedIndex + ", record length = " + items.length);
@@ -312,12 +484,10 @@ public class CostAndUsageReportLineItem extends LineItem {
     			!getReservationArn().isEmpty();
     }
 
-	@Override
 	public String getPurchaseOption() {
 		return purchaseOptionIndex >= 0 ? items[purchaseOptionIndex] : "";
 	}
 
-	@Override
 	public LineItemType getLineItemType() {
 		return lineItemType;
 	}
@@ -342,11 +512,10 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return factor == null ? 1.0 : factor;
 	}
 	
-	@Override
 	public String getUsageQuantity() {
     	String purchaseOption = getPurchaseOption();
     	if (purchaseOption.isEmpty() || purchaseOption.equals("All Upfront")) {
-    		return super.getUsageQuantity();
+        	return items[usageQuantityIndex];
     	}
 
     	if (lineItemType == LineItemType.DiscountedUsage) {
@@ -356,14 +525,13 @@ public class CostAndUsageReportLineItem extends LineItem {
 			Double actualUsage = usageAmount * normFactor / productFactor;			
 			return actualUsage.toString();
 		}
-		return super.getUsageQuantity();
+    	return items[usageQuantityIndex];
 	}
 	
 	public int getPublicOnDemandCostIndex() {
 		return publicOnDemandCostIndex;
 	}
 	
-	@Override
 	public String getPublicOnDemandCost() {
 		return publicOnDemandCostIndex >= 0 ? items[publicOnDemandCostIndex] : "";
 	}
@@ -384,7 +552,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return lineItemNormalizationFactorIndex;
 	}
 
-	@Override
 	public String getLineItemNormalizationFactor() {
 		return lineItemNormalizationFactorIndex >= 0 ? items[lineItemNormalizationFactorIndex] : "";
 	}
@@ -405,7 +572,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return productRegionIndex;
 	}
 	
-	@Override
 	public Region getProductRegion() {
 		String region = productRegionIndex >= 0 ? items[productRegionIndex] : "";
 		return region.isEmpty() ? Region.US_EAST_1 : Region.getRegionByName(region);
@@ -421,17 +587,22 @@ public class CostAndUsageReportLineItem extends LineItem {
 		}
 		else {
 			// Don't bother with any other units as AWS is extremely inconsistent
-			unit = super.getPricingUnit();
+	    	String usageType = getUsageType();
+			if (usageType.startsWith("AW-HW-1")) {
+				// AmazonWorkSpaces
+			}
+			else if (usageType.contains("Lambda-GB-Second") || usageType.contains("Bytes") || usageType.contains("ByteHrs") || getDescription().contains("GB")) {
+	            unit = "GB";
+	    	}	        
+	        // Won't indicate "hours" for instance usage, so clients must handle that themselves.
 		}
 		return unit;
 	}
 	
-	@Override
 	public String getLineItemId() {
 		return lineItemIdIndex >= 0 ? items[lineItemIdIndex] : "";
 	}
 	
-	@Override
 	public String getReservationArn() {
 		return reservationArnIndex >= 0 ? items[reservationArnIndex] : "";
 	}
@@ -440,12 +611,10 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationAmortizedUpfrontCostForUsageIndex;
 	}
 	
-	@Override
 	public String getAmortizedUpfrontCostForUsage() {
 		return reservationAmortizedUpfrontCostForUsageIndex >= 0 ? items[reservationAmortizedUpfrontCostForUsageIndex] : "";
 	}
 	
-	@Override
 	public boolean hasAmortizedUpfrontCostForUsage() {
 		return reservationAmortizedUpfrontCostForUsageIndex >= 0;
 	}
@@ -454,12 +623,10 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationAmortizedUpfrontFeeForBillingPeriodIndex;
 	};
 
-	@Override
 	public String getAmortizedUpfrontFeeForBillingPeriod() {
 		return reservationAmortizedUpfrontFeeForBillingPeriodIndex >= 0 ? items[reservationAmortizedUpfrontFeeForBillingPeriodIndex] : "";
 	}
 
-	@Override
 	public boolean hasAmortizedUpfrontFeeForBillingPeriod() {
 		return reservationAmortizedUpfrontFeeForBillingPeriodIndex >= 0;
 	}
@@ -468,7 +635,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationRecurringFeeForUsageIndex;
 	}
 	
-	@Override
 	public String getRecurringFeeForUsage() {
 		return reservationRecurringFeeForUsageIndex >= 0 ? items[reservationRecurringFeeForUsageIndex] : "";
 	}
@@ -485,7 +651,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationUnusedRecurringFeeIndex;
 	}
 
-	@Override
 	public Double getUnusedAmortizedUpfrontRate() {
 		// Return the amortization rate for an unused RI
 		if (reservationUnusedAmortizedUpfrontFeeForBillingPeriodIndex >= 0 &&
@@ -498,7 +663,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return null;
 	}
 	
-	@Override
 	public Double getUnusedRecurringRate() {
 		// Return the recurring rate for an unused RI
 		if (reservationUnusedRecurringFeeIndex >= 0 &&
@@ -515,7 +679,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return lineItemProductCodeIndex;
 	}
 	
-	@Override
 	public String getProductServiceCode() {
 		// Favor the lineItem/ProductCode over product/ServiceCode because Lambda for example has AWSDataTransfer as the serviceCode
 		if (lineItemProductCodeIndex >= 0 && !items[lineItemProductCodeIndex].isEmpty())
@@ -531,7 +694,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return lineItemTaxTypeIndex;
 	}
 	
-	@Override
 	public String getTaxType() {
 		return lineItemTaxTypeIndex >= 0 ? items[lineItemTaxTypeIndex] : "";
 	}
@@ -540,7 +702,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return lineItemLegalEntityIndex;
 	}
 	
-	@Override
 	public String getLegalEntity() {
 		return lineItemLegalEntityIndex >= 0 ? items[lineItemLegalEntityIndex] : "";		
 	}
@@ -549,7 +710,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationStartTimeIndex;
 	}
 
-	@Override
 	public String getReservationStartTime() {
 		return reservationStartTimeIndex >= 0 ? items[reservationStartTimeIndex] : null;
 	}
@@ -558,7 +718,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationEndTimeIndex;
 	}
 
-	@Override
 	public String getReservationEndTime() {
 		return reservationEndTimeIndex >= 0 ? items[reservationEndTimeIndex] : null;
 	}
@@ -567,7 +726,6 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return reservationNumberOfReservationsIndex;
 	}
 
-	@Override
 	public String getReservationNumberOfReservations() {
 		return reservationNumberOfReservationsIndex >= 0 ? items[reservationNumberOfReservationsIndex] : null;
 	}
@@ -603,37 +761,30 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return savingsPlanPaymentOptionIndex;
 	}
 	
-	@Override
 	public String getSavingsPlanAmortizedUpfrontCommitmentForBillingPeriod() {
 		return savingsPlanAmortizedUpfrontCommitmentForBillingPeriodIndex >= 0 ? items[savingsPlanAmortizedUpfrontCommitmentForBillingPeriodIndex] : null;
 	}
 	
-	@Override
 	public String getSavingsPlanRecurringCommitmentForBillingPeriod() {
 		return savingsPlanRecurringCommitmentForBillingPeriodIndex >= 0 ? items[savingsPlanRecurringCommitmentForBillingPeriodIndex] : null;
 	}
 
-	@Override
 	public String getSavingsPlanStartTime() {
 		return savingsPlanStartTimeIndex >= 0 ? items[savingsPlanStartTimeIndex] : null;
 	}
 
-	@Override
 	public String getSavingsPlanEndTime() {
 		return savingsPlanEndTimeIndex >= 0 ? items[savingsPlanEndTimeIndex] : null;
 	}
 
-	@Override
 	public String getSavingsPlanArn() {
 		return savingsPlanArnIndex >= 0 ? items[savingsPlanArnIndex] : null;
 	}
 
-	@Override
 	public String getSavingsPlanEffectiveCost() {
 		return savingsPlanEffectiveCostIndex >= 0 ? items[savingsPlanEffectiveCostIndex] : null;
 	}
 
-	@Override
 	public Double getSavingsPlanNormalizedUsage() {
 		if (savingsPlanTotalCommitmentToDateIndex >= 0 && savingsPlanUsedCommitmentIndex >= 0 &&
 				!items[savingsPlanUsedCommitmentIndex].isEmpty() && !items[savingsPlanTotalCommitmentToDateIndex].isEmpty() &&
@@ -643,17 +794,14 @@ public class CostAndUsageReportLineItem extends LineItem {
 		return null;
 	}
 	
-	@Override
 	public String getSavingsPlanPaymentOption() {
 		return savingsPlanPaymentOptionIndex >= 0 ? items[savingsPlanPaymentOptionIndex] : null;
 	}
 
-	@Override
 	public String getSavingsPlanPurchaseTerm() {
 		return savingsPlanPurchaseTermIndex >= 0 ? items[savingsPlanPurchaseTermIndex] : null;
 	}
 	
-	@Override
 	public String getSavingsPlanOfferingType() {
 		return savingsPlanOfferingTypeIndex >= 0 ? items[savingsPlanOfferingTypeIndex] : null;
 	}

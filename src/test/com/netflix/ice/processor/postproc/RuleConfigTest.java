@@ -39,22 +39,19 @@ public class RuleConfigTest {
 		"end: 2022-11\n" + 
 		"operands:\n" + 
 		"  data:\n" + 
-		"    type: usage\n" + 
 		"    filter:\n" + 
 		"      usageType: ['${region}-DataTransfer-Out-Bytes']\n" + 
 		"in:\n" + 
-		"  type: usage\n" + 
 		"  filter:\n" + 
 		"    product: [Product]\n" + 
 		"    usageType: ['..-Requests-[12].*']\n" + 
 		"patterns:\n" +
 		"  region: '(..)-.*'\n" +
 		"results:\n" + 
-		"  - type: cost\n" + 
-		"    out:\n" + 
-		"      product: ComputedCost\n" + 
-		"      usageType: ${region}-Requests\n" + 
-		"    value: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
+		"- out:\n" + 
+		"    product: ComputedCost\n" + 
+		"    usageType: ${region}-Requests\n" + 
+		"  cost: '(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000'\n" + 
 		"";
 		
 		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
@@ -63,11 +60,10 @@ public class RuleConfigTest {
 		
 		assertEquals("Wrong rule name", "ComputedCost", rc.getName());
 		assertEquals("Wrong number of operands", 1, rc.getOperands().size());
-		assertEquals("Wrong in operand type", RuleConfig.DataType.usage, rc.getIn().getType());
 		TagGroupConfig out = rc.getResults().get(0).getOut();
 		assertEquals("Wrong product in result", "ComputedCost", out.getProduct());
 		assertEquals("Wrong usageType in result", "${region}-Requests", out.getUsageType());
-		assertEquals("Wrong out function", "(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000", rc.getResults().get(0).getValue());
+		assertEquals("Wrong out function", "(${in} - (${data} * 4 * 8 / 2)) * 0.01 / 1000", rc.getResults().get(0).getCost());
 	}
 
 	@Test
@@ -77,7 +73,6 @@ public class RuleConfigTest {
 		"start: 2019-11\n" + 
 		"end: 2022-11\n" + 
 		"in:\n" + 
-		"  type: cost\n" + 
 		"  filter:\n" + 
 		"    product: [Product]\n" + 
 		"    userTags:\n" + 
@@ -117,7 +112,6 @@ public class RuleConfigTest {
 
 		assertEquals("Wrong rule name", "kubernetes-breakout", rc.getName());
 		assertNull("Should have no operands", rc.getOperands());
-		assertEquals("Wrong in operand type", RuleConfig.DataType.cost, rc.getIn().getType());
 		assertEquals("Should be no results", null, rc.getResults());
 		AllocationConfig ac = rc.getAllocation();
 		assertNotNull("Should have an allocation object", ac);
@@ -136,7 +130,6 @@ public class RuleConfigTest {
 		"report:\n" + 
 		"  aggregate: [monthly]\n" + 
 		"in:\n" + 
-		"  type: cost\n" + 
 		"  filter:\n" + 
 		"    product: [Product]\n" + 
 		"    userTags:\n" + 
