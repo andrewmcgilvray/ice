@@ -94,7 +94,7 @@ public class CostAndUsageData {
         this.userTagKeys = userTagKeys;
         
         this.dataByProduct = Maps.newHashMap();
-		this.dataByProduct.put(null, new DataSerializer(userTagKeys == null ? 0 : userTagKeys.size()));
+		this.dataByProduct.put(null, new DataSerializer(0)); // Non-resource data has no user tags
 		        
         this.workBucketConfig = workBucketConfig;
         this.accountService = accountService;
@@ -120,7 +120,7 @@ public class CostAndUsageData {
 		this.startMilli = other.startMilli;
         this.userTagKeys = userTagKeys;
         this.dataByProduct = Maps.newHashMap();
-		this.dataByProduct.put(null, new DataSerializer(userTagKeys.size()));
+		this.dataByProduct.put(null, new DataSerializer(0)); // Non-resource data has no user tags
         this.workBucketConfig = other.workBucketConfig;
         this.accountService = other.accountService;
         this.productService = other.productService;
