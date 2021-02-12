@@ -377,26 +377,6 @@ public class LineItem {
 		Refund;
 	}
 
-	/**
-	 * LineItemType is one of the columns from AWS Cost and Usage reports
-	 */
-	public static enum LineItemType {
-		Credit,
-		DiscountedUsage,
-		EdpDiscount,
-		Fee,
-		Refund,
-		RIFee,
-		RiVolumeDiscount,
-		Tax,
-		Usage,
-		SavingsPlanUpfrontFee,
-		SavingsPlanRecurringFee,
-		SavingsPlanCoveredUsage,
-		SavingsPlanNegation,
-		PrivateRateDiscount;
-	}
-
     public BillType getBillType() {
     	return BillType.valueOf(items[billTypeIndex]);
     }

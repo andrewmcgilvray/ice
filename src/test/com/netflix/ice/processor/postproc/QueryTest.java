@@ -39,6 +39,7 @@ public class QueryTest {
 	@Test
 	public void testGetSingleTagGroup() throws Exception {
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
+		tgfc.setCostType(Lists.newArrayList("Recurring"));
 		tgfc.setAccount(Lists.newArrayList("123456789012"));
 		tgfc.setRegion(Lists.newArrayList("us-east-1"));
 		tgfc.setProduct(Lists.newArrayList(Product.Code.Ec2.toString()));
@@ -51,7 +52,7 @@ public class QueryTest {
 
 		QueryConfig qc = new QueryConfig();
 		qc.setFilter(tgfc);
-		Query q = new Query(qc, Lists.newArrayList(new String[]{"Key1", "Key2"}), false);
+		Query q = new Query(qc, Lists.newArrayList(new String[]{"Key1", "Key2"}));
 
 		TagGroup tg = q.getSingleTagGroup(as, ps, false);
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{"tag1", ""});
@@ -61,9 +62,9 @@ public class QueryTest {
 	@Test
 	public void testEmptyOperand() throws Exception {
 		QueryConfig oc = new QueryConfig();
-		Query q = new Query(oc, userTagKeys, false);
+		Query q = new Query(oc, userTagKeys);
 		
-		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
+		TagGroup tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
 		assertNotNull("tg should match", q.aggregateTagGroup(tg, as, ps));
 	}
 
@@ -73,13 +74,13 @@ public class QueryTest {
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
 		qc.setFilter(tgfc);
 		tgfc.setAccount(Lists.newArrayList("123456789012"));
-		Query q = new Query(qc, userTagKeys, false);
+		Query q = new Query(qc, userTagKeys);
 		
-		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
+		TagGroup tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
 		assertNotNull("tg should match", q.aggregateTagGroup(tg, as, ps));
 		
 		tgfc.setAccount(Lists.newArrayList("234567890123"));
-		q = new Query(qc, userTagKeys, false);
+		q = new Query(qc, userTagKeys);
 		assertNull("should not have an aggregationTagGroup", q.aggregateTagGroup(tg, as, ps));
 		
 		
@@ -87,9 +88,9 @@ public class QueryTest {
 		List<Rule.TagKey> exclude = Lists.newArrayList(Rule.TagKey.account);
 		tgfc.setAccount(accounts);
 		tgfc.setExclude(exclude);
-		q = new Query(qc, userTagKeys, false);
+		q = new Query(qc, userTagKeys);
 		assertNotNull("tg should match", q.aggregateTagGroup(tg, as, ps));		
-		TagGroup tg1 = TagGroup.getTagGroup("234567890123", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
+		TagGroup tg1 = TagGroup.getTagGroup("Recurring", "234567890123", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);
 		assertNull("tg should not match", q.aggregateTagGroup(tg1, as, ps));
 	}
 	
@@ -103,7 +104,7 @@ public class QueryTest {
 		userTags.put("Key1", Lists.newArrayList("tag1"));
 		tgfc.setUserTags(userTags);
 		
-		Query q = new Query(oc, userTagKeys, false);
+		Query q = new Query(oc, userTagKeys);
 		assertFalse("incorrectly says it aggregates", q.hasAggregation());
 	}
 	
@@ -115,13 +116,13 @@ public class QueryTest {
 		Map<String, List<String>> userTags = Maps.newHashMap();
 		userTags.put("Key1", Lists.newArrayList("tag1"));
 		tgfc.setUserTags(userTags);
-		Query q = new Query(oc, userTagKeys, false);
+		Query q = new Query(oc, userTagKeys);
 		
-		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);
+		TagGroup tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);
 		AggregationTagGroup atg = q.aggregateTagGroup(tg, as, ps);
 		assertNotNull("atg should not be null", atg);
 
-		tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag2", ""}, as, ps);
+		tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", new String[]{"tag2", ""}, as, ps);
 		atg = q.aggregateTagGroup(tg, as, ps);
 		assertNull("atg should be null", atg);
 	}
@@ -137,7 +138,7 @@ public class QueryTest {
 		tgfc.setUsageType(Lists.newArrayList("(?!UT$)^.*$"));
 		List<Rule.TagKey> groupBy = Lists.newArrayList(new Rule.TagKey[]{Rule.TagKey.account,Rule.TagKey.region,Rule.TagKey.zone});
 		inOperand.setGroupBy(groupBy);
-		Query in = new Query(inOperand, userTagKeys, false);		
+		Query in = new Query(inOperand, userTagKeys);		
 
 		// Test case where omitting a product based on regex with no dependency on 'in' aggregation tag group
 		inOperand = new QueryConfig();
@@ -146,14 +147,14 @@ public class QueryTest {
 		tgfc.setProduct(Lists.newArrayList("(?!IOTestProduct$)^.*$"));
 		tgfc.setOperation(Lists.newArrayList("(?!OP$)^.*$"));
 		tgfc.setUsageType(Lists.newArrayList("(?!UT$)^.*$"));
-		in = new Query(inOperand, userTagKeys, false);
-		TagGroup tg1 = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);		
+		in = new Query(inOperand, userTagKeys);
+		TagGroup tg1 = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct", "OP1", "UT1", "", null, as, ps);		
 		assertNull("TagGroup should not match product aggregation operand with ommitted product", in.aggregateTagGroup(tg1, as, ps));
 		
-		tg1 = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP", "UT1", "", null, as, ps);		
+		tg1 = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct1", "OP", "UT1", "", null, as, ps);		
 		assertNull("TagGroup should not match product aggregation operand with ommitted operation", in.aggregateTagGroup(tg1, as, ps));
 		
-		tg1 = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT", "", null, as, ps);		
+		tg1 = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT", "", null, as, ps);		
 		assertNull("TagGroup should not match product aggregation operand with ommitted usageType", in.aggregateTagGroup(tg1, as, ps));		
 	}
 	
@@ -161,6 +162,7 @@ public class QueryTest {
 	public void testOperandSingleValueNoAggregation() throws Exception {
 		QueryConfig oc = new QueryConfig();
 		TagGroupFilterConfig tgfc = new TagGroupFilterConfig();
+		tgfc.setCostType(Lists.newArrayList("Recurring"));
 		tgfc.setAccount(Lists.newArrayList("123456789012"));
 		tgfc.setRegion(Lists.newArrayList("us-east-1"));
 		tgfc.setProduct(Lists.newArrayList("IOTestProduct1"));
@@ -168,8 +170,8 @@ public class QueryTest {
 		tgfc.setUsageType(Lists.newArrayList("UT1"));
 		oc.setFilter(tgfc);
 		
-		Query q = new Query(oc, userTagKeys, false);
-		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
+		Query q = new Query(oc, userTagKeys);
+		TagGroup tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
 		assertEquals("tag groups should match", tg, q.getSingleTagGroup(as, ps, true));
 	}
 
@@ -182,8 +184,8 @@ public class QueryTest {
 		tgfc.setProduct(Lists.newArrayList("IOTestProduct1"));
 		oc.setFilter(tgfc);
 		
-		Query q = new Query(oc, userTagKeys, false);
-		TagGroup tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
+		Query q = new Query(oc, userTagKeys);
+		TagGroup tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", null, as, ps);		
 		assertNotNull("tag group should match", q.aggregateTagGroup(tg, as, ps));
 
 		// Test user tags
@@ -191,11 +193,11 @@ public class QueryTest {
 		userTags.put("Key1", Lists.newArrayList("tag1"));
 		tgfc.setUserTags(userTags);
 		
-		q = new Query(oc, userTagKeys, false);
-		tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", new String[]{"tag2", ""}, as, ps);		
+		q = new Query(oc, userTagKeys);
+		tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", new String[]{"tag2", ""}, as, ps);		
 		assertNull("tag group should not match with wrong user tag", q.aggregateTagGroup(tg, as, ps));
 		
-		tg = TagGroup.getTagGroup("123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);		
+		tg = TagGroup.getTagGroup("Recurring", "123456789012", "us-east-1", null, "IOTestProduct1", "OP1", "UT1", "", new String[]{"tag1", ""}, as, ps);		
 		assertNotNull("tag groups should match with correct user tag", q.aggregateTagGroup(tg, as, ps));
 	}
 
@@ -207,7 +209,7 @@ public class QueryTest {
 		Map<String, List<String>> userTags = Maps.newHashMap();
 		userTags.put("Key3", Lists.newArrayList("tag1"));
 		tgfc.setUserTags(userTags);
-		new Query(oc, userTagKeys, false);
+		new Query(oc, userTagKeys);
 	}
 }
 

@@ -39,6 +39,7 @@ import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.Config.TagCoverage;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -61,8 +62,8 @@ public class CostAndUsageDataTest {
 		userTagKeys = Lists.newArrayList();
 		userTagKeys.add(UserTagKey.get("Email"));
 		userTagKeys.add(UserTagKey.get("Environment"));
-        tg = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
-        staleDataTagGroup = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_1, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
+        tg = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
+        staleDataTagGroup = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("123", ""), Region.US_WEST_1, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
 	}
 	
 

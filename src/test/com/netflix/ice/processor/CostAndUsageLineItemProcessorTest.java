@@ -55,8 +55,9 @@ import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.ReservationService.ReservationPeriod;
 import com.netflix.ice.processor.Instances;
 import com.netflix.ice.processor.LineItem.BillType;
-import com.netflix.ice.processor.LineItem.LineItemType;
+import com.netflix.ice.processor.LineItemType;
 import com.netflix.ice.processor.LineItemProcessor.Result;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.ReservationArn;
 import com.netflix.ice.tag.Account;
@@ -599,7 +600,8 @@ public class CostAndUsageLineItemProcessorTest {
 				return;
 			
 			for (Datum datum: expected) {
-				CostAndUsage cau = hourData.get(product == null ? datum.getTagGroupWithoutResources() : datum.tagGroup);
+				TagGroup tg = product == null ? datum.getTagGroupWithoutResources() : datum.tagGroup;
+				CostAndUsage cau = hourData.get(tg);
 				assertNotNull("should have tag group " + datum.tagGroup, cau);	
 				assertEquals("wrong cost value for tag " + datum.tagGroup, datum.cau.cost, cau.cost, 0.001);
 				assertEquals("wrong usage value for tag " + datum.tagGroup, datum.cau.usage, cau.usage, 0.001);
@@ -613,7 +615,7 @@ public class CostAndUsageLineItemProcessorTest {
 			
 			Reservation r = costAndUsageData.getReservations().values().iterator().next();
 			
-			assertEquals("Tag is not correct", expected.tagGroup, r.tagGroup);
+			assertEquals("Tag is not correct", expected.tagGroup.withCostType(CostType.subscriptions), r.tagGroup);
 			assertEquals("wrong reservation amortization", expected.cau.cost, r.hourlyFixedPrice * r.count, 0.001);
 			assertEquals("wrong reservation recurring fee", expected.cau.usage, r.usagePrice * r.count, 0.001);
 		}
@@ -655,7 +657,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("1.5", "0.0", "");
 		
 		Datum[] expected = {
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesAllUpfront, "c4.2xlarge.windows", null, riArn, 0, 1),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesAllUpfront, "c4.2xlarge.windows", null, riArn, 0, 1),
 		};
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		test.run(expected);
@@ -672,9 +674,9 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.hourly, 30);
 
 		expected = new Datum[]{
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesAllUpfront, "c4.2xlarge.windows", null, riArn, 0, 1),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.amortizedAllUpfront, "c4.2xlarge.windows", null, riArn, 1.5, 0),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsAllUpfront, "c4.2xlarge.windows", null, riArn, 1.5, 0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesAllUpfront, "c4.2xlarge.windows", null, riArn, 0, 1),
+				new Datum(CostType.amortization, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.amortizedAllUpfront, "c4.2xlarge.windows", null, riArn, 1.5, 0),
+				new Datum(CostType.savings, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsAllUpfront, "c4.2xlarge.windows", null, riArn, 1.5, 0),
 		};
 		test.run("2018-06-01T00:00:00Z", expected);
 	}
@@ -685,8 +687,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0", "0.45", "0.60");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesNoUpfront, "c4.2xlarge.windows", null, riArn, 0.45, 1),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsNoUpfront, "c4.2xlarge.windows", null, riArn, 0.15, 0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesNoUpfront, "c4.2xlarge.windows", null, riArn, 0.45, 1),
+				new Datum(CostType.savings, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsNoUpfront, "c4.2xlarge.windows", null, riArn, 0.15, 0),
 		};
 		test.run("2019-01-01T00:00:00Z", expected);
 		
@@ -695,8 +697,8 @@ public class CostAndUsageLineItemProcessorTest {
 		String rg = "Prod,john.doe@foobar.com";
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesNoUpfront, "c4.2xlarge.windows", rg, riArn, 0.45, 1),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsNoUpfront, "c4.2xlarge.windows", rg, riArn, 0.15, 0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesNoUpfront, "c4.2xlarge.windows", rg, riArn, 0.45, 1),
+				new Datum(CostType.savings, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsNoUpfront, "c4.2xlarge.windows", rg, riArn, 0.15, 0),
 		};
 		test.run("2019-01-01T00:00:00Z", expected);
 	}
@@ -707,9 +709,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.00739", "0.00902", "0.026");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, rdsInstance, Operation.bonusReservedInstancesPartialUpfront, "db.t2.micro.mysql", null, riArn, 0.00902, 0.5),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, rdsInstance, Operation.savingsPartialUpfront, "db.t2.micro.mysql", null, riArn, 0.00959, 0),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, rdsInstance, Operation.amortizedPartialUpfront, "db.t2.micro.mysql", null, riArn, 0.00739, 0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, rdsInstance, Operation.bonusReservedInstancesPartialUpfront, "db.t2.micro.mysql", null, riArn, 0.00902, 0.5),
+				new Datum(CostType.savings, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, rdsInstance, Operation.savingsPartialUpfront, "db.t2.micro.mysql", null, riArn, 0.00959, 0),
+				new Datum(CostType.amortization, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, rdsInstance, Operation.amortizedPartialUpfront, "db.t2.micro.mysql", null, riArn, 0.00739, 0),
 			};
 		test.run("2019-01-01T00:00:00Z", expected);
 	}
@@ -720,7 +722,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setResources("i-0184b2c6d0325157b", "Prod", "john.doe@foobar.com");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.2xlarge.windows", "Prod,john.doe@foobar.com", riArn, 0.34, 1.0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.2xlarge.windows", "Prod,john.doe@foobar.com", riArn, 0.34, 1.0),
 			};
 		test.run(expected);
 	}
@@ -730,7 +732,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.DiscountedUsage, "ap-southeast-2", "ap-southeast-2a", ec2, "APS2-BoxUsage:c4.large", "RunInstances:0002", "Linux/UNIX (Amazon VPC), c4.2xlarge reserved instance applied", PricingTerm.reserved, "2017-06-01T00:00:00Z", "2017-06-01T01:00:00Z", "1", "0.34", "Partial Upfront");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.large.windows", null, riArn, 0.34, 1.0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.large.windows", null, riArn, 0.34, 1.0),
 			};
 		test.run(expected);
 		
@@ -738,9 +740,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.32", "0.36", "1.02");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsPartialUpfront, "c4.large.windows", null, riArn, 0.34, 0),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.large.windows", null, riArn, 0.36, 1.0),
-				new Datum(a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.amortizedPartialUpfront, "c4.large.windows", null, riArn, 0.32, 0),
+				new Datum(CostType.savings, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.savingsPartialUpfront, "c4.large.windows", null, riArn, 0.34, 0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.bonusReservedInstancesPartialUpfront, "c4.large.windows", null, riArn, 0.36, 1.0),
+				new Datum(CostType.amortization, a2, Region.AP_SOUTHEAST_2, Datum.ap_southeast_2a, ec2Instance, Operation.amortizedPartialUpfront, "c4.large.windows", null, riArn, 0.32, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 
@@ -756,7 +758,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.RIFee, "eu-west-1", "", ec2, "EU-HeavyUsage:t2.small", "RunInstances", "USD 0.0146 hourly fee per Linux/UNIX (Amazon VPC), t2.small instance", PricingTerm.none, "2017-11-01T00:00:00Z", "2017-12-01T00:00:00Z", "18600", "271.56", "");
 		line.setRIFeeFields("", "", "", "", "25", "", "");
 		ProcessTest test = new ProcessTest(line, Result.monthly, 31);
-		TagGroupRI tg = TagGroupRI.get("234567890123", "eu-west-1", null, "EC2 Instance", "Bonus RIs - No Upfront", "t2.small", "hours", null, "arn", accountService, productService);
+		TagGroupRI tg = TagGroupRI.get("Recurring", "234567890123", "eu-west-1", null, "EC2 Instance", "Bonus RIs - No Upfront", "t2.small", "hours", null, "arn", accountService, productService);
 		Reservation r = new Reservation(tg, 25, 0, 0, PurchaseOption.NoUpfront, 0.0, 0.028);
 		test.addReservation(r);
 		test.setDelayed();
@@ -768,7 +770,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("0", "0", "0", "0", "25", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		Datum expected = new Datum(a2, Region.EU_WEST_1, null, ec2Instance, Operation.reservedInstancesNoUpfront, "t2.small", ",", ReservationArn.get(""), 0.0, 0.365);
+		Datum expected = new Datum(CostType.recurring, a2, Region.EU_WEST_1, null, ec2Instance, Operation.reservedInstancesNoUpfront, "t2.small", ",", ReservationArn.get(""), 0.0, 0.365);
 
 		test.run("2019-01-01T00:00:00Z", null, expected);		
 	}
@@ -790,7 +792,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setNetUnblendedStart("2019-02-01T00:00:00Z");
 		test.setDelayed();
-		Datum expected = new Datum(a2, Region.AP_SOUTHEAST_2, null, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge.windows", ",", ReservationArn.get(""), 2.0, 1.0);
+		Datum expected = new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, null, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge.windows", ",", ReservationArn.get(""), 2.0, 1.0);
 		test.run("2019-06-01T00:00:00Z", null, expected);
 	}
 	
@@ -802,7 +804,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setNormalizationFactor("0.5");
 		ProcessTest test = new ProcessTest(line, Result.ignore, 30);
 		test.setDelayed();
-		Datum expected = new Datum(a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesPartialUpfront, "db.t2.micro.postgres", ",", ReservationArn.get(""), 1.0, 2.0);
+		Datum expected = new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesPartialUpfront, "db.t2.micro.postgres", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 
 		// All Upfront - 2 RIs at 2.0/hr upfront
@@ -811,7 +813,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setNormalizationFactor("0.5");
 		test = new ProcessTest(line, Result.ignore, 30);
 		test.setDelayed();
-		expected = new Datum(a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesAllUpfront, "db.t2.micro.postgres", ",", ReservationArn.get(""), 4.0, 0.0);
+		expected = new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesAllUpfront, "db.t2.micro.postgres", ",", ReservationArn.get(""), 4.0, 0.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 
 		// No Upfront - 2 RIs at 1.5/hr recurring
@@ -820,7 +822,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setNormalizationFactor("0.5");
 		test = new ProcessTest(line, Result.ignore, 30);
 		test.setDelayed();
-		expected = new Datum(a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesNoUpfront, "db.t2.micro.postgres", ",", ReservationArn.get(""), 0, 3);
+		expected = new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesNoUpfront, "db.t2.micro.postgres", ",", ReservationArn.get(""), 0, 3);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// Partial Upfront Multi-AZ 1 RI at 2.0/hr recurring and 1.0/hr upfront
@@ -829,7 +831,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setNormalizationFactor("1");
 		test = new ProcessTest(line, Result.ignore, 30);
 		test.setDelayed();
-		expected = new Datum(a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesPartialUpfront, "db.t2.micro.multiaz.postgres", ",", ReservationArn.get(""), 1, 2);
+		expected = new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.reservedInstancesPartialUpfront, "db.t2.micro.multiaz.postgres", ",", ReservationArn.get(""), 1, 2);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 	}
 	
@@ -838,7 +840,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.DiscountedUsage, "ap-southeast-2", "", rds, "APS2-InstanceUsage:db.t2.micro", "CreateDBInstance:0014", "PostgreSQL, db.t2.micro reserved instance applied", PricingTerm.reserved, "2017-06-01T00:00:00Z", "2017-06-01T01:00:00Z", "1", "0", "Partial Upfront");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.bonusReservedInstancesPartialUpfront, "db.t2.micro.postgres", null, riArn, 0, 1.0),
+				new Datum(CostType.recurring, a2, Region.AP_SOUTHEAST_2, null, rdsInstance, Operation.bonusReservedInstancesPartialUpfront, "db.t2.micro.postgres", null, riArn, 0, 1.0),
 			};
 		test.run(expected);
 	}
@@ -855,7 +857,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Usage, "ap-northeast-2", "", ec2, "APN2-SpotUsage:c4.xlarge", "RunInstances:SV052", "c4.xlarge Linux/UNIX Spot Instance-hour in Asia Pacific (Seoul) in VPC Zone #52", PricingTerm.spot, "2017-06-01T00:00:00Z", "2017-06-01T01:00:00Z", "1.00000000", "0.3490000000000", "");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_NORTHEAST_2, null, ec2Instance, Operation.spotInstances, "c4.xlarge", 0.349, 1.0),
+				new Datum(CostType.recurring, a2, Region.AP_NORTHEAST_2, null, ec2Instance, Operation.spotInstances, "c4.xlarge", 0.349, 1.0),
 			};
 		test.run(expected);
 	}
@@ -865,7 +867,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setResources("i-0184b2c6d0325157b", "Prod", "john.doe@foobar.com");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.AP_NORTHEAST_2, null, ec2Instance, Operation.spotInstances, "c4.xlarge", "Prod,john.doe@foobar.com", 0.349, 1.0),
+				new Datum(CostType.recurring, a2, Region.AP_NORTHEAST_2, null, ec2Instance, Operation.spotInstances, "c4.xlarge", "Prod,john.doe@foobar.com", 0.349, 1.0),
 			};
 		test.run(expected);
 	}
@@ -877,7 +879,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("744.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		ProcessTest test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		Datum expected = new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.reservedInstancesPartialUpfront, "r4.xlarge.elasticsearch", ",", ReservationArn.get(""), 1.0, 2.0);
+		Datum expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elasticsearch, Operation.reservedInstancesPartialUpfront, "r4.xlarge.elasticsearch", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// All Upfront - 2 RIs at 2.0/hr upfront
@@ -885,7 +887,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("2976.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.reservedInstancesAllUpfront, "r4.xlarge.elasticsearch", ",", ReservationArn.get(""), 4.0, 0.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elasticsearch, Operation.reservedInstancesAllUpfront, "r4.xlarge.elasticsearch", ",", ReservationArn.get(""), 4.0, 0.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// No Upfront - 2 RIs at 1.5/hr recurring
@@ -893,7 +895,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.reservedInstancesNoUpfront, "r4.xlarge.elasticsearch", ",", ReservationArn.get(""), 0.0, 3.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elasticsearch, Operation.reservedInstancesNoUpfront, "r4.xlarge.elasticsearch", ",", ReservationArn.get(""), 0.0, 3.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 	}
 	
@@ -904,9 +906,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.25", "0.32", "0.66");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.amortizedPartialUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.25, 0),
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.savingsPartialUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.09, 0),
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.bonusReservedInstancesPartialUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.32, 1.0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elasticsearch, Operation.amortizedPartialUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.25, 0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elasticsearch, Operation.savingsPartialUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.09, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elasticsearch, Operation.bonusReservedInstancesPartialUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.32, 1.0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -915,9 +917,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.30", "0", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.amortizedAllUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.3, 0),
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.savingsAllUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.36, 0),
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.bonusReservedInstancesAllUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.0, 1.0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elasticsearch, Operation.amortizedAllUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.3, 0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elasticsearch, Operation.savingsAllUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.36, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elasticsearch, Operation.bonusReservedInstancesAllUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.0, 1.0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -926,8 +928,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0", "0.34", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.savingsNoUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.32, 0),
-				new Datum(a2, Region.US_EAST_1, null, elasticsearch, Operation.bonusReservedInstancesNoUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.34, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elasticsearch, Operation.savingsNoUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.32, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elasticsearch, Operation.bonusReservedInstancesNoUpfront, "r4.xlarge.elasticsearch", null, riArn, 0.34, 1.0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 	}
@@ -939,7 +941,7 @@ public class CostAndUsageLineItemProcessorTest {
 		// TODO: support DynamoDB amortization
 		ProcessTest test = new ProcessTest(line, Result.hourly, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, null, dynamoDB, Operation.getOperation("CommittedThroughput"), "WriteCapacityUnit-Hrs", 0, 1.0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, dynamoDB, Operation.getOperation("CommittedThroughput"), "WriteCapacityUnit-Hrs", 0, 1.0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 	}
@@ -951,7 +953,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("744.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		ProcessTest test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		Datum expected = new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesPartialUpfront, "cache.m5.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
+		Datum expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesPartialUpfront, "cache.m5.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// All Upfront - 2 RIs at 2.0/hr upfront
@@ -959,7 +961,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("2976.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesAllUpfront, "cache.m5.medium.redis", ",", ReservationArn.get(""), 4.0, 0.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesAllUpfront, "cache.m5.medium.redis", ",", ReservationArn.get(""), 4.0, 0.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// No Upfront - 2 RIs at 1.5/hr recurring
@@ -967,7 +969,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesNoUpfront, "cache.m5.medium.redis", ",", ReservationArn.get(""), 0.0, 3.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesNoUpfront, "cache.m5.medium.redis", ",", ReservationArn.get(""), 0.0, 3.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 
 		// Heavy Utilization - 2 RIs at 1.0/hr recurring and 0.5/hr upfront
@@ -975,7 +977,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("744.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesHeavy, "cache.m3.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesHeavy, "cache.m3.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// Medium Utilization - 2 RIs at 1.0/hr recurring and 0.5/hr upfront
@@ -983,7 +985,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("744.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesMedium, "cache.m3.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesMedium, "cache.m3.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 		// Light Utilization - 2 RIs at 1.0/hr recurring and 0.5/hr upfront
@@ -991,7 +993,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("744.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesLight, "cache.m3.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.reservedInstancesLight, "cache.m3.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 
 		// Heavy Utilization - 2 RIs at 1.0/hr recurring and 0.5/hr upfront --- test with different region
@@ -999,7 +1001,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setRIFeeFields("744.0", "0", "0", "0", "2", "2017-01-01T00:00:00Z", "2020-01-01T00:00:00Z");
 		test = new ProcessTest(line, Result.ignore, 31);
 		test.setDelayed();
-		expected = new Datum(a2, Region.US_WEST_2, null, elastiCache, Operation.reservedInstancesHeavy, "cache.t2.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
+		expected = new Datum(CostType.recurring, a2, Region.US_WEST_2, null, elastiCache, Operation.reservedInstancesHeavy, "cache.t2.medium.redis", ",", ReservationArn.get(""), 1.0, 2.0);
 		test.run("2019-07-01T00:00:00Z", null, expected);
 		
 	}
@@ -1011,9 +1013,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.25", "0.32", "0.66");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedPartialUpfront, "cache.m3.medium.redis", null, riArn, 0.25, 0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesPartialUpfront, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.savingsPartialUpfront, "cache.m3.medium.redis", null, riArn, 0.09, 0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedPartialUpfront, "cache.m3.medium.redis", null, riArn, 0.25, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesPartialUpfront, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elastiCache, Operation.savingsPartialUpfront, "cache.m3.medium.redis", null, riArn, 0.09, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -1022,9 +1024,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.30", "0", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedAllUpfront, "cache.m3.medium.redis", null, riArn, 0.3, 0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesAllUpfront, "cache.m3.medium.redis", null, riArn, 0, 1.0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.savingsAllUpfront, "cache.m3.medium.redis", null, riArn, 0.36, 0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedAllUpfront, "cache.m3.medium.redis", null, riArn, 0.3, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesAllUpfront, "cache.m3.medium.redis", null, riArn, 0, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elastiCache, Operation.savingsAllUpfront, "cache.m3.medium.redis", null, riArn, 0.36, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -1033,8 +1035,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0", "0.34", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesNoUpfront, "cache.m3.medium.redis", null, riArn, 0.34, 1.0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.savingsNoUpfront, "cache.m3.medium.redis", null, riArn, 0.32, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesNoUpfront, "cache.m3.medium.redis", null, riArn, 0.34, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elastiCache, Operation.savingsNoUpfront, "cache.m3.medium.redis", null, riArn, 0.32, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 
@@ -1043,9 +1045,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.25", "0.32", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedHeavy, "cache.m3.medium.redis", null, riArn, 0.25, 0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesHeavy, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.savingsHeavy, "cache.m3.medium.redis", null, riArn, 0.09, 0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedHeavy, "cache.m3.medium.redis", null, riArn, 0.25, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesHeavy, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elastiCache, Operation.savingsHeavy, "cache.m3.medium.redis", null, riArn, 0.09, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -1054,9 +1056,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.25", "0.32", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedMedium, "cache.m3.medium.redis", null, riArn, 0.25, 0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesMedium, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.savingsMedium, "cache.m3.medium.redis", null, riArn, 0.09, 0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedMedium, "cache.m3.medium.redis", null, riArn, 0.25, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesMedium, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elastiCache, Operation.savingsMedium, "cache.m3.medium.redis", null, riArn, 0.09, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -1065,9 +1067,9 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setDiscountedUsageFields("0.25", "0.32", "0.66");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedLight, "cache.m3.medium.redis", null, riArn, 0.25, 0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesLight, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
-				new Datum(a2, Region.US_EAST_1, null, elastiCache, Operation.savingsLight, "cache.m3.medium.redis", null, riArn, 0.09, 0),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, elastiCache, Operation.amortizedLight, "cache.m3.medium.redis", null, riArn, 0.25, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, elastiCache, Operation.bonusReservedInstancesLight, "cache.m3.medium.redis", null, riArn, 0.32, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, null, elastiCache, Operation.savingsLight, "cache.m3.medium.redis", null, riArn, 0.09, 0),
 			};
 		test.run("2018-01-01T00:00:00Z", expected);
 		
@@ -1078,7 +1080,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Credit, "us-east-1", "", ec2, "HeavyUsage:m4.large", "RunInstances", "MB - Pricing Adjustment", PricingTerm.reserved, "2019-08-01T00:00:00Z", "2019-09-01T00:00:00Z", "0.0000000000", "-38.3100000000", "");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, null, ec2Instance, Operation.reservedInstancesCredits, "m4.large", -0.0515, 0),
+				new Datum(CostType.credits, a2, Region.US_EAST_1, null, ec2Instance, Operation.reservedInstancesCredits, "m4.large", -0.0515, 0),
 			};
 		test.run("2019-08-01T00:00:00Z", expected);				
 	}
@@ -1089,7 +1091,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Credit, "us-east-1", "", redshift, "Node:ds2.xlarge", "RunComputeNode:0001", "AWS Credit", PricingTerm.onDemand, "2020-03-01T00:00:00Z", "2020-04-01T00:00:01Z", "0.0000000000", "-38.3100000000", "");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, null, redshiftInstance, Operation.ondemandInstanceCredits, "ds2.xlarge", -0.0515, 0),
+				new Datum(CostType.credits, a2, Region.US_EAST_1, null, redshiftInstance, Operation.ondemandInstances, "ds2.xlarge", -0.0515, 0),
 			};
 		test.run("2020-03-01T00:00:00Z", expected);				
 	}
@@ -1099,7 +1101,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Credit, "us-west-2", "", awsConfig, "USW2-ConfigurationItemRecorded", "", "AWS Config rules- credits to support pricing model change TT: 123456789012", PricingTerm.none, "2019-08-01T00:00:00Z", "2019-08-01T01:00:01Z", "0.0000000000", "-0.00492", "");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_WEST_2, null, config, Operation.getOperation("Credit - None"), "ConfigurationItemRecorded", -0.00492, 0),
+				new Datum(CostType.credits, a2, Region.US_WEST_2, null, config, Operation.getOperation("None"), "ConfigurationItemRecorded", -0.00492, 0),
 			};
 		test.run("2019-08-01T00:00:00Z", expected);				
 	}
@@ -1115,7 +1117,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test.setDelayed();
 		Product savingsPlans = productService.getProductByServiceCode("Savings Plans for AWS Compute usage");
 		Datum[] expected = {
-				new Datum(a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedNoUpfront, "ComputeSP:1yrNoUpfront", 0.06, 0),
+				new Datum(CostType.recurring, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedNoUpfront, "ComputeSP:1yrNoUpfront", 0.06, 0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1127,8 +1129,8 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.hourlyTruncate, 31);
 		test.setDelayed();
 		expected = new Datum[]{
-				new Datum(a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedAmortizedPartialUpfront, "ComputeSP:1yrPartialUpfront", 0.035, 0),
-				new Datum(a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedPartialUpfront, "ComputeSP:1yrPartialUpfront", 0.025, 0),
+				new Datum(CostType.amortization, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedAmortizedPartialUpfront, "ComputeSP:1yrPartialUpfront", 0.035, 0),
+				new Datum(CostType.recurring, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedPartialUpfront, "ComputeSP:1yrPartialUpfront", 0.025, 0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1141,7 +1143,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.hourlyTruncate, 31);
 		test.setDelayed();
 		expected = new Datum[]{
-				new Datum(a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedAmortizedAllUpfront, "ComputeSP:1yrAllUpfront", 0.06, 0),
+				new Datum(CostType.amortization, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedAmortizedAllUpfront, "ComputeSP:1yrAllUpfront", 0.06, 0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);		
 	}
@@ -1159,8 +1161,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setSavingsPlanCoveredUsageFields("2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", arn, "0.0083", "NoUpfront", "0.0116");
 		ProcessTest test = new ProcessTest(line, Result.hourly, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanSavingsNoUpfront, "t2.micro", 0.0033, 0),
-				new Datum(a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanBonusNoUpfront, "t2.micro", null, spArn, 0.0083, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanSavingsNoUpfront, "t2.micro", 0.0033, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanBonusNoUpfront, "t2.micro", null, spArn, 0.0083, 1.0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 
@@ -1169,8 +1171,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setSavingsPlanCoveredUsageFields("2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.0083", "PartialUpfront", "0.0116");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanSavingsPartialUpfront, "t2.micro", 0.0033, 0),
-				new Datum(a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t2.micro", null, spArn, 0.0083, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanSavingsPartialUpfront, "t2.micro", 0.0033, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t2.micro", null, spArn, 0.0083, 1.0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1179,8 +1181,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setSavingsPlanCoveredUsageFields("2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.0083", "AllUpfront", "0.0116");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanSavingsAllUpfront, "t2.micro", 0.0033, 0),
-				new Datum(a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanBonusAllUpfront, "t2.micro", null, spArn, 0.0083, 1.0),
+				new Datum(CostType.savings, a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanSavingsAllUpfront, "t2.micro", 0.0033, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, Datum.us_east_1a, ec2Instance, Operation.savingsPlanBonusAllUpfront, "t2.micro", null, spArn, 0.0083, 1.0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1189,8 +1191,8 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setSavingsPlanCoveredUsageFields("2019-11-08T00:11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.000036", "NoUpfront", "0.00004");
 		test = new ProcessTest(line, Result.hourly, 31);
 		expected = new Datum[]{
-				new Datum(a2, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", null, spArn, 0.000036, 2.4),
-				new Datum(a2, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanSavingsNoUpfront, "Lambda-GB-Second", 0.000004, 0),
+				new Datum(CostType.recurring, a2, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", null, spArn, 0.000036, 2.4),
+				new Datum(CostType.savings, a2, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanSavingsNoUpfront, "Lambda-GB-Second", 0.000004, 0),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1203,7 +1205,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setBillType(BillType.Purchase);
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", 64500.0, 1000000.0),
+				new Datum(CostType.subscriptions, a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", 64500.0, 1000000.0),
 			};
 		test.run("2019-11-01T00:00:00Z", expected);				
 	}
@@ -1214,7 +1216,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setBillType(BillType.Refund);
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", -645.0, 0.0),
+				new Datum(CostType.refunds, a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", -645.0, 0.0),
 			};
 		test.run("2019-11-01T00:00:00Z", expected);				
 	}
@@ -1226,7 +1228,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setTaxFields("GST", "Amazon Web Services, Inc.");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - GST"), "HeavyUsage:c4.large", 0.01, 0.001344),
+				new Datum(CostType.taxes, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - GST"), "HeavyUsage:c4.large", 0.01, 0.001344),
 			};
 		test.run("2020-01-01T00:00:00Z", expected);				
 
@@ -1236,7 +1238,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.delay, 31);
 		test.setReportDate("2019-12-19T05:00:01Z");
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.00229),
+				new Datum(CostType.taxes, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.00229),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1246,7 +1248,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.delay, 31);
 		test.setReportDate("2019-12-19T05:00:01Z");
 		expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.001344),
+				new Datum(CostType.taxes, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.001344),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1263,7 +1265,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setTaxFields("VAT", "AWS EMEA SARL");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(a2, Region.GLOBAL, null, ec2Product, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 1.0, 0.001344),
+				new Datum(CostType.taxes, a2, Region.GLOBAL, null, ec2Product, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 1.0, 0.001344),
 			};
 		test.run("2020-01-01T00:00:00Z", expected);				
 	}

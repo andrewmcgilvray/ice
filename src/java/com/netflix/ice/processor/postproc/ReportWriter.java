@@ -139,6 +139,7 @@ public class ReportWriter {
     			    			
     			for (Rule.TagKey tk: tagKeys) {    				
     				switch (tk) {
+    				case costType:  cols.add(tg.costType.name); break;
     				case account:	cols.add(tg.account.getId()); cols.add(tg.account.getName()); break;
     				case region:	cols.add(tg.region.name); break;
     				case zone:		cols.add(tg.zone == null ? "" : tg.zone.name); break;

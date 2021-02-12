@@ -50,7 +50,6 @@ import com.netflix.ice.processor.pricelist.PriceListService;
 import com.netflix.ice.processor.pricelist.InstancePrices.LeaseContractLength;
 import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
 import com.netflix.ice.reader.InstanceMetrics;
-import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.FamilyTag;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
@@ -287,7 +286,7 @@ public class DataJsonWriter extends DataFile {
 			this.usage = usage;
 			
 			org = String.join("/", tg.account.getParents());
-			costType = CostType.getCostType(tg.operation).name;
+			costType = tg.costType.name;
 			accountId = tg.account.getId();
 			account = tg.account.getIceName();
 			region = tg.region.name;

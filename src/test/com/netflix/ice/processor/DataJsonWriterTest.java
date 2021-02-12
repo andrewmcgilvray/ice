@@ -35,6 +35,7 @@ import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Product.Code;
@@ -53,6 +54,7 @@ public class DataJsonWriterTest {
 	private TagGroup getTagGroup(Code product, String operation, String usageType, String[] resource) throws BadZone, ResourceException {
 		Product prod = productService.getProduct(product);
 		return TagGroup.getTagGroup(
+				CostType.recurring,
 				new Account("123456789012", "a1", Lists.<String>newArrayList()),
 				Region.US_EAST_1, Region.US_EAST_1.getZone("us-east-1a"), 
 				prod, 

@@ -40,6 +40,7 @@ import com.netflix.ice.reader.TagListsWithUserTags;
 import com.netflix.ice.tag.Account;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Operation.ReservationOperation;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.Tag;
@@ -76,25 +77,25 @@ public class BasicTagGroupManagerTest {
 	@Test
 	public void testGetTagListsMap() throws Exception {
 		TagGroup[] tagGroups = new TagGroup[]{
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", ""}, 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagB", ""}, 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagX"}, 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagY"}, 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", "TagX"}, accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagB", "TagY"}, accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, 		accountService, productService),
-				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, accountService, productService),
-				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", ""}, 	accountService, productService),
-				TagGroup.getTagGroup("Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagX"}, 	accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagB", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagX"}, 	accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagY"}, 	accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", "TagX"}, accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagB", "TagY"}, accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, 		accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", ""}, accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"TagA", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Recurring", "Account2", "us-east-1", "us-east-1a", "ProductA", "OperationA", "UsageTypeA", "", new String[]{"", "TagX"}, 	accountService, productService),
 				// Savings operation tags that should be filtered if not for reservations
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings - Spot", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Savings", "Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings - Spot", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),
+				TagGroup.getTagGroup("Savings", "Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Savings RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),
 				// Lent or Borrowed (but not both) should be filtered based on showLent flag
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Lent RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Borrowed RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "LentAmortized RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
-				TagGroup.getTagGroup("Account1", "us-east-1", "us-east-1a", "EC2 Instance", "BorrowedAmortized RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Lent RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Recurring", "Account1", "us-east-1", "us-east-1a", "EC2 Instance", "Borrowed RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Amortization", "Account1", "us-east-1", "us-east-1a", "EC2 Instance", "LentAmortized RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
+				TagGroup.getTagGroup("Amortization", "Account1", "us-east-1", "us-east-1a", "EC2 Instance", "BorrowedAmortized RIs - All Upfront", "m1.small", "hour", new String[]{"", ""}, 	accountService, productService),				
 		};
 		
 		BasicTagGroupManager manager = getTagGroupManager(tagGroups);
@@ -105,23 +106,28 @@ public class BasicTagGroupManagerTest {
 		//
 		TagLists tagLists = new TagLists();
 
+		// Group by costType
+		List<Operation.Identity.Value> exclude = Operation.exclude(false);		
+		Map<Tag, TagLists> groupByLists = manager.getTagListsMap(interval, tagLists, TagType.CostType, exclude);
+		assertEquals("wrong number of groupBy tags for costType", 3, groupByLists.size());		
+		
 		// Group by account
-		List<Operation.Identity.Value> exclude = Operation.exclude(null, false, true, false);		
-		Map<Tag, TagLists> groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Account, exclude);
+		exclude = Operation.exclude(false);		
+		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Account, exclude);
 		assertEquals("wrong number of groupBy tags for account", 2, groupByLists.size());
 		
 		// Group by region
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Region, exclude);
 		assertEquals("wrong number of groupBy tags for region", 1, groupByLists.size());
-		assertEquals("wrong number of operations in tagLists for groupBy region", 3, groupByLists.get(Region.US_EAST_1).operations.size());
+		assertEquals("wrong number of operations in tagLists for groupBy region", 5, groupByLists.get(Region.US_EAST_1).operations.size());
 		
 		// Group by none
 		groupByLists = manager.getTagListsMap(interval, tagLists, null, exclude);
 		assertEquals("wrong number of groupBy tags for none", 1, groupByLists.size());
-		assertEquals("wrong number of operations in tagLists for groupBy none", 3, groupByLists.get(Tag.aggregated).operations.size());
+		assertEquals("wrong number of operations in tagLists for groupBy none", 5, groupByLists.get(Tag.aggregated).operations.size());
 		
 		// Group by operation for reservation with borrowed
-		exclude = Operation.exclude(null, false, true, true);		
+		exclude = Operation.exclude(false);		
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Operation, exclude);
 		assertEquals("wrong number of groupBy tags for operation", 5, groupByLists.size());
 		assertEquals("wrong number of operations in tagLists for groupBy operation", 1, groupByLists.get(ReservationOperation.spotInstanceSavings).operations.size());
@@ -129,7 +135,7 @@ public class BasicTagGroupManagerTest {
 		assertEquals("wrong number of operations in tagLists for groupBy operation", 1, groupByLists.get(ReservationOperation.borrowedInstancesAllUpfront).operations.size());
 		
 		// Group by operation for reservation with lent
-		exclude = Operation.exclude(null, true, true, true);		
+		exclude = Operation.exclude(true);		
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Operation, exclude);
 		assertEquals("wrong number of groupBy tags for operation", 5, groupByLists.size());
 		assertEquals("wrong number of operations in tagLists for groupBy operation", 1, groupByLists.get(ReservationOperation.spotInstanceSavings).operations.size());
@@ -139,13 +145,13 @@ public class BasicTagGroupManagerTest {
 		//
 		// Test non-resource tags with tagLists filtering
 		//
-		exclude = Operation.exclude(null, false, true, false);
-		tagLists = new TagLists(Lists.newArrayList(accountService.getAccountByName("Account1")));
+		exclude = Operation.exclude(false);
+		tagLists = new TagLists(Lists.newArrayList(CostType.recurring), Lists.newArrayList(accountService.getAccountByName("Account1")));
 		// Group by account one match
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Account, exclude);
 		assertEquals("wrong number of groupBy tags for account", 1, groupByLists.size());
 		
-		tagLists = new TagLists(Lists.newArrayList(accountService.getAccountByName("Account3")));
+		tagLists = new TagLists(Lists.newArrayList(CostType.recurring), Lists.newArrayList(accountService.getAccountByName("Account3")));
 		// Group by account - no matches
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Account, exclude);
 		assertEquals("wrong number of groupBy tags for account", 0, groupByLists.size());
@@ -156,7 +162,7 @@ public class BasicTagGroupManagerTest {
     	List<List<UserTag>> resourceTagLists = Lists.newArrayList();
     	resourceTagLists.add(null);
     	resourceTagLists.add(null);
-		tagLists = new TagListsWithUserTags(null, null, null, null, null, null, resourceTagLists);
+		tagLists = new TagListsWithUserTags(null, null, null, null, null, null, null, resourceTagLists);
 		
 		// Group by first user tag
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Tag, exclude, 0);
@@ -180,7 +186,7 @@ public class BasicTagGroupManagerTest {
 		resourceTagLists.get(1).add(UserTag.get("TagY"));		
 		// Should now be: resourceTagLists[[],["TagX","TagY"]]
 		
-		tagLists = new TagListsWithUserTags(null, null, null, null, null, null, resourceTagLists);
+		tagLists = new TagListsWithUserTags(Lists.newArrayList(new CostType[]{CostType.recurring, CostType.amortization}), null, null, null, null, null, null, resourceTagLists);
 		groupByLists = manager.getTagListsMap(interval, tagLists, TagType.Tag, exclude, 0);
 		assertEquals("wrong number of groupBy tags for user tag - filter all but empties", 3, groupByLists.size());
 		for (TagLists tl: groupByLists.values()) {
@@ -226,7 +232,7 @@ public class BasicTagGroupManagerTest {
 		        for (TagGroup tagGroup: tagGroups) {
 					boolean contains = tagLists.contains(tagGroup, true);
 					boolean firstUserTagEmpty = tagGroup.resourceGroup.getUserTags()[0].name.isEmpty();
-		        	if (tagGroup.operation.isLent() || tagGroup.operation.isSavings())
+		        	if (tagGroup.operation.isLent() || tagGroup.costType == CostType.savings)
 		        		assertEquals("contains returned wrong state on reservation op: " + tagGroup, false, contains);
 		        	else
 		        		assertEquals("contains returned wrong state on empty tag for: " + tagGroup, firstUserTagEmpty, contains);
@@ -237,22 +243,24 @@ public class BasicTagGroupManagerTest {
 			}
 		}
 	}
-
-	private TagGroup getTagGroup(Operation operation) {
-		return TagGroup.getTagGroup(a1, Region.US_EAST_1, null, ec2, operation, UsageType.getUsageType("None", ""), null);
-	}
 	
 	@Test
 	public void testGetOperations() throws BadZone {
 		List<TagGroup> tagGroups = Lists.newArrayList();
 		int numLent = 0;
 		int numAmort = 0;
+		List<Operation> amortOps = Lists.newArrayList(Operation.amortizationOperations);
+		
 		for (Operation op: Operation.getReservationOperations(true)) {
 			if (op.isLent())
 				numLent++;
-			if (op.isAmortized())
+			CostType ct = CostType.recurring;
+			if (amortOps.contains(op)) {
 				numAmort++;
-			tagGroups.add(getTagGroup(op));
+				ct = CostType.amortization;
+			}
+						
+			tagGroups.add(TagGroup.getTagGroup(ct, a1, Region.US_EAST_1, null, ec2, op, UsageType.getUsageType("None", ""), null));
 		}
 		
 		TagGroup[] tga = new TagGroup[tagGroups.size()];
@@ -262,12 +270,8 @@ public class BasicTagGroupManagerTest {
 		assertEquals("wrong number of lent operations", 11, numLent);
 		assertEquals("wrong number of amortized operations", 15, numAmort);
 		
-		List<Operation.Identity.Value> exclude = Lists.newArrayList(Operation.Identity.Value.Amortized);
+		List<Operation.Identity.Value> exclude = Lists.newArrayList(Operation.Identity.Value.Lent);
 		Collection<Operation> ops = manager.getOperations(new TagLists(), exclude);
-		assertEquals("wrong number of operations after excluding amortized", tagGroups.size() - numAmort, ops.size());
-		
-		exclude = Lists.newArrayList(Operation.Identity.Value.Lent);
-		ops = manager.getOperations(new TagLists(), exclude);
 		assertEquals("wrong number of operations after excluding amortized", tagGroups.size() - numLent, ops.size());
 	}
 }

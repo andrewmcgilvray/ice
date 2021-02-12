@@ -27,6 +27,7 @@ import java.util.List;
  * Holds a List of Values for each of the Tags in a TagGroup
  */
 public class TagLists {
+    public final List<CostType> costTypes;
     public final List<Account> accounts;
     public final List<Region> regions;
     public final List<Zone> zones;
@@ -36,6 +37,7 @@ public class TagLists {
     public final List<ResourceGroup> resourceGroups;
 
     public TagLists() {
+    	this.costTypes = null;
         this.accounts = null;
         this.regions = null;
         this.zones = null;
@@ -45,7 +47,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = null;
         this.zones = null;
@@ -55,7 +58,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts, List<Region> regions) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts, List<Region> regions) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = regions;
         this.zones = null;
@@ -65,7 +69,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts, List<Region> regions, List<Zone> zones) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = regions;
         this.zones = zones;
@@ -75,7 +80,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = regions;
         this.zones = zones;
@@ -85,7 +91,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products, List<Operation> operations) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products, List<Operation> operations) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = regions;
         this.zones = zones;
@@ -95,7 +102,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products, List<Operation> operations, List<UsageType> usageTypes) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products, List<Operation> operations, List<UsageType> usageTypes) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = regions;
         this.zones = zones;
@@ -105,7 +113,8 @@ public class TagLists {
         this.resourceGroups = null;
     }
 
-    public TagLists(List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products, List<Operation> operations, List<UsageType> usageTypes, List<ResourceGroup> resourceGroups) {
+    public TagLists(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, List<Product> products, List<Operation> operations, List<UsageType> usageTypes, List<ResourceGroup> resourceGroups) {
+    	this.costTypes = costTypes;
         this.accounts = accounts;
         this.regions = regions;
         this.zones = zones;
@@ -116,7 +125,7 @@ public class TagLists {
     }
     
     public TagLists copyWithOperations(List<Operation> operations) {
-    	return new TagLists(accounts, regions, zones, products, operations, usageTypes, resourceGroups);
+    	return new TagLists(costTypes, accounts, regions, zones, products, operations, usageTypes, resourceGroups);
     }
 
     /**
@@ -129,6 +138,9 @@ public class TagLists {
     public boolean contains(TagGroup tagGroup) {
         boolean result = true;
 
+        if (result && costTypes != null && costTypes.size() > 0) {
+            result = costTypes.contains(tagGroup.costType);
+        }
         if (result && accounts != null && accounts.size() > 0) {
             result = accounts.contains(tagGroup.account);
         }
@@ -161,6 +173,9 @@ public class TagLists {
         boolean result = true;
 
         switch (groupBy) {
+            case CostType:
+        	    result = costTypes == null || costTypes.size() == 0 || costTypes.contains(tag);
+        	    break;
             case Account:
                 result = accounts == null || accounts.size() == 0 || accounts.contains(tag);
                 break;
@@ -190,23 +205,26 @@ public class TagLists {
         TagLists result = null;
 
         switch (groupBy) {
+            case CostType:
+                result = new TagLists(Lists.newArrayList((CostType)tag), this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, this.resourceGroups);
+            	break;        	
             case Account:
-                result = new TagLists(Lists.newArrayList((Account)tag), this.regions, this.zones, this.products, this.operations, this.usageTypes, this.resourceGroups);
+                result = new TagLists(this.costTypes, Lists.newArrayList((Account)tag), this.regions, this.zones, this.products, this.operations, this.usageTypes, this.resourceGroups);
                 break;
             case Region:
-                result = new TagLists(this.accounts, Lists.newArrayList((Region)tag), this.zones, this.products, this.operations, this.usageTypes, this.resourceGroups);
+                result = new TagLists(this.costTypes, this.accounts, Lists.newArrayList((Region)tag), this.zones, this.products, this.operations, this.usageTypes, this.resourceGroups);
                 break;
             case Zone:
-                result = new TagLists(this.accounts, this.regions, Lists.newArrayList((Zone)tag), this.products, this.operations, this.usageTypes, this.resourceGroups);
+                result = new TagLists(this.costTypes, this.accounts, this.regions, Lists.newArrayList((Zone)tag), this.products, this.operations, this.usageTypes, this.resourceGroups);
                 break;
             case Product:
-                result = new TagLists(this.accounts, this.regions, this.zones, Lists.newArrayList((Product)tag), this.operations, this.usageTypes, this.resourceGroups);
+                result = new TagLists(this.costTypes, this.accounts, this.regions, this.zones, Lists.newArrayList((Product)tag), this.operations, this.usageTypes, this.resourceGroups);
                 break;
             case Operation:
-                result = new TagLists(this.accounts, this.regions, this.zones, this.products, Lists.newArrayList((Operation)tag), this.usageTypes, this.resourceGroups);
+                result = new TagLists(this.costTypes, this.accounts, this.regions, this.zones, this.products, Lists.newArrayList((Operation)tag), this.usageTypes, this.resourceGroups);
                 break;
             case UsageType:
-                result = new TagLists(this.accounts, this.regions, this.zones, this.products, this.operations, Lists.newArrayList((UsageType)tag), this.resourceGroups);
+                result = new TagLists(this.costTypes, this.accounts, this.regions, this.zones, this.products, this.operations, Lists.newArrayList((UsageType)tag), this.resourceGroups);
                 break;
             default:
             	result = null;
@@ -216,19 +234,20 @@ public class TagLists {
     }
     
     public TagLists getTagListsWithNullResourceGroup() {
-    	return new TagLists(this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, null);
+    	return new TagLists(this.costTypes, this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, null);
     }
     
     public TagLists getTagListsWithProducts(List<Product> products) {
-    	return new TagLists(this.accounts, this.regions, this.zones, products, this.operations, this.usageTypes, this.resourceGroups);
+    	return new TagLists(this.costTypes, this.accounts, this.regions, this.zones, products, this.operations, this.usageTypes, this.resourceGroups);
     }
     
     public TagLists getTagListsWithOperations(List<Operation> operations) {
-    	return new TagLists(this.accounts, this.regions, this.zones, this.products, operations, this.usageTypes, this.resourceGroups);
+    	return new TagLists(this.costTypes, this.accounts, this.regions, this.zones, this.products, operations, this.usageTypes, this.resourceGroups);
     }
     
     public String toString() {
-    	return  (accounts == null ? "null" : accounts.toString()) + "," +
+    	return  (costTypes == null ? "null" : costTypes.toString()) + "," +
+    			(accounts == null ? "null" : accounts.toString()) + "," +
     			(regions == null ? "null" : regions.toString()) + "," +
     			(zones == null ? "null" : zones.toString()) + "," +
         		(products == null ? "null" : products.toString()) + "," +

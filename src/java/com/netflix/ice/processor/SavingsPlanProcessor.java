@@ -29,6 +29,7 @@ import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.PurchaseOption;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagGroupSP;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.SavingsPlanArn;
@@ -95,11 +96,11 @@ public class SavingsPlanProcessor {
 	    		else {
 	    			amortOp = Operation.getSavingsPlanBorrowedAmortized(sp.paymentOption);
 	    			// Create Lent records for account that owns the savings plan
-	        		TagGroup tg = TagGroup.getTagGroup(accountService.getAccountById(accountId), bonusTg.region, bonusTg.zone, bonusTg.product, Operation.getSavingsPlanLentAmortized(sp.paymentOption), bonusTg.usageType, bonusTg.resourceGroup);
+	        		TagGroup tg = TagGroup.getTagGroup(CostType.amortization, accountService.getAccountById(accountId), bonusTg.region, bonusTg.zone, bonusTg.product, Operation.getSavingsPlanLentAmortized(sp.paymentOption), bonusTg.usageType, bonusTg.resourceGroup);
 	    	    	ds.add(hour, tg, cau.cost * sp.normalizedAmortization, 0);
 	    		}	    		
 	    		
-	    		TagGroup tg = bonusTg.withOperation(amortOp);
+	    		TagGroup tg = bonusTg.withCostType(CostType.amortization).withOperation(amortOp);
     	    	ds.add(hour, tg, cau.cost * sp.normalizedAmortization, 0);
 	    	}
 	    	
@@ -111,7 +112,7 @@ public class SavingsPlanProcessor {
     			op = Operation.getSavingsPlanBorrowed(sp.paymentOption);
     			
     			// Create Lent records for account that owns the savings plan
-        		TagGroup tg = TagGroup.getTagGroup(accountService.getAccountById(accountId), bonusTg.region, bonusTg.zone, bonusTg.product, Operation.getSavingsPlanLent(sp.paymentOption), bonusTg.usageType, bonusTg.resourceGroup);
+        		TagGroup tg = TagGroup.getTagGroup(CostType.recurring, accountService.getAccountById(accountId), bonusTg.region, bonusTg.zone, bonusTg.product, Operation.getSavingsPlanLent(sp.paymentOption), bonusTg.usageType, bonusTg.resourceGroup);
     	    	ds.add(hour, tg, cau.cost * sp.normalizedRecurring, cau.usage);
     		}
     		
@@ -142,7 +143,7 @@ public class SavingsPlanProcessor {
 //	    	}
 
 	    	DataSerializer.CostAndUsage v = ds.remove(hour, tg);
-	    	TagGroup newTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
+	    	TagGroup newTg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
 	    	ds.add(hour, newTg, v);
 	    }
 	    for (Tag t: leftovers.keySet()) {

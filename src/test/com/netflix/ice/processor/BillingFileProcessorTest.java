@@ -286,7 +286,7 @@ public class BillingFileProcessorTest {
 				TagGroup tg = entry.getKey();
 				// Convert any TagGroupRIs to TagGroups since the RI version isn't reconstituted from file
 				if (tg instanceof TagGroupRI) {
-					tg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
+					tg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
 				}
 				CostAndUsage cau = entry.getValue();
 				if (!cau.isZero())
@@ -392,9 +392,9 @@ public class BillingFileProcessorTest {
 
         while ((line = in.readLine()) != null) {
         	String[] items = line.split(",");        	
-        	TagGroup tag = TagGroup.getTagGroup(items[0], items[1], items[2], items[3], items[4], items[5],
-        			items.length > 6 ? items[6] : "", 
-        			items.length > 7 ? items[7].split(separatorRegex, -1) : null, 
+        	TagGroup tag = TagGroup.getTagGroup(items[0], items[1], items[2], items[3], items[4], items[5], items[6],
+        			items.length > 7 ? items[7] : "", 
+        			items.length > 8 ? items[8].split(separatorRegex, -1) : null, 
         			accountService, productService);
             result.add(tag);
         }

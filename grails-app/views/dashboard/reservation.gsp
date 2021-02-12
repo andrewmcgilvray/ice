@@ -52,12 +52,12 @@
         <div ng-show="usage_cost=='cost'" stype="padding-top: 10px">
           <table class="costTypeTable">
             <tr>
-        	  <td class="left"><input type="checkbox" ng-model="recurring" ng-change="includeChanged()"> Recurring Fees</input></td>
-		      <td class="right"><input type="checkbox" ng-model="credit" ng-change="includeChanged()"> Credits</input></td>    
+        	  <td class="left"><input type="checkbox" ng-model="recurring" ng-change="costTypesChanged()"> Recurring Fees</input></td>
+		      <td class="right"><input type="checkbox" ng-model="credit" ng-change="costTypesChanged()"> Credits</input></td>    
             </tr>
             <tr>
-		      <td class="left"><input type="checkbox" ng-model="amortized" ng-change="includeChanged()"> Amortization</input></td>        
-		      <td class="right"><input type="checkbox" ng-model="savings" ng-change="includeChanged()"> Savings</input></td>
+		      <td class="left"><input type="checkbox" ng-model="amortized" ng-change="costTypesChanged()"> Amortization</input></td>        
+		      <td class="right"><input type="checkbox" ng-model="savings" ng-change="costTypesChanged()"> Savings</input></td>
 		    </tr> 
           </table>
         </div>

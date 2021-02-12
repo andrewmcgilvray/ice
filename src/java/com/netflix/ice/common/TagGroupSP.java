@@ -23,6 +23,7 @@ import org.apache.commons.lang.StringUtils;
 
 import com.google.common.collect.Maps;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -41,10 +42,10 @@ import com.netflix.ice.tag.Zone.BadZone;
 public class TagGroupSP extends TagGroupArn<SavingsPlanArn> {
 	private static final long serialVersionUID = 1L;
 	
-	private TagGroupSP(Account account, Region region, Zone zone,
+	private TagGroupSP(CostType costType, Account account, Region region, Zone zone,
 			Product product, Operation operation, UsageType usageType,
 			ResourceGroup resourceGroup, SavingsPlanArn savingsPlanArn) {
-		super(account, region, zone, product, operation, usageType,
+		super(costType, account, region, zone, product, operation, usageType,
 				resourceGroup, savingsPlanArn);
 	}
     
@@ -53,13 +54,14 @@ public class TagGroupSP extends TagGroupArn<SavingsPlanArn> {
     public static TagGroupSP get(TagGroup tg) {
     	if (tg instanceof TagGroupSP)
     		return (TagGroupSP) tg;
-    	return get(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup, null);
+    	return get(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup, null);
     }
     
-    public static TagGroupSP get(String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit,
+    public static TagGroupSP get(String costType, String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit,
     		String[] resourceGroup, String savingsPlanArn, AccountService accountService, ProductService productService) throws BadZone, ResourceException {
         Region r = Region.getRegionByName(region);
         return get(
+        	CostType.get(costType),
     		accountService.getAccountByName(account),
         	r, StringUtils.isEmpty(zone) ? null : r.getZone(zone),
         	productService.getProductByServiceCode(product),
@@ -69,8 +71,8 @@ public class TagGroupSP extends TagGroupArn<SavingsPlanArn> {
             SavingsPlanArn.get(savingsPlanArn));   	
     }
     
-    public static TagGroupSP get(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup, SavingsPlanArn savingsPlanArn) {
-        TagGroupSP newOne = new TagGroupSP(account, region, zone, product, operation, usageType, resourceGroup, savingsPlanArn);
+    public static TagGroupSP get(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup, SavingsPlanArn savingsPlanArn) {
+        TagGroupSP newOne = new TagGroupSP(costType, account, region, zone, product, operation, usageType, resourceGroup, savingsPlanArn);
         TagGroupSP oldOne = tagGroups.get(newOne);
         if (oldOne != null) {
             return oldOne;
@@ -81,10 +83,9 @@ public class TagGroupSP extends TagGroupArn<SavingsPlanArn> {
         }
     }
 
-
     @Override
-    public TagGroup withResourceGroup(ResourceGroup rg) {
-    	return get(account, region, zone, product, operation, usageType, rg, arn);
+    public TagGroup withoutResourceGroup() {
+    	return get(costType, account, region, zone, product, operation, usageType, null, arn);
     }
 
 }

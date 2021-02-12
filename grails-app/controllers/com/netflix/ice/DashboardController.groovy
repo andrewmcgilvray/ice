@@ -172,13 +172,34 @@ class DashboardController {
 		render result as JSON
     }
 
+	private List<CostType> getCostTypes(List<String> params, boolean isCost, boolean forReservationSavingsPlanDashboard) {
+		List<CostType> costTypes = CostType.getCostTypes(params);
+		
+		if (costTypes.isEmpty()) {
+			// Maintain past behavior prior to support of refunds and subscriptions
+			costTypes = Lists.newArrayList(CostType.getDefaults());
+			if (isCost) {
+				if (forReservationSavingsPlanDashboard) {
+					costTypes.add(CostType.savings);
+					costTypes.remove(CostType.taxes);
+				}
+			}
+			else {
+				costTypes.remove(CostType.amortization);
+				costTypes.remove(CostType.savings);
+			}
+		}
+		//logger.info("CostTypes: " + costTypes);
+		return costTypes;
+	}
+
     def getRegions = {
         def text = request.reader.text;
         JSONObject query = (JSONObject)JSON.parse(text);
         List<Account> accounts = getConfig().accountService.getAccounts(listParams(query, "account"));
 
         TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
-        Collection<Region> data = tagGroupManager == null ? [] : tagGroupManager.getRegions(new TagLists(accounts));
+        Collection<Region> data = tagGroupManager == null ? [] : tagGroupManager.getRegions(new TagLists(null, accounts));
 
         def result = [status: 200, data: data]
         render result as JSON
@@ -191,7 +212,7 @@ class DashboardController {
         List<Region> regions = Region.getRegions(listParams(query, "region"));
 
         TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
-        Collection<Zone> data = tagGroupManager == null ? [] : tagGroupManager.getZones(new TagLists(accounts, regions));
+        Collection<Zone> data = tagGroupManager == null ? [] : tagGroupManager.getZones(new TagLists(null, accounts, regions));
 
         def result = [status: 200, data: data]
         render result as JSON
@@ -208,7 +229,7 @@ class DashboardController {
         boolean resources = params.getBoolean("resources");
         boolean showZones = params.getBoolean("showZones");
         if (showZones && (zones == null || zones.size() == 0)) {
-            zones = Lists.newArrayList(getManagers().getTagGroupManager(null).getZones(new TagLists(accounts)));
+            zones = Lists.newArrayList(getManagers().getTagGroupManager(null).getZones(new TagLists(null, accounts)));
         }
 
         Collection<Product> data;
@@ -219,13 +240,13 @@ class DashboardController {
                     continue;
 
                 TagGroupManager tagGroupManager = getManagers().getTagGroupManager(product);
-                Collection<Product> tmp = tagGroupManager.getProducts(new TagLists(accounts, regions, zones));
+                Collection<Product> tmp = tagGroupManager.getProducts(new TagLists(null, accounts, regions, zones));
                 data.addAll(tmp);
             }
         }
         else {
             TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
-            data = tagGroupManager == null ? [] : tagGroupManager.getProducts(new TagLists(accounts, regions, zones, products, operations));
+            data = tagGroupManager == null ? [] : tagGroupManager.getProducts(new TagLists(null, accounts, regions, zones, products, operations));
         }
 
         def result = [status: 200, data: data]
@@ -250,7 +271,7 @@ class DashboardController {
 		def result = [status: 200, data: data]
 		render result as JSON
 	}
-
+	
     def getOperations = {
         def text = request.reader.text;
         JSONObject query = (JSONObject)JSON.parse(text);
@@ -264,10 +285,11 @@ class DashboardController {
 		boolean forSavingsPlans = query.has("forSavingsPlans") ? query.getBoolean("forSavingsPlans") : false;
 		boolean showLent = query.has("showLent") ? query.getBoolean("showLent") : false;
 		boolean isCost = query.has("usage_cost") ? query.getString("usage_cost").equals("cost") : false;
-
-		List<Operation.Identity.Value> exclude = Operation.exclude(listParams(query, "exclude"), showLent, isCost, forReservation || forSavingsPlans);
+		List<CostType> costTypes = getCostTypes(listParams(query, "costType"), isCost, forReservation || forSavingsPlans);
 		
-        Collection<Operation> data = getManagers().getOperations(new TagLists(accounts, regions, zones, products, operations, null, null), products, exclude, resources);
+		List<Operation.Identity.Value> exclude = Operation.exclude(showLent);
+		
+        Collection<Operation> data = getManagers().getOperations(new TagLists(costTypes, accounts, regions, zones, products, operations, null, null), products, exclude, resources);
 		
         def result = [status: 200, data: data]
         render result as JSON
@@ -294,13 +316,13 @@ class DashboardController {
                     continue;
 
                 TagGroupManager tagGroupManager = getManagers().getTagGroupManager(product);
-                Collection<UsageType> result = tagGroupManager.getUsageTypes(new TagLists(accounts, regions, zones, null, operations, null, null));
+                Collection<UsageType> result = tagGroupManager.getUsageTypes(new TagLists(null, accounts, regions, zones, null, operations, null, null));
                 data.addAll(result);
             }
         }
         else {
             TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
-            data = tagGroupManager == null ? [] : tagGroupManager.getUsageTypes(new TagLists(accounts, regions, zones, products, operations, null, null));
+            data = tagGroupManager == null ? [] : tagGroupManager.getUsageTypes(new TagLists(null, accounts, regions, zones, products, operations, null, null));
         }
 
         def result = [status: 200, data: data]
@@ -584,9 +606,6 @@ class DashboardController {
 		boolean groupByOrgUnit = groupBy == TagType.OrgUnit;
 		if (groupByOrgUnit)
 			groupBy = TagType.Account;
-		boolean groupByCostType = groupBy == TagType.CostType;
-		if (groupByCostType)
-			groupBy = TagType.Operation;
 		
         boolean isCost = query.has("isCost") ? query.getBoolean("isCost") : true;
         boolean breakdown = query.has("breakdown") ? query.getBoolean("breakdown") : false;
@@ -612,7 +631,8 @@ class DashboardController {
         boolean elasticity = query.has("elasticity") ? query.getBoolean("elasticity") : false;
         boolean showZones = query.has("showZones") ? query.getBoolean("showZones") : false;
 		boolean consolidateGroups = query.has("consolidateGroups") ? query.getBoolean("consolidateGroups") : false;
-		List<Operation.Identity.Value> exclude = Operation.exclude(listParams(query, "exclude"), showLent, isCost, forReservation || forSavingsPlans);
+		List<Operation.Identity.Value> exclude = Operation.exclude(showLent);
+		List<CostType> costTypes = getCostTypes(listParams(query, "costType"), isCost, forReservation || forSavingsPlans);
 		
 		// Still support the old name "showResourceGroupTags" for new name showUserTags
         boolean showResourceGroupTags = query.has("showResourceGroupTags") ? query.getBoolean("showResourceGroupTags") : false;
@@ -633,7 +653,7 @@ class DashboardController {
 		}
 		
         if (showZones && (zones == null || zones.size() == 0)) {
-            zones = Lists.newArrayList(tagGroupManager.getZones(new TagLists(accounts)));
+            zones = Lists.newArrayList(tagGroupManager.getZones(new TagLists(costTypes, accounts)));
         }
 		// Tag Coverage parameters
 		boolean tagCoverage = query.has("tagCoverage") ? query.getBoolean("tagCoverage") : false;
@@ -682,7 +702,7 @@ class DashboardController {
 						if (product == null)
 							continue;
 	
-						Collection<Product> tmp = getManagers().getTagGroupManager(product).getProducts(new TagLists(accounts, regions, zones));
+						Collection<Product> tmp = getManagers().getTagGroupManager(product).getProducts(new TagLists(costTypes, accounts, regions, zones));
 						productSet.addAll(tmp);
 					}
 					products = Lists.newArrayList(productSet);
@@ -698,7 +718,7 @@ class DashboardController {
 					TagLists tagLists;
 	                Map<Tag, TagCoverageMetrics[]> dataOfProduct = dataManager.getRawData(
 	                    interval,
-	                    new TagListsWithUserTags(accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists),
+	                    new TagListsWithUserTags(costTypes, accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists),
 	                    groupBy,
                         aggregate,
 						userTagGroupByIndex
@@ -712,7 +732,7 @@ class DashboardController {
 				TagCoverageDataManager dataManager = (TagCoverageDataManager) getManagers().getTagCoverageManager(null, consolidateType);
 				data = dataManager.getData(
 					interval,
-					new TagLists(accounts, regions, zones, products, operations, usageTypes),
+					new TagLists(costTypes, accounts, regions, zones, products, operations, usageTypes),
 					groupBy,
                     aggregate,
 					userTagGroupByIndex,
@@ -724,6 +744,7 @@ class DashboardController {
         else if (showUserTags) {
             data = getManagers().getData(
 				interval,
+				costTypes,
 				accounts,
 				regions,
 				zones,
@@ -746,7 +767,7 @@ class DashboardController {
             data = dataManager.getData(
 				isCost,
                 interval,
-                new TagLists(accounts, regions, zones, products, operations, usageTypes),
+                new TagLists(costTypes, accounts, regions, zones, products, operations, usageTypes),
                 groupBy,
                 aggregate,
 				exclude,
@@ -759,8 +780,6 @@ class DashboardController {
 		
 		if (groupByOrgUnit)
 			data = consolidateAccounts(data);
-		else if (groupByCostType)
-			data = consolidateToCostTypes(data);
 		else if (consolidateGroups) {
 			if (groupBy == TagType.UsageType)
 				data = consolidateFamilies(data);
@@ -1039,36 +1058,7 @@ class DashboardController {
 		}
 		return result;
 	}
-	
-	// consolidate operations down to cost types
-	private Map<Tag, double[]> consolidateToCostTypes(Map<Tag, double[]> data) {
-		// Run through the data reducing Operation Types to their cost types
-		Map<Tag, double[]> result = Maps.newTreeMap();
-		for (Map.Entry<Tag, double[]> entry: data.entrySet()) {
-			if (entry.getKey() == Tag.aggregated) {
-				// Don't mess with the aggregated data series.
-				result[entry.getKey()] = entry.getValue();
-				continue;
-			}
-			CostType costType = CostType.other;
-			Tag t = entry.getKey();
-			if (t instanceof Operation) {
-				Operation op = (Operation) t;
-				costType = CostType.getCostType(op);
-			}
-			double[] values = entry.getValue();
-			double[] consolidated = result[costType];
-			if (consolidated == null) {
-				result[costType] = values;
-			}
-			else {
-				for (int i = 0; i < consolidated.length; i++)
-					consolidated[i] += values[i];
-			}
-		}
-		return result;
-	}
-		
+			
     private Map<Tag, Map> getStats(Map<Tag, double[]> data) {
         def result = [:];
 

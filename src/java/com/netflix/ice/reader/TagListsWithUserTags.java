@@ -22,9 +22,11 @@ import java.util.List;
 //import org.slf4j.Logger;
 //import org.slf4j.LoggerFactory;
 
+
 import com.google.common.collect.Lists;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -41,17 +43,17 @@ public class TagListsWithUserTags extends TagLists {
 	 */
     public final List<List<UserTag>> resourceUserTagLists;
 
-	public TagListsWithUserTags(List<Account> accounts, List<Region> regions,
+	public TagListsWithUserTags(List<CostType> costTypes, List<Account> accounts, List<Region> regions,
 			List<Zone> zones, List<Product> products,
 			List<Operation> operations, List<UsageType> usageTypes,
 			List<List<UserTag>> resourceUserTags) {
-		super(accounts, regions, zones, products, operations, usageTypes,
+		super(costTypes, accounts, regions, zones, products, operations, usageTypes,
 				null);
     	this.resourceUserTagLists = resourceUserTags;
 	}
     
     public TagLists copyWithOperations(List<Operation> operations) {
-    	return new TagListsWithUserTags(accounts, regions, zones, products, operations, usageTypes, resourceUserTagLists);
+    	return new TagListsWithUserTags(costTypes, accounts, regions, zones, products, operations, usageTypes, resourceUserTagLists);
     }
 
     /**
@@ -124,23 +126,26 @@ public class TagListsWithUserTags extends TagLists {
         TagLists result = null;
 
         switch (groupBy) {
+            case CostType:
+                result = new TagListsWithUserTags(Lists.newArrayList((CostType)tag), this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
+                break;
             case Account:
-                result = new TagListsWithUserTags(Lists.newArrayList((Account)tag), this.regions, this.zones, this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
+                result = new TagListsWithUserTags(this.costTypes, Lists.newArrayList((Account)tag), this.regions, this.zones, this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
                 break;
             case Region:
-                result = new TagListsWithUserTags(this.accounts, Lists.newArrayList((Region)tag), this.zones, this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
+                result = new TagListsWithUserTags(this.costTypes, this.accounts, Lists.newArrayList((Region)tag), this.zones, this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
                 break;
             case Zone:
-                result = new TagListsWithUserTags(this.accounts, this.regions, Lists.newArrayList((Zone)tag), this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
+                result = new TagListsWithUserTags(this.costTypes, this.accounts, this.regions, Lists.newArrayList((Zone)tag), this.products, this.operations, this.usageTypes, this.resourceUserTagLists);
                 break;
             case Product:
-                result = new TagListsWithUserTags(this.accounts, this.regions, this.zones, Lists.newArrayList((Product)tag), this.operations, this.usageTypes, this.resourceUserTagLists);
+                result = new TagListsWithUserTags(this.costTypes, this.accounts, this.regions, this.zones, Lists.newArrayList((Product)tag), this.operations, this.usageTypes, this.resourceUserTagLists);
                 break;
             case Operation:
-                result = new TagListsWithUserTags(this.accounts, this.regions, this.zones, this.products, Lists.newArrayList((Operation)tag), this.usageTypes, this.resourceUserTagLists);
+                result = new TagListsWithUserTags(this.costTypes, this.accounts, this.regions, this.zones, this.products, Lists.newArrayList((Operation)tag), this.usageTypes, this.resourceUserTagLists);
                 break;
             case UsageType:
-                result = new TagListsWithUserTags(this.accounts, this.regions, this.zones, this.products, this.operations, Lists.newArrayList((UsageType)tag), this.resourceUserTagLists);
+                result = new TagListsWithUserTags(this.costTypes, this.accounts, this.regions, this.zones, this.products, this.operations, Lists.newArrayList((UsageType)tag), this.resourceUserTagLists);
                 break;
             case Tag:
     	        List<List<UserTag>> userTagLists = Lists.newArrayList();
@@ -151,7 +156,7 @@ public class TagListsWithUserTags extends TagLists {
         			else
         				userTagLists.add(resourceUserTagLists.get(i));
         		}
-        		result = new TagListsWithUserTags(this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, userTagLists);
+        		result = new TagListsWithUserTags(this.costTypes, this.accounts, this.regions, this.zones, this.products, this.operations, this.usageTypes, userTagLists);
         		break;
             default:
             	result = null;
@@ -165,12 +170,12 @@ public class TagListsWithUserTags extends TagLists {
     	List<List<UserTag>> newResourceTagLists = Lists.newArrayList();
     	for (int i = 0; i < resourceUserTagLists.size(); i++)
     		newResourceTagLists.add(null);
-    	return new TagListsWithUserTags(accounts, regions, zones, products, operations, usageTypes, newResourceTagLists);
+    	return new TagListsWithUserTags(costTypes, accounts, regions, zones, products, operations, usageTypes, newResourceTagLists);
     }
     
     @Override
     public TagLists getTagListsWithOperations(List<Operation> operations) {
-    	return new TagListsWithUserTags(this.accounts, this.regions, this.zones, this.products, operations, this.usageTypes, this.resourceUserTagLists);
+    	return new TagListsWithUserTags(this.costTypes, this.accounts, this.regions, this.zones, this.products, operations, this.usageTypes, this.resourceUserTagLists);
     }
     
     @Override

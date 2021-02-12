@@ -18,6 +18,7 @@
 package com.netflix.ice.common;
 
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -33,10 +34,10 @@ public abstract class TagGroupArn<T extends Tag> extends TagGroup {
 	
 	private final int hashcode;
 
-	protected TagGroupArn(Account account, Region region, Zone zone,
+	protected TagGroupArn(CostType costType, Account account, Region region, Zone zone,
 			Product product, Operation operation, UsageType usageType,
 			ResourceGroup resourceGroup, T arn) {
-		super(account, region, zone, product, operation, usageType,
+		super(costType, account, region, zone, product, operation, usageType,
 				resourceGroup);
 		this.arn = arn;
 		this.hashcode = genHashCode();
@@ -75,4 +76,5 @@ public abstract class TagGroupArn<T extends Tag> extends TagGroup {
         result = prime * result + ((this.arn != null) ? this.arn.hashCode() : 0);
         return result;
     }
+    
 }

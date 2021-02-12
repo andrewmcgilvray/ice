@@ -39,6 +39,7 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
@@ -277,7 +278,7 @@ public class BasicManagers extends Poller implements Managers {
     }
 
     @Override
-    public Collection<UserTag> getUserTagValues(List<Account> accounts, List<Region> regions, List<Zone> zones, Collection<Product> products, int index) throws Exception {
+    public Collection<UserTag> getUserTagValues(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, Collection<Product> products, int index) throws Exception {
     	List<Future<Collection<ResourceGroup>>> futures = Lists.newArrayList();
     	
     	Set<UserTag> userTagValues = Sets.newTreeSet();
@@ -291,7 +292,7 @@ public class BasicManagers extends Poller implements Managers {
 				//logger.error("No TagGroupManager for product " + product + ", products: " + getProducts().size());
 				continue;
 			}			
-			futures.add(getUserTagValuesForProduct(new TagLists(accounts, regions, zones, Lists.newArrayList(product)), tagGroupManager));
+			futures.add(getUserTagValuesForProduct(new TagLists(costTypes, accounts, regions, zones, Lists.newArrayList(product)), tagGroupManager));
         }
 		// Wait for completion
 		for (Future<Collection<ResourceGroup>> f: futures) {
@@ -319,6 +320,7 @@ public class BasicManagers extends Poller implements Managers {
     @Override
     public Map<Tag, double[]> getData(
     		Interval interval,
+    		List<CostType> costTypes,
     		List<Account> accounts,
     		List<Region> regions,
     		List<Zone> zones,
@@ -339,7 +341,7 @@ public class BasicManagers extends Poller implements Managers {
 		
 		if (products.size() == 0) {
 	    	List<Future<Collection<Product>>> futures = Lists.newArrayList();
-            TagLists tagLists = new TagLists(accounts, regions, zones);
+            TagLists tagLists = new TagLists(costTypes, accounts, regions, zones);
             for (Product product: getProducts()) {
                 if (product == null)
                     continue;
@@ -364,7 +366,7 @@ public class BasicManagers extends Poller implements Managers {
 				//logger.error("No DataManager for product " + product);
 				continue;
 			}
-			TagLists tagLists = new TagListsWithUserTags(accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists);
+			TagLists tagLists = new TagListsWithUserTags(costTypes, accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists);
 			logger.debug("-------------- Process product ----------------" + product);
             futures.add(getDataForProduct(
             		isCost,

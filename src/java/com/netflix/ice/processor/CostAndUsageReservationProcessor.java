@@ -36,6 +36,7 @@ import com.netflix.ice.processor.pricelist.InstancePrices;
 import com.netflix.ice.processor.pricelist.PriceListService;
 import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Operation.ReservationOperation;
 import com.netflix.ice.tag.Product;
@@ -176,13 +177,13 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 				    
 				    if (purchaseOption != PurchaseOption.NoUpfront) {
 					    // See if we have amortization in the map already
-					    TagGroupRI atg = TagGroupRI.get(tg.account, tg.region, tg.zone, tg.product, Operation.getAmortized(purchaseOption), tg.usageType, tg.resourceGroup, tg.arn);
+					    TagGroupRI atg = TagGroupRI.get(CostType.amortization, tg.account, tg.region, tg.zone, tg.product, Operation.getAmortized(purchaseOption), tg.usageType, tg.resourceGroup, tg.arn);
 					    amort = ds.remove(hour, atg);
 					    if (hour == 0 && amort == null)
 					    	logger.warn("No amortization in map for tagGroup: " + atg);
 				    }
 				    
-				    TagGroupRI stg = TagGroupRI.get(tg.account, tg.region, tg.zone, tg.product, Operation.getSavings(purchaseOption), tg.usageType, tg.resourceGroup, tg.arn);
+				    TagGroupRI stg = TagGroupRI.get(CostType.savings, tg.account, tg.region, tg.zone, tg.product, Operation.getSavings(purchaseOption), tg.usageType, tg.resourceGroup, tg.arn);
 				    savings = ds.remove(hour, stg);
 				    if (hour == 0 && savings == null)
 				    	logger.warn("No savings in map for tagGroup: " + stg);
@@ -205,26 +206,26 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 					    ds.add(hour, usedTagGroup, adjustedCost, used.usage);
 					    // assign amortization
 					    if (adjustedAmortization > 0.0) {
-					        TagGroup amortTagGroup = tg.withOperation(Operation.getAmortized(purchaseOption));
+					        TagGroup amortTagGroup = tg.withCostType(CostType.amortization).withOperation(Operation.getAmortized(purchaseOption));
 						    ds.add(hour, amortTagGroup, adjustedAmortization, 0);
 					    }
 				    }
 				    else {
 				    	// Borrowed by other account, mark as borrowed/lent
 					    TagGroup borrowedTagGroup = tg.withOperation(Operation.getBorrowedInstances(purchaseOption));
-					    TagGroup lentTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getLentInstances(purchaseOption), rtg.usageType, tg.resourceGroup);
+					    TagGroup lentTagGroup = TagGroup.getTagGroup(CostType.recurring, rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getLentInstances(purchaseOption), rtg.usageType, tg.resourceGroup);
 					    ds.add(hour, borrowedTagGroup, adjustedCost, used.usage);
 					    ds.add(hour, lentTagGroup, adjustedCost, adjustedUsed);
 					    // assign amortization
 					    if (adjustedAmortization > 0.0) {
-					        TagGroup borrowedAmortTagGroup = tg.withOperation(Operation.getBorrowedAmortized(purchaseOption));
-					        TagGroup lentAmortTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getLentAmortized(purchaseOption), rtg.usageType, tg.resourceGroup);
+					        TagGroup borrowedAmortTagGroup = tg.withCostType(CostType.amortization).withOperation(Operation.getBorrowedAmortized(purchaseOption));
+					        TagGroup lentAmortTagGroup = TagGroup.getTagGroup(CostType.amortization, rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getLentAmortized(purchaseOption), rtg.usageType, tg.resourceGroup);
 					        ds.add(hour, borrowedAmortTagGroup, adjustedAmortization, 0);
 					        ds.add(hour, lentAmortTagGroup, adjustedAmortization, 0);
 					    }
 				    }
 				    // assign savings
-			        TagGroup savingsTagGroup = tg.withOperation(Operation.getSavings(purchaseOption));
+			        TagGroup savingsTagGroup = tg.withCostType(CostType.savings).withOperation(Operation.getSavings(purchaseOption));
 			        ds.add(hour, savingsTagGroup, adjustedSavings, 0);
 			    }
 		    }
@@ -236,7 +237,7 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 		    boolean haveUnused = Math.abs(reservedUnused) > 0.0001;
 		    if (haveUnused) {			    	
 			    ResourceGroup riResourceGroup = product == null ? null : rtg.resourceGroup;
-			    TagGroup unusedTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getUnusedInstances(purchaseOption), rtg.usageType, riResourceGroup);
+			    TagGroup unusedTagGroup = TagGroup.getTagGroup(CostType.recurring, rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getUnusedInstances(purchaseOption), rtg.usageType, riResourceGroup);
 			    double unusedHourlyCost = reservedUnused * reservation.reservationHourlyCost;
 			    ds.add(hour, unusedTagGroup, unusedHourlyCost, reservedUnused);
 
@@ -246,12 +247,12 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 			    double unusedFixedCost = reservedUnused * reservation.upfrontAmortized;
 			    if (reservation.upfrontAmortized > 0.0) {
 				    // assign unused amortization to owner
-			        TagGroup upfrontTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getUnusedAmortized(purchaseOption), rtg.usageType, riResourceGroup);
+			        TagGroup upfrontTagGroup = TagGroup.getTagGroup(CostType.amortization, rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getUnusedAmortized(purchaseOption), rtg.usageType, riResourceGroup);
 				    ds.add(hour, upfrontTagGroup, unusedFixedCost, 0);
 			    }
 				    
 			    // subtract amortization and hourly rate from savings for owner
-		        TagGroup savingsTagGroup = TagGroup.getTagGroup(rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getSavings(purchaseOption), rtg.usageType, riResourceGroup);
+		        TagGroup savingsTagGroup = TagGroup.getTagGroup(CostType.savings, rtg.account, rtg.region, rtg.zone, rtg.product, Operation.getSavings(purchaseOption), rtg.usageType, riResourceGroup);
 			    ds.add(hour, savingsTagGroup, -unusedFixedCost - unusedHourlyCost, 0);
 		    }
 	    }
@@ -279,7 +280,7 @@ public class CostAndUsageReservationProcessor extends ReservationProcessor {
 //	    	}
 
 	    	DataSerializer.CostAndUsage v = ds.remove(hour, tg);
-	    	TagGroup newTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
+	    	TagGroup newTg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
 	    	ds.add(hour, newTg, v);
 	    }
 	    for (Tag t: leftovers.keySet()) {

@@ -36,6 +36,7 @@ import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -54,9 +55,9 @@ public class Rule {
 	private Query in;
 	private Map<String, Pattern> patterns;
 	private List<Result> results;
-	private List<TagKey> groupBy;
 	
 	public enum TagKey {
+		costType("CostType"),
 		account("Account"),
 		region("Region"),
 		zone("Zone"),
@@ -98,12 +99,11 @@ public class Rule {
 			throw new Exception(err);
 		}
 		
-		boolean needCostType = config.isReport() ? config.getReport().includeCostType() : false;
 		operands = Maps.newHashMap();
 		if (config.getOperands() != null) {
 			for (String oc: config.getOperands().keySet()) {
 				try {
-				Query io = new Query(config.getOperand(oc), userTagKeys, needCostType);
+				Query io = new Query(config.getOperand(oc), userTagKeys);
 				operands.put(oc, io);
 				logger.info("    operand " + oc + ": " + io);
 				}
@@ -113,7 +113,7 @@ public class Rule {
 				}
 			}
 		}
-		in = new Query(config.getIn(), userTagKeys, needCostType);
+		in = new Query(config.getIn(), userTagKeys);
 		if (config.getResults() != null) {
 			results = Lists.newArrayList();
 			for (ResultConfig rc: config.getResults())
@@ -145,16 +145,10 @@ public class Rule {
 				
 			}
 		}
-		groupBy = Lists.newArrayList(in.getGroupBy());
-		if (in.addedOperationForCostType())
-			groupBy.remove(TagKey.operation);
 	}
 	
 	public List<String> getOutUserTagKeys() {
-		Set<String> keys = Sets.newHashSet();
-		if (config.isReport() && config.getReport().includeCostType())
-			keys.add("CostType");
-		keys.addAll(in.getGroupByTags());
+		Set<String> keys = Sets.newHashSet(in.getGroupByTags());
 		if (config.getAllocation() != null) {
 			keys.addAll(config.getAllocation().getOut().keySet());
 		}
@@ -182,7 +176,7 @@ public class Rule {
 	 * for purposes of supplying CostType.
 	 */
 	public List<Rule.TagKey> getGroupBy() {
-		return groupBy;
+		return in.getGroupBy();
 	}
 	
 	public List<Result> getResults() {
@@ -255,6 +249,7 @@ public class Rule {
 		 * the first is always chosen.
 		 */
 		public TagGroup tagGroup(AggregationTagGroup atg, AccountService accountService, ProductService productService, boolean isNonResource) throws Exception {
+			CostType costType = atg == null ? null : atg.getCostType();
 			Account account = atg == null ? null : atg.getAccount();
 			Region region = atg == null ? null : atg.getRegion();
 			Zone zone = atg == null ? null : atg.getZone();
@@ -263,6 +258,8 @@ public class Rule {
 			UsageType usageType = atg == null ? null : atg.getUsageType();		
 			
 			TagGroupConfig tgc = config.getOut();
+			if (tgc.getCostType() != null)
+				costType = CostType.get(getTag(tgc.getCostType(), costType == null ? null : costType.name));
 			if (tgc.getAccount() != null)
 				account = accountService.getAccountById(getTag(tgc.getAccount(), account == null ? null : account.name));
 			if (tgc.getRegion() != null)
@@ -299,7 +296,7 @@ public class Rule {
 				}
 			}
 
-			return TagGroup.getTagGroup(account, region, zone, product, operation, usageType, resourceGroup);
+			return TagGroup.getTagGroup(costType, account, region, zone, product, operation, usageType, resourceGroup);
 		}
 	}
 	

@@ -24,6 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.processor.postproc.Rule;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -54,13 +55,14 @@ public class Aggregation {
 
     public AggregationTagGroup getAggregationTagGroup(TagGroup tagGroup) throws Exception {
     	UserTag[] userTags = tagGroup.resourceGroup == null ? null : tagGroup.resourceGroup.getUserTags();
-    	return getAggregationTagGroup(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, tagGroup.operation, tagGroup.usageType, userTags);
+    	return getAggregationTagGroup(tagGroup.costType, tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, tagGroup.operation, tagGroup.usageType, userTags);
     }
     
-    public AggregationTagGroup getAggregationTagGroup(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, UserTag[] userTagArray) throws Exception {
+    public AggregationTagGroup getAggregationTagGroup(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, UserTag[] userTagArray) throws Exception {
     	List<Tag> tags = Lists.newArrayListWithCapacity(groupByTags.size());
     	for (Rule.TagKey tk: groupByTags) {
     		switch (tk) {
+    		case costType:      tags.add(costType); break;
     		case account: 		tags.add(account); break;
     		case region: 		tags.add(region); break;
     		case zone: 			tags.add(zone); break;

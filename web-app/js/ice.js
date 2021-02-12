@@ -388,6 +388,21 @@ ice.factory('usage_db', function ($window, $http, $filter) {
     return result;
   }
 
+  var getCostTypes = function ($scope) {
+    costTypes = [];
+    if ($scope.recurring)
+      costTypes.push("Recurring");
+    if ($scope.amortized)
+      costTypes.push("Amortization");
+    if ($scope.credit)
+      costTypes.push("Credits");
+    if ($scope.tax)
+      costTypes.push("Taxes");
+    if ($scope.savings)
+      costTypes.push("Savings");
+    return costTypes.join(",");
+  }
+
   return {
     addParams: function (params, name, array, selected, preselected, filter, organizationalUnit) {
       var selected = retrieveNamesIfNotAll(array, selected, preselected, filter, organizationalUnit);
@@ -721,23 +736,10 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       }
       params["usage_cost"] = $scope.usage_cost;
       params["showLent"] = $scope.reservationSharing === "lent";
-      if ($scope.usage_cost === "cost") {
-        if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
-          categories = [];
-          if (!$scope.recurring)
-            categories.push("recurring");
-          if (!$scope.amortized)
-            categories.push("amortized");
-          if (!$scope.credit)
-            categories.push("credit");
-          if (!$scope.tax)
-            categories.push("tax");
-          if (!$scope.savings)
-            categories.push("savings");
 
-          params["exclude"] = categories.join(',');
-        }
-      }
+      if ($scope.usage_cost === "cost")
+        params["costType"] = getCostTypes($scope);
+
       if ($scope.dimensions[$scope.ACCOUNT_INDEX])
         this.addParams(params, "account", $scope.accounts, $scope.selected_accounts);
       if ($scope.dimensions[$scope.REGION_INDEX])
@@ -890,23 +892,8 @@ ice.factory('usage_db', function ($window, $http, $filter) {
         showLent: $scope.reservationSharing === "lent",
       }, params);
       
-      if ($scope.usage_cost === "cost") {
-        if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
-          categories = [];
-          if (!$scope.recurring)
-            categories.push("recurring");
-          if (!$scope.amortized)
-            categories.push("amortized");
-          if (!$scope.credit)
-            categories.push("credit");
-          if (!$scope.tax)
-            categories.push("tax");
-          if (!$scope.savings)
-            categories.push("savings");
-  
-          params["exclude"] = categories.join(',');
-        }
-      }
+      if ($scope.usage_cost === "cost")
+        params["costType"] = getCostTypes($scope);
 
       if ($scope.dimensions[$scope.ACCOUNT_INDEX])
         this.addParams(params, "account", $scope.accounts, $scope.selected_accounts, $scope.selected__accounts, $scope.filter_accounts, $scope.organizationalUnit);
@@ -1012,7 +999,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     $scope.amortized = true;
     $scope.credit = true;
     $scope.tax = true;
-    $scope.savings = true;
+    $scope.savings = false;
     $scope.graphonly = false;
 
     var end = new Date();
@@ -1070,21 +1057,6 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
       params.consolidate = $scope.consolidate;
     if ($scope.showZones)
       params.showZones = "" + $scope.showZones;
-    if (!$scope.recurring || !$scope.amortized || !$scope.credit || !$scope.tax || !$scope.savings) {
-      categories = [];
-      if (!$scope.recurring)
-        categories.push("recurring");
-      if (!$scope.amortized)
-        categories.push("amortized");
-      if (!$scope.credit)
-        categories.push("credit");
-      if (!$scope.tax)
-        categories.push("tax");
-      if (!$scope.savings)
-        categories.push("savings");
-
-      params.exclude = categories.join(',');
-    }
   }
 
   $scope.addDimensionParams = function($scope, params) {
@@ -1215,23 +1187,6 @@ $scope.addUserTagParams = function ($scope, params) {
     $scope[key] = enabledUserTags;
   }
 
-  var setExcludes = function ($scope, key, value) {
-    var excludes = value.split(",");
-    for (var i = 0; i < excludes.length; i++) {
-      var v = excludes[i];
-      if (v === "recurring")
-        $scope.recurring = false;
-      else if (v === "amortized")
-        $scope.amortized = false;
-      else if (v === "credit")
-        $scope.credit = false;
-      else if (v === "tax")
-        $scope.tax = false;
-      else if (v === "savings")
-        $scope.savings = false;
-    }
-  }
-
   var time = function ($scope, key, value) {
     if (timeParams)
       timeParams += "&";
@@ -1274,7 +1229,6 @@ $scope.addUserTagParams = function ($scope, params) {
     filter_products: {name: "filter_products", fn: value},
     filter_operations: {name: "filter_operations", fn: value},
     filter_usageTypes: {name: "filter_usageTypes", fn: value},
-    exclude: {name: "", fn: setExcludes},
   };
 
   $scope.getParams = function (hash, $scope) {
@@ -1497,6 +1451,8 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.init($scope);
   $scope.consolidate = "hourly";
   $scope.initUserTagVars($scope);
+  $scope.savings = true;
+  $scope.tax = false;
   $scope.usageUnit = "Instances";
   $scope.groupBys = [
     { name: "CostType" },
@@ -1614,7 +1570,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     return usage_db.filterAccount($scope, filter_accounts);
   }
 
-  $scope.includeChanged = function () {
+  $scope.costTypesChanged = function () {
     $scope.updateOperations($scope);
   }
 
@@ -1719,6 +1675,8 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
 
   $scope.init($scope);
   $scope.initUserTagVars($scope);
+  $scope.savings = true;
+  $scope.tax = false;
   $scope.consolidate = "hourly";
   $scope.usageUnit = "Instances";
   $scope.groupBys = [
@@ -1839,7 +1797,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     return usage_db.filterAccount($scope, filter_accounts);
   }
 
-  $scope.includeChanged = function () {
+  $scope.costTypesChanged = function () {
     $scope.updateOperations($scope);
   }
 
@@ -2385,7 +2343,7 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.accountsChanged();
   }
 
-  $scope.includeChanged = function () {
+  $scope.costTypesChanged = function () {
     $scope.updateOperations($scope);
   }
 

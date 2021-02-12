@@ -23,6 +23,7 @@ import org.junit.Test;
 
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ReservationArn;
@@ -36,6 +37,7 @@ public class TagGroupRITest {
 		ProductService ps = new BasicProductService();
 		
 		TagGroup tg1 = TagGroup.getTagGroup(
+				CostType.recurring,
 				as.getAccountById("111111111234", ""),
 				Region.US_EAST_1, 
 				null, 
@@ -45,6 +47,7 @@ public class TagGroupRITest {
 				null);
 
 		TagGroup tg2 = TagGroupRI.get(
+				CostType.recurring, 
 				as.getAccountById("111111111234", ""), 
 				Region.US_EAST_1, 
 				null, 

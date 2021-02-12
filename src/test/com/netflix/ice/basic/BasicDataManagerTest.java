@@ -180,8 +180,8 @@ public class BasicDataManagerTest {
 				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
 		
 		
 		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
@@ -199,7 +199,7 @@ public class BasicDataManagerTest {
 		
 		listA.add(UserTag.get("TagA"));
 		
-		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
+		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, null, userTagLists);
 		
 		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
 		
@@ -222,8 +222,8 @@ public class BasicDataManagerTest {
 				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", null, as, ps));		
+		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", null, as, ps));		
 		
 		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
 		DateTime testMonth = DateTime.parse("2018-01-01");
@@ -240,7 +240,7 @@ public class BasicDataManagerTest {
 		
 		listB.add(UserTag.empty);
 		
-		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
+		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, null, userTagLists);
 		
 		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
 		
@@ -261,8 +261,8 @@ public class BasicDataManagerTest {
 				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
 		};
 		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
-		tagGroups.add(TagGroup.getTagGroup("account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
+		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
 		
 		
 		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
@@ -282,7 +282,7 @@ public class BasicDataManagerTest {
 		
 		// First test with operations specified
 		List<Operation> operations = Lists.newArrayList((Operation) Operation.ondemandInstances);
-		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, operations, null, userTagLists);
+		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, operations, null, userTagLists);
 		
 		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, null, AggregateType.data, null, UsageUnit.Instances, 1);
 		
@@ -294,7 +294,7 @@ public class BasicDataManagerTest {
 		assertEquals("With operation specified, wrong value for aggregation", 1.0, data.get(Tag.aggregated)[0], 0.001);
 		
 		// Now test without operations specified
-		tagLists = new TagListsWithUserTags(null, null, null, null, null, null, userTagLists);
+		tagLists = new TagListsWithUserTags(null, null, null, null, null, null, null, userTagLists);
 		
 		data = dataManager.getData(true, interval, tagLists, null, AggregateType.data, null, UsageUnit.Instances, 1);
 		
@@ -336,7 +336,7 @@ public class BasicDataManagerTest {
 		// First test with operations specified
 		List<Operation> operations = Lists.newArrayList((Operation) Operation.amortizedAllUpfront);
 		List<UsageType> usageTypes = Lists.newArrayList(UsageType.getUsageType("r4.2xlarge", "hours"));
-		TagLists tagLists = new TagLists(null, null, null, null, operations, usageTypes, null);
+		TagLists tagLists = new TagLists(null, null, null, null, null, operations, usageTypes, null);
 		
 		Map<Tag, double[]> results = dataManager.getData(true, interval, tagLists, TagType.Account, AggregateType.data, null, UsageUnit.Instances, 1);
 		

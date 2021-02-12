@@ -23,7 +23,6 @@ public class ReportConfig {
 	private S3BucketConfig s3Bucket;
 	private List<Aggregation> aggregate;
 	private List<DataType> types;
-	private boolean includeCostType;
 
 	public S3BucketConfig getS3Bucket() {
 		return s3Bucket;
@@ -36,12 +35,6 @@ public class ReportConfig {
 	}
 	public void setAggregate(List<Aggregation> aggregate) {
 		this.aggregate = aggregate;
-	}
-	public boolean includeCostType() {
-		return includeCostType;
-	}
-	public void setIncludeCostType(boolean includeCostType) {
-		this.includeCostType = includeCostType;
 	}
 	public List<DataType> getTypes() {
 		return types;

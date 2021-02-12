@@ -22,6 +22,7 @@ import com.netflix.ice.common.TagGroupRI;
 import com.netflix.ice.common.TagGroupSP;
 import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -53,30 +54,30 @@ public class Datum {
 		this.cau = new CostAndUsage(cost, usage);
 	}
 	
-	public Datum(Account account, Region region, Zone zone, Product product, Operation operation, String usageType, double cost, double usage)
+	public Datum(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, String usageType, double cost, double usage)
 	{
-		this.tagGroup = TagGroup.getTagGroup(account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), null);
+		this.tagGroup = TagGroup.getTagGroup(costType, account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), null);
 		this.cau = new CostAndUsage(cost, usage);
 	}
 	
-	public Datum(Account account, Region region, Zone zone, Product product, Operation operation, String usageType, String resources, double cost, double usage) throws ResourceException
+	public Datum(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, String usageType, String resources, double cost, double usage) throws ResourceException
 	{
 		ResourceGroup rg = resources == null ? null : ResourceGroup.getResourceGroup(resources.split(",", -1));
-		this.tagGroup = TagGroup.getTagGroup(account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), rg);
+		this.tagGroup = TagGroup.getTagGroup(costType, account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), rg);
 		this.cau = new CostAndUsage(cost, usage);
 	}
 	
-	public Datum(Account account, Region region, Zone zone, Product product, Operation operation, String usageType, String resources, ReservationArn rsvArn, double cost, double usage) throws ResourceException
+	public Datum(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, String usageType, String resources, ReservationArn rsvArn, double cost, double usage) throws ResourceException
 	{
 		ResourceGroup rg = resources == null ? null : ResourceGroup.getResourceGroup(resources.split(",", -1));
-		this.tagGroup = TagGroupRI.get(account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), rg, rsvArn);
+		this.tagGroup = TagGroupRI.get(costType, account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), rg, rsvArn);
 		this.cau = new CostAndUsage(cost, usage);
 	}
 	
-	public Datum(Account account, Region region, Zone zone, Product product, Operation operation, String usageType, String resources, SavingsPlanArn spArn, double cost, double usage) throws ResourceException
+	public Datum(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, String usageType, String resources, SavingsPlanArn spArn, double cost, double usage) throws ResourceException
 	{
 		ResourceGroup rg = resources == null ? null : ResourceGroup.getResourceGroup(resources.split(",", -1));
-		this.tagGroup = TagGroupSP.get(account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), rg, spArn);
+		this.tagGroup = TagGroupSP.get(costType, account, region, zone, product, operation, UsageType.getUsageType(usageType, "hours"), rg, spArn);
 		this.cau = new CostAndUsage(cost, usage);
 	}
 	
@@ -85,6 +86,6 @@ public class Datum {
 	}
 	
 	public TagGroup getTagGroupWithoutResources() {
-		return tagGroup.withResourceGroup(null);
+		return tagGroup.withoutResourceGroup();
 	}
 }

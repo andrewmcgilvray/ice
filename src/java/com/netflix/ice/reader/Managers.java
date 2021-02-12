@@ -19,6 +19,7 @@ package com.netflix.ice.reader;
 
 import com.netflix.ice.common.*;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -60,7 +61,7 @@ public interface Managers {
      * @throws Exception 
      * 
      */
-    Collection<UserTag> getUserTagValues(List<Account> accounts, List<Region> regions, List<Zone> zones, Collection<Product> products, int index) throws Exception;
+    Collection<UserTag> getUserTagValues(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, Collection<Product> products, int index) throws Exception;
 
     /**
      *
@@ -75,6 +76,7 @@ public interface Managers {
      */
     Map<Tag, double[]> getData(
     		Interval interval,
+    		List<CostType> costTypes,
     		List<Account> accounts,
     		List<Region> regions,
     		List<Zone> zones,

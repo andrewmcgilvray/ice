@@ -68,10 +68,19 @@ public class FixedRuleProcessor extends RuleProcessor {
 			
 		int maxNum = data.getMaxNum();
 		
+		Map<String, CostAndUsage[]> opSingleValues = getOperandSingleValues(rule, data, isNonResource, maxNum, operandSingleValueCache);
+		// If any of the values are null, skip processing
+		if (opSingleValues == null) {
+			logger.info("  -- no value found for one of the operands, skipping.");
+			return;
+		}
+		
 		// Get the aggregated value for the input operand
 		Map<AggregationTagGroup, CostAndUsage[]> inData = runQuery(rule.getIn(), data, isNonResource, maxNum, rule.config.getName());
-		
-		Map<String, CostAndUsage[]> opSingleValues = getOperandSingleValues(rule, data, isNonResource, maxNum, operandSingleValueCache);
+		if (inData.isEmpty()) {
+			logger.info("  -- no input data for rule " + rule.config.getName());
+			return;
+		}
 		
 		int results = applyRule(rule, inData, opSingleValues, resultData, isNonResource, maxNum);
 		
@@ -107,14 +116,18 @@ public class FixedRuleProcessor extends RuleProcessor {
 			Map<AggregationTagGroup, CostAndUsage[]> opAggTagGroups = runQuery(op, data, isNonResource, maxHours, rule.config.getName());
 			if (opAggTagGroups.size() > 1)
 				throw new Exception("Single value operand \"" + opName + "\" has more than one tag group.");
+						
+			if (opAggTagGroups.isEmpty()) {
+				// no data for this operand, give up.
+				logger.info("  -- no value found for operand " + opName);
+				return null;
+			}
 			
 			CostAndUsage[] values = opAggTagGroups.values().iterator().next();
-			
-			operandSingleValues.put(opName, values);
-			operandSingleValueCache.put(op, values);
-
 			if (op.isMonthly())
 				logger.info("  -- single monthly operand " + opName + " has value " + values[0]);
+			operandSingleValues.put(opName, values);
+			operandSingleValueCache.put(op, values);	
 		}
 		return operandSingleValues;
 	}

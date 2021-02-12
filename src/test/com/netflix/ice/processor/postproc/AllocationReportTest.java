@@ -234,10 +234,10 @@ public class AllocationReportTest {
 		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
 		
         TagGroupSpec[] data = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", "A"}, 50.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "B"}, 250.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "C"}, 700.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "D"}, 0.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", "A"}, 50.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "B"}, 250.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "C"}, 700.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "", "", "D"}, 0.0, 0),
          };
         Key[] outputKeys = {
         		new Key(Lists.newArrayList(new String[]{"compute"})),

@@ -86,6 +86,7 @@ import com.netflix.ice.processor.pricelist.InstancePrices.OfferingClass;
 import com.netflix.ice.processor.pricelist.InstancePrices.Rate;
 import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.InstanceCache;
 import com.netflix.ice.tag.InstanceDb;
 import com.netflix.ice.tag.InstanceOs;
@@ -586,7 +587,7 @@ public class ReservationCapacityPoller extends Poller {
             if (resourceService != null)
             	resourceGroup = resourceService.getResourceGroup(account, product, reservedInstances.getTags(), startTime);
             ReservationArn arn = ReservationArn.get(account, region, product, reservedInstances.getReservationId());
-            TagGroupRI reservationKey = TagGroupRI.get(account, region, zone, product, Operation.getReservedInstances(utilization), usageType, resourceGroup, arn);
+            TagGroupRI reservationKey = TagGroupRI.get(CostType.subscriptions, account, region, zone, product, Operation.getReservedInstances(utilization), usageType, resourceGroup, arn);
             Reservation reservation = new Reservation( reservationKey, reservedInstances.getInstanceCount(), startTime, endTime, utilization, hourlyFixedPrice, usagePrice);
 
             List<Reservation> reservations = reservationMap.get(utilization).get(reservationKey);

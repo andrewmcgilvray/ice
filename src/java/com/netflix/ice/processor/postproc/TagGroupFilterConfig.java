@@ -46,6 +46,7 @@ import com.google.common.collect.Maps;
  * SingleTagGroup queries are much faster to process since only a lookup is required rather than a full scan.
  */
 public class TagGroupFilterConfig {
+	private List<String> costType;
 	private List<String> account;
 	private List<String> region;
 	private List<String> zone;
@@ -88,6 +89,8 @@ public class TagGroupFilterConfig {
 	 */
 	public Map<Rule.TagKey, List<String>> getTags() {
 		Map<Rule.TagKey, List<String>> tags = Maps.newHashMap();
+		if (costType != null)
+			tags.put(Rule.TagKey.costType, costType);
 		if (account != null)
 			tags.put(Rule.TagKey.account, account);
 		if (region != null)
@@ -103,6 +106,12 @@ public class TagGroupFilterConfig {
 		return tags;
 	}
 	
+	public List<String> getCostType() {
+		return costType;
+	}
+	public void setCostType(List<String> costType) {
+		this.costType = costType;
+	}
 	public List<String> getAccount() {
 		return account;
 	}

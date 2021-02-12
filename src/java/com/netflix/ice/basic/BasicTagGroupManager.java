@@ -213,7 +213,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
             Set<TagGroup> to = Sets.newHashSet();
             for (TagGroup tagGroup: from) {
                 if (tagGroup.resourceGroup != null)
-                    to.add(TagGroup.getTagGroup(tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, tagGroup.operation, tagGroup.usageType, null));
+                    to.add(TagGroup.getTagGroup(tagGroup.costType, tagGroup.account, tagGroup.region, tagGroup.zone, tagGroup.product, tagGroup.operation, tagGroup.usageType, null));
                 else
                     to.add(tagGroup);
             }
@@ -251,6 +251,17 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
         }
 
         return result;
+    }
+    
+    public Collection<CostType> getCostTypes(Set<TagGroup> tagGroupsInRange, TagLists tagLists) {
+    	Set<CostType> costTypes = Sets.newHashSet();
+    	
+    	for (TagGroup tagGroup: tagGroupsInRange) {
+    		if (tagLists.contains(tagGroup))
+    			costTypes.add(tagGroup.costType);
+    	}
+    	
+    	return costTypes;
     }
 
     public Collection<Account> getAccounts(Set<TagGroup> tagGroupsInRange, TagLists tagLists) {
@@ -357,6 +368,12 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
         return userTags;
     }
 
+    public Collection<CostType> getCostTypes(TagLists tagLists) {
+    	List<CostType> costTypes = Lists.newArrayList(getCostTypes(getTagGroupsInRange(getMonthMillis(totalInterval)), tagLists));
+    	costTypes.sort(null);
+        return costTypes;
+    }
+
     public Collection<Account> getAccounts(TagLists tagLists) {
     	List<Account> accounts = Lists.newArrayList(getAccounts(getTagGroupsInRange(getMonthMillis(totalInterval)), tagLists));
     	accounts.sort(null);
@@ -425,9 +442,8 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
             tagListsForTag = tagLists.getTagListsWithNullResourceGroup();
         }
         
-        // We must always specify all the operations so that we can remove
-        // EC2 Instance Savings if not the reservation dashboard and 
-        // for all dashboards choose between Borrowed and Lent Operations so we don't double count the cost/usage    	
+        // We must always specify all the operations so that we can choose between 
+        // Borrowed and Lent Operations in order not to double count the cost/usage    	
     	List<Operation> ops = tagListsForTag.operations;
         if (ops == null || ops.size() == 0) {
         	ops = Lists.newArrayList(getOperations(tagGroupsInRange, tagListsForTag, exclude));
@@ -448,6 +464,9 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
 
         List<Tag> groupByTags = Lists.newArrayList();
         switch (groupBy) {
+            case CostType:
+        	    groupByTags.addAll(getCostTypes(tagGroupsInRange, tagListsForTag));
+        	    break;
             case Account:
                 groupByTags.addAll(getAccounts(tagGroupsInRange, tagListsForTag));
                 break;
