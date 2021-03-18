@@ -79,7 +79,7 @@
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'resourceinfo')}" ng-click="reload()">Resource Info</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'accounts')}" ng-click="reload()">Accounts</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'tagconfigs')}" ng-click="reload()">Tag Settings</a></li>
-        <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'statistics')}" ng-click="reload()">Tag Statistics</a></li>
+        <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'statistics')}" ng-click="reload()">Statistics</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'processorstatus')}" ng-click="reload()">Processor Status</a></li>
       </ul>
     </li>

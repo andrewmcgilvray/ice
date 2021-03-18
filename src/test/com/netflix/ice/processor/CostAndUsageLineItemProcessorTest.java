@@ -615,7 +615,7 @@ public class CostAndUsageLineItemProcessorTest {
 			
 			Reservation r = costAndUsageData.getReservations().values().iterator().next();
 			
-			assertEquals("Tag is not correct", expected.tagGroup.withCostType(CostType.subscriptions), r.tagGroup);
+			assertEquals("Tag is not correct", expected.tagGroup.withCostType(CostType.subscription), r.tagGroup);
 			assertEquals("wrong reservation amortization", expected.cau.cost, r.hourlyFixedPrice * r.count, 0.001);
 			assertEquals("wrong reservation recurring fee", expected.cau.usage, r.usagePrice * r.count, 0.001);
 		}
@@ -847,9 +847,13 @@ public class CostAndUsageLineItemProcessorTest {
 	
 	@Test
 	public void testRIPurchase() throws Exception {
-		Line line = new Line(LineItemType.Fee, "ap-southeast-2", "", ec2, "", "", "Sign up charge for subscription: 647735683, planId: 2195643", PricingTerm.reserved, "2017-06-09T21:21:37Z", "2018-06-09T21:21:36Z", "150.0", "9832.500000", "");
-		ProcessTest test = new ProcessTest(line, Result.ignore, 30);
-		test.run(null);
+		Line line = new Line(LineItemType.Fee, "ap-southeast-2", "", ec2, "APS2-HeavyUsage:c4.2xlarge", "RunInstances:0002", "Sign up charge for subscription: 647735683, planId: 2195643", PricingTerm.reserved, "2017-06-01T00:00:00Z", "2018-06-01T00:00:00Z", "150.0", "9832.500000", "Partial Upfront");
+		line.setBillType(BillType.Purchase);
+		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
+		Datum[] expected = {
+				new Datum(CostType.subscription, a2, Region.AP_SOUTHEAST_2, null, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge.windows", ",", riArn, 9832.5, 150.0),
+		};
+		test.run(expected);
 	}
 	
 	@Test
@@ -1080,7 +1084,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Credit, "us-east-1", "", ec2, "HeavyUsage:m4.large", "RunInstances", "MB - Pricing Adjustment", PricingTerm.reserved, "2019-08-01T00:00:00Z", "2019-09-01T00:00:00Z", "0.0000000000", "-38.3100000000", "");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(CostType.credits, a2, Region.US_EAST_1, null, ec2Instance, Operation.reservedInstancesCredits, "m4.large", -0.0515, 0),
+				new Datum(CostType.credit, a2, Region.US_EAST_1, null, ec2Instance, Operation.reservedInstancesCredits, "m4.large", -0.0515, 0),
 			};
 		test.run("2019-08-01T00:00:00Z", expected);				
 	}
@@ -1091,7 +1095,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Credit, "us-east-1", "", redshift, "Node:ds2.xlarge", "RunComputeNode:0001", "AWS Credit", PricingTerm.onDemand, "2020-03-01T00:00:00Z", "2020-04-01T00:00:01Z", "0.0000000000", "-38.3100000000", "");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(CostType.credits, a2, Region.US_EAST_1, null, redshiftInstance, Operation.ondemandInstances, "ds2.xlarge", -0.0515, 0),
+				new Datum(CostType.credit, a2, Region.US_EAST_1, null, redshiftInstance, Operation.ondemandInstances, "ds2.xlarge", -0.0515, 0),
 			};
 		test.run("2020-03-01T00:00:00Z", expected);				
 	}
@@ -1101,7 +1105,7 @@ public class CostAndUsageLineItemProcessorTest {
 		Line line = new Line(LineItemType.Credit, "us-west-2", "", awsConfig, "USW2-ConfigurationItemRecorded", "", "AWS Config rules- credits to support pricing model change TT: 123456789012", PricingTerm.none, "2019-08-01T00:00:00Z", "2019-08-01T01:00:01Z", "0.0000000000", "-0.00492", "");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(CostType.credits, a2, Region.US_WEST_2, null, config, Operation.getOperation("None"), "ConfigurationItemRecorded", -0.00492, 0),
+				new Datum(CostType.credit, a2, Region.US_WEST_2, null, config, Operation.getOperation("None"), "ConfigurationItemRecorded", -0.00492, 0),
 			};
 		test.run("2019-08-01T00:00:00Z", expected);				
 	}
@@ -1205,7 +1209,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setBillType(BillType.Purchase);
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(CostType.subscriptions, a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", 64500.0, 1000000.0),
+				new Datum(CostType.subscription, a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", 64500.0, 1000000.0),
 			};
 		test.run("2019-11-01T00:00:00Z", expected);				
 	}
@@ -1216,7 +1220,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setBillType(BillType.Refund);
 		ProcessTest test = new ProcessTest(line, Result.hourly, 30);
 		Datum[] expected = {
-				new Datum(CostType.refunds, a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", -645.0, 0.0),
+				new Datum(CostType.refund, a2, Region.GLOBAL, null, productService.getProduct("AWS Premium Support", "OCBPremiumSupport"), Operation.getOperation("None"), "Dollar", -645.0, 0.0),
 			};
 		test.run("2019-11-01T00:00:00Z", expected);				
 	}
@@ -1228,7 +1232,7 @@ public class CostAndUsageLineItemProcessorTest {
 		line.setTaxFields("GST", "Amazon Web Services, Inc.");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(CostType.taxes, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - GST"), "HeavyUsage:c4.large", 0.01, 0.001344),
+				new Datum(CostType.tax, a2, Region.US_EAST_1, null, ec2Product, Operation.ondemandInstances, "c4.large", 0.01, 0.001344),
 			};
 		test.run("2020-01-01T00:00:00Z", expected);				
 
@@ -1238,7 +1242,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.delay, 31);
 		test.setReportDate("2019-12-19T05:00:01Z");
 		expected = new Datum[]{
-				new Datum(CostType.taxes, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.00229),
+				new Datum(CostType.tax, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.00229),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1248,7 +1252,7 @@ public class CostAndUsageLineItemProcessorTest {
 		test = new ProcessTest(line, Result.delay, 31);
 		test.setReportDate("2019-12-19T05:00:01Z");
 		expected = new Datum[]{
-				new Datum(CostType.taxes, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.001344),
+				new Datum(CostType.tax, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("Tax - USSalesTax"), "HeavyUsage:c4.large", 0.01, 0.001344),
 			};
 		test.run("2019-12-01T00:00:00Z", expected);
 		
@@ -1260,12 +1264,24 @@ public class CostAndUsageLineItemProcessorTest {
 	}
 	
 	@Test
+	public void testTaxRefund() throws Exception {
+		Line line = new Line(LineItemType.Tax, "", "", "Amazon Elastic Compute Cloud", "NatGateway-Hours", "NatGateway", "Tax refund line item for refundLineItem : abcdefg", PricingTerm.none, "2021-01-01T00:00:00Z", "2021-02-01T00:00:00Z", "1", "7.44", "");
+		line.setBillType(BillType.Refund);
+		line.setTaxFields("USSalesTax", "Amazon Web Services, Inc.");
+		ProcessTest test = new ProcessTest(line, Result.delay, 31);
+		Datum[] expected = {
+				new Datum(CostType.tax, a2, Region.US_EAST_1, null, ec2Product, Operation.getOperation("NatGateway"), "NatGateway-Hours", 0.01, 0.001344),
+			};
+		test.run("2020-01-01T00:00:00Z", expected);				
+	}
+	
+	@Test
 	public void testMonthlyVAT() throws Exception {
 		Line line = new Line(LineItemType.Tax, "", "", "Amazon Elastic Compute Cloud", "", "", "Tax for product code AmazonEC2", PricingTerm.none, "2020-01-01T00:00:00Z", "2020-02-01T00:00:00Z", "1", "744.0", "");
 		line.setTaxFields("VAT", "AWS EMEA SARL");
 		ProcessTest test = new ProcessTest(line, Result.delay, 31);
 		Datum[] expected = {
-				new Datum(CostType.taxes, a2, Region.GLOBAL, null, ec2Product, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 1.0, 0.001344),
+				new Datum(CostType.tax, a2, Region.GLOBAL, null, ec2Product, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 1.0, 0.001344),
 			};
 		test.run("2020-01-01T00:00:00Z", expected);				
 	}

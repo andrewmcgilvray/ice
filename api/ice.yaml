@@ -384,7 +384,7 @@ paths:
                 description: Comma separated list of tags for tag coverage data
                 type: string
               costType:
-                description: Comma separated list of costType names for filtering data. Values include Recurring, Amortization, Taxes, Credits, Savings
+                description: Comma separated list of costType names for filtering data. Values include Recurring, Amortization, Tax, Credit, Savings, Subscription, SubscriptionTax, Refund, RefundTax
               account:
                 description: Comma separated list of account names for filtering data
                 type: string

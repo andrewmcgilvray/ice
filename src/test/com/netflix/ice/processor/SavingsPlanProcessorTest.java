@@ -118,7 +118,7 @@ public class SavingsPlanProcessorTest {
 	}
 	
 	private SavingsPlan newSavingsPlan(String usageType, PurchaseOption po, double recurring, double amort) {
-		TagGroupSP tg = TagGroupSP.get(CostType.subscriptions, a1, Region.GLOBAL, null, productService.getProduct("Savings Plans for AWS Compute usage", "ComputeSavingsPlans"), Operation.getOperation("None"), UsageType.getUsageType(usageType, "hours"), null, arn);
+		TagGroupSP tg = TagGroupSP.get(CostType.subscription, a1, Region.GLOBAL, null, productService.getProduct("Savings Plans for AWS Compute usage", "ComputeSavingsPlans"), Operation.getOperation("None"), UsageType.getUsageType(usageType, "hours"), null, arn);
 		String term = "1yr";
 		String offeringType = "ComputeSavingsPlans";
 		DateTime start = new DateTime("2020-02", DateTimeZone.UTC);

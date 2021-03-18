@@ -17,31 +17,19 @@
  */
 package com.netflix.ice.processor;
 
-import com.netflix.ice.tag.CostType;
-
 public enum LineItemType {
-	Credit(CostType.credits),
-	DiscountedUsage(CostType.recurring),
-	EdpDiscount(null),
-	Fee(CostType.subscriptions),
-	Refund(CostType.refunds),
-	RIFee(CostType.subscriptions),
-	RiVolumeDiscount(CostType.credits),
-	Tax(CostType.taxes),
-	Usage(CostType.recurring),
-	SavingsPlanUpfrontFee(CostType.subscriptions),
-	SavingsPlanRecurringFee(CostType.recurring),
-	SavingsPlanCoveredUsage(CostType.recurring),
-	SavingsPlanNegation(null),
-	PrivateRateDiscount(CostType.credits);
-
-	private CostType costType;
-	
-	private LineItemType(CostType costType) {
-		this.costType = costType;
-	}
-	
-	public CostType getCostType() {
-		return costType;
-	}
+	Credit,
+	DiscountedUsage,
+	EdpDiscount,
+	Fee,
+	Refund,
+	RIFee,
+	RiVolumeDiscount,
+	Tax,
+	Usage,
+	SavingsPlanUpfrontFee,
+	SavingsPlanRecurringFee,
+	SavingsPlanCoveredUsage,
+	SavingsPlanNegation,
+	PrivateRateDiscount;
 }
