@@ -568,8 +568,12 @@ public class CostAndUsageLineItemProcessorTest {
             run(start, expected, null);
         }
         
-        // For testing taxes which have the full month for the interval, but need to only be split across the hours in the partial month
         public void run(String start, Datum[] expected, Datum expectedReservation) throws Exception {
+            run(start, expected, expectedReservation, null);
+        }
+        
+        // For testing taxes which have the full month for the interval, but need to only be split across the hours in the partial month
+        public void run(String start, Datum[] expected, Datum expectedReservation, Datum expectedSP) throws Exception {
             DateTime dt = new DateTime(start, DateTimeZone.UTC);
             long startMilli = dt.withDayOfMonth(1).getMillis();
             long reportMilli = new DateTime(reportDate, DateTimeZone.UTC).getMillis();
@@ -590,7 +594,7 @@ public class CostAndUsageLineItemProcessorTest {
 
             LineItem lineItem = newCurLineItem(manifest, new DateTime(netUnblendedStart, DateTimeZone.UTC));
             lineItem.setItems(line.getCauLine(lineItem));
-            runProcessTest(lineItem, startMilli, reportMilli, expected, expectedReservation);
+            runProcessTest(lineItem, startMilli, reportMilli, expected, expectedReservation, expectedSP);
         }
                 
         private void check(CostAndUsageData costAndUsageData, Product product, Datum[] expected) {
@@ -622,7 +626,19 @@ public class CostAndUsageLineItemProcessorTest {
             assertEquals("wrong reservation recurring fee", expected.cau.usage, r.usagePrice * r.count, 0.001);
         }
         
-        public void runProcessTest(LineItem lineItem, long startMilli, long reportMilli, Datum[] expected, Datum expectedReservation) throws Exception {
+        private void checkSavingsPlans(CostAndUsageData costAndUsageData, Datum expected) {
+            assertEquals("savings plans size wrong", expected == null ? 0 : 1, costAndUsageData.getSavingsPlans().size());
+            if (expected == null)
+                return;
+            
+            SavingsPlan sp = costAndUsageData.getSavingsPlans().values().iterator().next();
+            
+            assertEquals("Tag is not correct", expected.tagGroup.withCostType(CostType.subscription), sp.tagGroup);
+            assertEquals("wrong reservation amortization", expected.cau.cost, sp.hourlyAmortization, 0.001);
+            assertEquals("wrong reservation recurring fee", expected.cau.usage, sp.hourlyRecurringFee, 0.001);
+        }
+        
+        public void runProcessTest(LineItem lineItem, long startMilli, long reportMilli, Datum[] expected, Datum expectedReservation, Datum expectedSP) throws Exception {
             Instances instances = null;
             CostAndUsageData costAndUsageData = new CostAndUsageData(startMilli, null, Lists.<UserTagKey>newArrayList(), TagCoverage.none, accountService, productService);
             
@@ -649,6 +665,9 @@ public class CostAndUsageLineItemProcessorTest {
                                 
             // Check reservations if any
             checkReservations(costAndUsageData, expectedReservation);
+            
+            // Check savings plans if any
+            checkSavingsPlans(costAndUsageData, expectedSP);
         }
                 
     }
@@ -784,7 +803,7 @@ public class CostAndUsageLineItemProcessorTest {
         line.setBillType(BillType.Refund);
         ProcessTest test = new ProcessTest(line, Result.hourly, 30);
         Datum[] expected = {
-            new Datum(CostType.refund, a2, Region.US_WEST_2, null, ec2Instance, Operation.reservedInstancesRefunds, "c5.large", null, riArn, -100.0, 0.0),
+            new Datum(CostType.refund, a2, Region.US_WEST_2, null, ec2Instance, Operation.reservedInstancesRefunds, "c5.large", -100.0, 0.0),
         };
         test.run("2021-01-01T00:00:00Z", expected);                             
     }
@@ -865,7 +884,7 @@ public class CostAndUsageLineItemProcessorTest {
         line.setBillType(BillType.Purchase);
         ProcessTest test = new ProcessTest(line, Result.hourly, 30);
         Datum[] expected = {
-                new Datum(CostType.subscription, a2, Region.AP_SOUTHEAST_2, null, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge.windows", ",", riArn, 9832.5, 150.0),
+                new Datum(CostType.subscription, a2, Region.AP_SOUTHEAST_2, null, ec2Instance, Operation.reservedInstancesPartialUpfront, "c4.2xlarge.windows", ",", 9832.5, 150.0),
         };
         test.run(expected);
     }
@@ -1098,7 +1117,7 @@ public class CostAndUsageLineItemProcessorTest {
         Line line = new Line(LineItemType.Credit, "us-east-1", "", ec2, "HeavyUsage:m4.large", "RunInstances", "MB - Pricing Adjustment", PricingTerm.reserved, "2019-08-01T00:00:00Z", "2019-09-01T00:00:00Z", "0.0000000000", "-38.3100000000", "");
         ProcessTest test = new ProcessTest(line, Result.delay, 31);
         Datum[] expected = {
-                new Datum(CostType.credit, a2, Region.US_EAST_1, null, ec2Instance, Operation.reservedInstancesCredits, "m4.large", null, riArn, -0.0515, 0),
+                new Datum(CostType.credit, a2, Region.US_EAST_1, null, ec2Instance, Operation.reservedInstancesCredits, "m4.large", -0.0515, 0),
             };
         test.run("2019-08-01T00:00:00Z", expected);                
     }
@@ -1126,9 +1145,11 @@ public class CostAndUsageLineItemProcessorTest {
     
     @Test
     public void testSavingsPlanRecurringFee() throws Exception {
+        String arn = "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555";
+        SavingsPlanArn spArn = SavingsPlanArn.get(arn);
         // Test No Upfront with 50% usage
         Line line = new Line(LineItemType.SavingsPlanRecurringFee, "global", "", "Savings Plans for AWS Compute usage", "ComputeSP:1yrNoUpfront", "", "1 year No Upfront Compute Savings Plan", PricingTerm.none, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "1", "0.12", "");
-        line.setSavingsPlanRecurringFeeFields("0", "0.12", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "NoUpfront");
+        line.setSavingsPlanRecurringFeeFields("0", "0.12", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", arn, "0.12", "0.06", "NoUpfront");
         
         // Should produce one cost item for the unused recurring portion of the plan.
         ProcessTest test = new ProcessTest(line, Result.hourlyTruncate, 31);
@@ -1137,11 +1158,12 @@ public class CostAndUsageLineItemProcessorTest {
         Datum[] expected = {
                 new Datum(CostType.recurring, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedNoUpfront, "ComputeSP:1yrNoUpfront", 0.06, 0),
             };
-        test.run("2019-12-01T00:00:00Z", expected);
+        Datum expectedSP = new Datum(CostType.subscription, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUsedNoUpfront, "ComputeSP:1yrNoUpfront", ",", spArn, 0, 0.12);
+        test.run("2019-12-01T00:00:00Z", expected, null, expectedSP);
         
         // Test Partial Upfront with 50% usage
         line = new Line(LineItemType.SavingsPlanRecurringFee, "global", "", "Savings Plans for AWS Compute usage", "ComputeSP:1yrPartialUpfront", "", "1 year No Upfront Compute Savings Plan", PricingTerm.none, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "1", "0.12", "");
-        line.setSavingsPlanRecurringFeeFields("0.07", "0.05", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "PartialUpfront");
+        line.setSavingsPlanRecurringFeeFields("0.07", "0.05", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", arn, "0.12", "0.06", "PartialUpfront");
         
         // Should produce two cost items for the unused recurring and amortized portions of the plan.
         test = new ProcessTest(line, Result.hourlyTruncate, 31);
@@ -1150,12 +1172,13 @@ public class CostAndUsageLineItemProcessorTest {
                 new Datum(CostType.amortization, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedAmortizedPartialUpfront, "ComputeSP:1yrPartialUpfront", 0.035, 0),
                 new Datum(CostType.recurring, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedPartialUpfront, "ComputeSP:1yrPartialUpfront", 0.025, 0),
             };
-        test.run("2019-12-01T00:00:00Z", expected);
+        expectedSP = new Datum(CostType.subscription, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUsedPartialUpfront, "ComputeSP:1yrPartialUpfront", ",", spArn, 0.07, 0.05);
+        test.run("2019-12-01T00:00:00Z", expected, null, expectedSP);
         
         
         // Test All Upfront with 50% usage
         line = new Line(LineItemType.SavingsPlanRecurringFee, "global", "", "Savings Plans for AWS Compute usage", "ComputeSP:1yrAllUpfront", "", "1 year No Upfront Compute Savings Plan", PricingTerm.none, "2019-12-01T00:00:00Z", "2019-12-01T01:00:00Z", "1", "0.12", "");
-        line.setSavingsPlanRecurringFeeFields("0.12", "0", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", "arn:aws:savingsplans::123456789012:savingsplan/abcdef70-abcd-5abc-4k4k-01236ab65555", "0.12", "0.06", "AllUpfront");
+        line.setSavingsPlanRecurringFeeFields("0.12", "0", "2019-11-08T11:15:04.000Z", "2020-11-07T11:15:03.000Z", arn, "0.12", "0.06", "AllUpfront");
         
         // Should produce one cost item for the unused amortized portion of the plan.
         test = new ProcessTest(line, Result.hourlyTruncate, 31);
@@ -1163,7 +1186,8 @@ public class CostAndUsageLineItemProcessorTest {
         expected = new Datum[]{
                 new Datum(CostType.amortization, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUnusedAmortizedAllUpfront, "ComputeSP:1yrAllUpfront", 0.06, 0),
             };
-        test.run("2019-12-01T00:00:00Z", expected);        
+        expectedSP = new Datum(CostType.subscription, a2, Region.GLOBAL, null, savingsPlans, Operation.savingsPlanUsedAllUpfront, "ComputeSP:1yrAllUpfront", ",", spArn, 0.12, 0);
+        test.run("2019-12-01T00:00:00Z", expected, null, expectedSP);
     }
     
     @Test

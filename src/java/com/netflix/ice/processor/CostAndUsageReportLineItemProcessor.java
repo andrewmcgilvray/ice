@@ -232,7 +232,9 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         }
 
         ReservationArn reservationArn = ReservationArn.get(lineItem.getReservationArn());
-        if (operation instanceof Operation.ReservationOperation && !reservationArn.name.isEmpty()) {
+        LineItemType lit = lineItem.getLineItemType();
+        if (operation instanceof Operation.ReservationOperation && !reservationArn.name.isEmpty() &&
+                (lit == LineItemType.DiscountedUsage || lit == LineItemType.RIFee)) {
             return TagGroupRI.get(costType, account, region, zone, product, operation, usageType, rg, reservationArn);
         }
         return TagGroup.getTagGroup(costType, account, region, zone, product, operation, usageType, rg);
@@ -365,7 +367,7 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
                 // Grab the amortization and recurring fee for the savings plan processor.
                 String arn = lineItem.getSavingsPlanArn();
                 PurchaseOption po = PurchaseOption.get(lineItem.getSavingsPlanPaymentOption());
-                TagGroupSP tgsp = TagGroupSP.get(costType, account, region, zone, product, Operation.getSavings(po), usageType, resourceGroup, SavingsPlanArn.get(arn));
+                TagGroupSP tgsp = TagGroupSP.get(CostType.subscription, account, region, zone, product, Operation.getSavingsPlanUsed(po), usageType, resourceGroup, SavingsPlanArn.get(arn));
                 costAndUsageData.addSavingsPlan(tgsp, po, lineItem.getSavingsPlanPurchaseTerm(), lineItem.getSavingsPlanOfferingType(),
                                 new DateTime(lineItem.getSavingsPlanStartTime(), DateTimeZone.UTC).getMillis(),
                                 new DateTime(lineItem.getSavingsPlanEndTime(), DateTimeZone.UTC).getMillis(),
