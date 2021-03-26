@@ -117,6 +117,7 @@ public class Operation extends Tag {
     	Unused,
     	UnusedAmortized,
     	Credit,
+    	Refund,
     	Tax;
     }
     
@@ -189,6 +190,7 @@ public class Operation extends Tag {
     public static final ReservationOperation unusedAmortizedLight = new ReservationOperation(Category.UnusedAmortized, PurchaseOption.Light);
 
     public static final ReservationOperation reservedInstancesCredits = new ReservationOperation("Credit - RI", Category.Credit);
+    public static final ReservationOperation reservedInstancesRefunds = new ReservationOperation("Refund - RI", Category.Refund);
     
     public static final SavingsPlanOperation savingsPlanSavingsNoUpfront = new SavingsPlanOperation(Category.Savings, PurchaseOption.NoUpfront);
     public static final SavingsPlanOperation savingsPlanUsedNoUpfront = new SavingsPlanOperation(Category.Used, PurchaseOption.NoUpfront);

@@ -84,7 +84,12 @@ public class TagGroupSP extends TagGroupArn<SavingsPlanArn> {
     }
 
     @Override
-    public TagGroup withoutResourceGroup() {
+    public TagGroupSP withCostType(CostType ct) {
+        return get(ct, account, region, zone, product, operation, usageType, resourceGroup, arn);
+    }
+    
+    @Override
+    public TagGroupSP withoutResourceGroup() {
     	return get(costType, account, region, zone, product, operation, usageType, null, arn);
     }
 

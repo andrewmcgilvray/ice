@@ -89,7 +89,12 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
     }
 
     @Override
-    public TagGroup withoutResourceGroup() {
+    public TagGroupRI withCostType(CostType ct) {
+        return get(ct, account, region, zone, product, operation, usageType, resourceGroup, arn);
+    }
+    
+    @Override
+    public TagGroupRI withoutResourceGroup() {
     	return get(costType, account, region, zone, product, operation, usageType, null, arn);
     }
 }

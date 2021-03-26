@@ -232,7 +232,7 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         }
 
         ReservationArn reservationArn = ReservationArn.get(lineItem.getReservationArn());
-        if (operation instanceof Operation.ReservationOperation && !reservationArn.name.isEmpty() && costType != CostType.credit) {
+        if (operation instanceof Operation.ReservationOperation && !reservationArn.name.isEmpty()) {
             return TagGroupRI.get(costType, account, region, zone, product, operation, usageType, rg, reservationArn);
         }
         return TagGroup.getTagGroup(costType, account, region, zone, product, operation, usageType, rg);
@@ -242,24 +242,10 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         long millisStart = lineItem.getStartMillis();
         long millisEnd = lineItem.getEndMillis();
 
-        Product origProduct = productService.getProduct(lineItem.getProduct(), lineItem.getProductServiceCode());
-        if (origProduct.isRegistrar()) {
-            // Put all out-of-month registrar fees at the start of the month
-            long nextMonthStartMillis = reportStart.plusMonths(1).getMillis();
-            if (millisStart > nextMonthStartMillis) {
-                millisStart = reportStart.getMillis();
-            }
-            // Put the whole fee in the first hour
-            millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
-        }
-        else if (origProduct.isSupport()) {
-            // Put the whole fee in the first hour
-            millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
-            logger.info(fileName + " Support: " + lineItem);
-        }
-        
-        LineItemType lit = lineItem.getLineItemType();
-        if (lit != null) {
+        BillType bt = lineItem.getBillType();
+        switch (bt) {
+        case Anniversary:
+            LineItemType lit = lineItem.getLineItemType();
             switch (lit) {
             case Credit:
                 // Most credits have end times that are one second into the next hour
@@ -267,12 +253,38 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
                 millisEnd = new DateTime(millisEnd, DateTimeZone.UTC).withSecondOfMinute(0).getMillis();
                 break;
             case Tax:
+                // Put the whole fee in the first hour
+                millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
+                //logger.info(fileName + " Tax: " + lineItem);
                 break;
             case RIFee:
                 break;
             default:
+                Product origProduct = productService.getProduct(lineItem.getProduct(), lineItem.getProductServiceCode());
+                if (origProduct.isRegistrar()) {
+                    // Put all out-of-month registrar fees at the start of the month
+                    long nextMonthStartMillis = reportStart.plusMonths(1).getMillis();
+                    if (millisStart > nextMonthStartMillis) {
+                        millisStart = reportStart.getMillis();
+                    }
+                    // Put the whole fee in the first hour
+                    millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
+                }
+                else if (origProduct.isSupport()) {
+                    // Put the whole fee in the first hour
+                    millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
+                    logger.info(fileName + " Support: " + lineItem);
+                }
+            
                 break;
             }
+            break;
+        case Purchase:
+        case Refund:
+            // Put the whole fee in the first hour
+            millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
+            //logger.info(fileName + " Refund/Purchase: " + lineItem);
+            break;
         }
         
         return new Interval(millisStart, millisEnd, DateTimeZone.UTC);
@@ -471,7 +483,7 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         if (unusedUsagePrice > 0.0 && Math.abs(unusedUsagePrice - usagePrice) > 0.0001)
             logger.info(fileName + " used and unused usage prices are different, used: " + usagePrice + ", unused: " + unusedUsagePrice + ", tg: " + tg);
         
-        Reservation r = new Reservation(tg, count, start.getMillis(), end.getMillis(), purchaseOption, hourlyFixedPrice, usagePrice);
+        Reservation r = new Reservation(tg.withCostType(CostType.subscription), count, start.getMillis(), end.getMillis(), purchaseOption, hourlyFixedPrice, usagePrice);
         costAndUsageData.addReservation(r);
         
         if (ReservationArn.debugReservationArn != null && tg.arn == ReservationArn.debugReservationArn) {
@@ -480,12 +492,11 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
     }
         
     private boolean applyMonthlyUsage(LineItemType lineItemType, boolean monthly, Product product) {
-        // For CAU reports, EC2, Redshift, and RDS have cost as a monthly charge, but usage appears hourly.
+        // For CAU reports, EC2, Redshift, and RDS have recurring RI cost as a monthly charge, but usage appears hourly.
         //     so unlike EC2, we have to process the monthly line item to capture the cost,
         //     but we don't want to add the monthly line items to the usage.
         // The reservation processor handles determination on what's unused.
-        return lineItemType != LineItemType.Credit && lineItemType != LineItemType.Refund && lineItemType != LineItemType.Fee && 
-                (!monthly || !(product.isRedshift() || product.isRdsInstance() || product.isEc2Instance() || product.isElasticsearch() || product.isElastiCache()));
+        return lineItemType != LineItemType.RIFee;
     }
         
     private void addHourData(
@@ -662,7 +673,13 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         }
     }        
     
-    protected Result getResult(LineItem lineItem, DateTime reportStart, DateTime reportModTime, TagGroup tg, boolean processDelayed, boolean reservationUsage, double costValue) {        
+    protected Result getResult(LineItem lineItem, DateTime reportStart, DateTime reportModTime, TagGroup tg, boolean processDelayed, boolean reservationUsage, double costValue) {
+        BillType bt = lineItem.getBillType();
+        if (bt == BillType.Purchase || bt == BillType.Refund) {
+            // purchases and refunds are not spread over the interval, so report as a single hourly event occuring at the start.
+            return Result.hourly;
+        }
+        
         switch (lineItem.getLineItemType()) {
         case RIFee:
             // Monthly recurring fees for EC2, RDS, and Redshift reserved instances
@@ -686,9 +703,12 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
             return processDelayed ? Result.hourlyTruncate : Result.delay;
             
         case Credit:
-        case Tax:
-            // Taxes and Credits often end in the future. Delay and truncate
+            // Credits often end in the future. Delay and truncate
             return processDelayed ? Result.hourlyTruncate : Result.delay;
+        
+        case Tax:
+            // Taxes are a single hourly event at the start of the interval
+            return Result.hourly;
             
         default:
             break;
@@ -752,6 +772,10 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         if (lit == LineItemType.Credit) {
             return Operation.reservedInstancesCredits;
         }
+        else if (lit == LineItemType.Refund) {
+            return Operation.reservedInstancesRefunds;
+        }
+        
         if (StringUtils.isNotEmpty(purchaseOption)) {
             if (lit == LineItemType.Fee)
                 return Operation.getReservedInstances(PurchaseOption.get(purchaseOption));
