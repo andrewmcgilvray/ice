@@ -62,7 +62,7 @@ public class ReaderConfig extends Config {
     public final ThroughputMetricService throughputMetricService;
     public final Managers managers;
     public final int monthlyCacheSize;
-    public final List<UserTagKey> userTagKeys;
+    public List<UserTagKey> userTagKeys;
     public final String dashboardNotice;
     public Map<String, Map<String, TagConfig>> tagConfigs;
     public String processorRegion;
@@ -233,6 +233,7 @@ public class ReaderConfig extends Config {
     	
     	accountService.updateAccounts(config.getAccounts());
     	updateZones(config.getZones());
+        userTagKeys = config.getUserTagKeys();
         tagConfigs = config.getTagConfigs();
         processorRegion = config.getProcessorRegion();
         processorInstanceId = config.getProcessorInstanceId();
