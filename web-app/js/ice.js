@@ -392,6 +392,8 @@ ice.factory('usage_db', function ($window, $http, $filter) {
     costTypes = [];
     if ($scope.recurring)
       costTypes.push("Recurring");
+    if ($scope.allocated)
+      costTypes.push("Allocated");
     if ($scope.amortization)
       costTypes.push("Amortization");
     if ($scope.credit)
@@ -1004,6 +1006,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     $scope.showUserTags = false;
     $scope.predefinedQuery = null;
     $scope.recurring = true;
+    $scope.allocated = true;
     $scope.amortization = true;
     $scope.credit = true;
     $scope.tax = true;
