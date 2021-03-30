@@ -32,6 +32,7 @@ import com.netflix.ice.processor.postproc.PostProcessor;
 import com.netflix.ice.processor.pricelist.InstancePrices;
 import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
 import com.netflix.ice.tag.Operation.ReservationOperation;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 
 import org.apache.commons.io.IOUtils;
@@ -288,7 +289,7 @@ public class BillingFileProcessor extends Poller {
     	 */
     	for (TagGroup tg: ds.getTagGroups()) {
     		if (tg.operation == ReservationOperation.spotInstances) {
-    			TagGroup savingsTag = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, ReservationOperation.spotInstanceSavings, tg.usageType, tg.resourceGroup);
+    			TagGroup savingsTag = TagGroup.getTagGroup(CostType.savings, tg.account, tg.region, tg.zone, tg.product, ReservationOperation.spotInstanceSavings, tg.usageType, tg.resourceGroup);
     			for (int i = 0; i < ds.getNum(); i++) {
     				// For each hour of usage...
     				DataSerializer.CostAndUsage cau = ds.get(i, tg);
