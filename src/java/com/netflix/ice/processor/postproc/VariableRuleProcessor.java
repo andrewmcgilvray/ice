@@ -335,8 +335,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 		double threshold = 0.000000001;
 		// Unused cost can go negative if, for example, a K8s cluster is over-subscribed, so test the absolute value.
 		if (Math.abs(unAllocated.cost) > threshold || Math.abs(unAllocated.usage) > threshold) {
-			// Put the remaining cost on the original tagGroup
-			data.put(hour, tg, unAllocated);
+			// Add the remaining cost on the original tagGroup
+			data.add(hour, tg, unAllocated);
 		}
 		//boolean overAllocated = unAllocated < -threshold;
 		//if (overAllocated)
