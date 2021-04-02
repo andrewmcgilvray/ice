@@ -490,11 +490,21 @@ public class ProcessorConfig extends Config {
     	        			continue;
     	        		}
     	        		
+                                if (account.getUnlinkedDate() == null)
+                                    account.setUnlinkedDate("2000-01-01"); // Initialize to an arbitrary early date.
+    	        		
     	        		if (accountConfigs.containsKey(account.id)) {
-    	        			logger.warn("Ignoring billing data config for account " + account.id + ": " + account.name + ". Config already defined in Organizations service or ice.properties.");
-    	        			continue;
+    	        		    String existingUnlinkedDate = accountConfigs.get(account.id).getUnlinkedDate();
+    	        		    if (existingUnlinkedDate == null) {
+                                        logger.warn("Ignoring billing data config for account " + account.id + ": " + account.name + ". Config already defined in Organizations service or ice.properties.");
+                                        continue;
+    	        		    }
+                                    if (account.getUnlinkedDate().compareTo(existingUnlinkedDate) > 0)
+                                        accountConfigs.put(account.id, account);
     	        		}
-    	        		accountConfigs.put(account.id, account);
+                                else {
+                                    accountConfigs.put(account.id, account);
+                                }
     	        		logger.debug("Adding billing data config account: " + account.toString());
     	        	}
             	}
