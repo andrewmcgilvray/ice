@@ -434,7 +434,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 			allocationReport.add(hour, allocation, inTags, outTags);			
 		}
 		// Assign any unused to the unused type, resource, and namespace
-		if (remainingAllocation > 0.0001) {
+		// If we have any overallocation, this will go negative
+		if (Math.abs(remainingAllocation) > 0.0001) {
 			List<String> outTags = report.getUnusedTagValues(allocationReport.getOutTagKeys());
 			allocationReport.add(hour, remainingAllocation, inTags, outTags);			
 		}
