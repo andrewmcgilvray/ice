@@ -74,7 +74,7 @@ public class DataSerializerTest {
 	
 	@Test
 	public void testFileRead() throws IOException, BadZone {
-        String filename = "cost_daily_505vubukj9ayygz7z5jbws97j_2020";
+        String filename = "monthly_EC2InstanceDev";
        
         File file = new File(dataDir, filename + ".gz");
         
@@ -94,14 +94,29 @@ public class DataSerializerTest {
             if (in != null)
                 in.close();
         }
-
-        String outFilename = dataDir + "/" + filename + ".csv";
         
-        FileWriter out;
-		out = new FileWriter(outFilename);
-        // Output CSV file
-		DataSerializerTest.serialize(out, data);
-    	out.close();
+        // Total up all the cost
+        double totalCost = 0;
+        for (int i = 0; i < data.getNum(); i++) {
+        	double intervalCost = 0;
+        	for (CostAndUsage cau: data.getData(i).values()) {
+        		intervalCost += cau.cost;
+        	}
+        	logger.info("Cost " + i + ": " + intervalCost);
+        	totalCost += intervalCost;
+        }
+        logger.info("Total cost: " + totalCost);
+        
+        boolean csv = false;
+        if (csv) {
+	        String outFilename = dataDir + "/" + filename + ".csv";
+	        
+	        FileWriter out;
+			out = new FileWriter(outFilename);
+	        // Output CSV file
+			DataSerializerTest.serialize(out, data);
+	    	out.close();
+        }
 	}
 	
 	@Test
