@@ -50,10 +50,11 @@ public class DataSerializerTest {
 	private static Properties getProperties() throws IOException {
 		Properties prop = new Properties();
 		File file = new File(resourcesDir + "/ice.properties");
-        InputStream is = new FileInputStream(file);
-		prop.load(is);
-	    is.close();
-	    
+		if (file.exists()) {
+			InputStream is = new FileInputStream(file);
+			prop.load(is);
+			is.close();
+		}
 		return prop;	
 	}
 	

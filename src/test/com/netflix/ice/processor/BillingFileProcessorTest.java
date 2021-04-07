@@ -405,7 +405,12 @@ public class BillingFileProcessorTest {
 	
 	@Test
 	public void testCostAndUsageReport() throws Exception {
-		init(cauReportDir + "ice.properties");
+    	String filepath = cauReportDir + "ice.properties";
+		File file = new File(filepath);
+    	if (!file.exists())
+    		return;
+
+		init(filepath);
 		ProductService productService = new BasicProductService();
 		testFileData(new CostAndUsageTest(), "cau-", productService);
 	}
