@@ -14,3 +14,5 @@ src/test/resources/ice.properties
 src/test/data
 test.xml
 src/test/resources/private
+out
+.idea
