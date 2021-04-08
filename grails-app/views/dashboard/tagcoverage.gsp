@@ -40,14 +40,6 @@
             <option>monthly</option>
           </select>
         </div>
-        <div style="padding-top: 5px" ng-show="throughput_metricname">
-          <input type="checkbox" ng-model="showsps" id="showsps">
-          <label for="showsps">Show {{throughput_metricname}}</label>
-        </div>
-        <div style="padding-top: 5px" ng-show="throughput_metricname">
-          <input type="checkbox" ng-model="factorsps" id="factorsps">
-          <label for="factorsps">Factor {{throughput_metricname}}</label>
-        </div>
       </td>
       <td ng-show="isGroupByTagKey()">
         <select ng-model="selected_tagKeys" ng-options="a.name for a in tagKeys | filter:filter_tagKeys" multiple="multiple" class="metaTags metaSelect"></select>

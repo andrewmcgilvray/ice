@@ -197,10 +197,10 @@
               <a href="javascript:void(0)" class="legendControls" ng-click="showall()">SHOW ALL</a>
               <a href="javascript:void(0)" class="legendControls" ng-click="hideall()">HIDE ALL</a>
               <span style="padding-left: 100px">
-                Plot type <select ng-model="plotType" ng-change="plotTypeChanged()">
-                  <option>area</option>
-                  <option>column</option>
-                </select>
+                <input type="radio" ng-model="plotType" value="area" id="radio_area" ng-change="plotTypeChanged()">
+                <label for="radio_cost" style="cursor: pointer">Area</label>&nbsp;&nbsp;
+                <input type="radio" ng-model="plotType" value="column" id="radio_column" ng-change="plotTypeChanged()">
+                <label for="radio_column" style="cursor: pointer">Column</label>
               </span>
               <input ng-model="filter_legend" type="text" class="metaFilter" placeHolder="filter" style="float: right; margin-right: 0">
             </div>
