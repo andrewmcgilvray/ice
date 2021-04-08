@@ -126,6 +126,10 @@ public class Operation extends Tag {
     public static final ReservationOperation spotInstances = new ReservationOperation("Spot Instances", Category.None);
     public static final ReservationOperation ondemandInstances = new ReservationOperation("On-Demand Instances", Category.None);
 
+    public static final SavingsPlanOperation lambaInvoke = new SavingsPlanOperation("Invoke", Category.None);
+    public static final SavingsPlanOperation fargateTask = new SavingsPlanOperation("FargateTask", Category.None);
+    public static final SavingsPlanOperation fargatePod = new SavingsPlanOperation("FargatePod", Category.None);
+
     public static final ReservationOperation savingsNoUpfront = new ReservationOperation(Category.Savings, PurchaseOption.NoUpfront);
     public static final ReservationOperation reservedInstancesNoUpfront = new ReservationOperation(Category.Used, PurchaseOption.NoUpfront);
     public static final ReservationOperation bonusReservedInstancesNoUpfront = new ReservationOperation(Category.Bonus, PurchaseOption.NoUpfront);
@@ -559,7 +563,7 @@ public class Operation extends Tag {
         else
             return super.compareTo(t);
     }
-        
+
     public static List<Operation> getSavingsPlanOperations(boolean showLent) {
     	if (showLent) {
     		if (savingsPlanOperationsWithLent == null) {
@@ -674,7 +678,14 @@ public class Operation extends Tag {
     public static class SavingsPlanOperation extends Operation {
 		private static final long serialVersionUID = 1L;
 		private final PurchaseOption paymentOption;
-		
+
+        private SavingsPlanOperation(String name, Category category) {
+            super(name, sequence++, category);
+            this.paymentOption = null;
+            operations.put(name,  this);
+            savingsPlanOperations.add(this);
+        }
+
 		private SavingsPlanOperation(Category category, PurchaseOption paymentOption) {
 			super("SavingsPlan " + category.name() + " - " + paymentOption.name, sequence++, category);
 			this.paymentOption = paymentOption;
