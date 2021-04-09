@@ -670,7 +670,11 @@ public class Operation extends Tag {
     	default: throw new RuntimeException("Unknown PurchaseOption " + paymentOption);
     	}
     }
-     
+
+    public boolean isReservation() {
+        return this instanceof ReservationOperation;
+    }
+
     public boolean isSavingsPlan() {
     	return this instanceof SavingsPlanOperation;
     }

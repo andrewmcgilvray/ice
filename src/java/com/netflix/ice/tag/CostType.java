@@ -61,7 +61,8 @@ public class CostType extends Tag {
         switch (billType) {
         case Anniversary:
             switch (lineItemType) {
-            case Fee: // Anniversary/Fee is how Registrar Domain renewals appear. Treat as recurring
+            case Fee:   // Anniversary/Fee is how Registrar Domain renewals appear as well as
+                        // some Marketplace purchases. Treat as recurring
             case Usage:
             case DiscountedUsage:
             case SavingsPlanCoveredUsage:

@@ -34,7 +34,7 @@ public class OperationTest {
 
 	@Test
 	public void testGetSavingsPlanOperations() {
-		assertEquals("wrong number of savings plan operations", 21, Operation.getSavingsPlanOperations(false).size());
+		assertEquals("wrong number of savings plan operations", 24, Operation.getSavingsPlanOperations(false).size());
 	}
 	
 	@Test

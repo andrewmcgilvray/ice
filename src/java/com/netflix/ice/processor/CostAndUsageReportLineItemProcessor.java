@@ -123,15 +123,6 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         Product product = productService.getProduct(lineItem.getProduct(), lineItem.getProductServiceCode());
         
         LineItemType lineItemType = lineItem.getLineItemType();
-        if (lineItemType != LineItemType.Credit && lineItemType != LineItemType.Tax) {
-            // Not a Credit or Tax line item, so must have some non-empty fields
-            if (StringUtils.isEmpty(lineItem.getUsageType()) ||
-                (StringUtils.isEmpty(lineItem.getOperation()) && lineItemType != LineItemType.SavingsPlanRecurringFee && !product.isSupport()) ||
-                StringUtils.isEmpty(lineItem.getUsageQuantity())) {
-                
-                return true;
-            }
-        }
 
         if (!product.isRegistrar() && lineItem.getLineItemType() != LineItemType.RIFee) {
             // Registrar product renewals occur before they expire, so often start in the following month.
@@ -170,7 +161,7 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         String usageTypeStr = lineItem.getUsageType();
         
         // If it's a tax line item with no usageType, put it in the global region
-        if (lineItem.getLineItemType() == LineItemType.Tax && usageTypeStr.isEmpty())
+        if (usageTypeStr.isEmpty())
             return Region.GLOBAL;
         
         int index = usageTypeStr.indexOf("-");
@@ -227,15 +218,16 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
     
     protected TagGroup getTagGroup(LineItem lineItem, CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup rg) {
         if (operation.isSavingsPlan()) {
-            SavingsPlanArn savingsPlanArn = SavingsPlanArn.get(lineItem.getSavingsPlanArn());
-            return TagGroupSP.get(costType, account, region, zone, product, operation, usageType, rg, savingsPlanArn);
+            String spArn = lineItem.getSavingsPlanArn();
+            if (spArn != null && !spArn.isEmpty())
+                return TagGroupSP.get(costType, account, region, zone, product, operation, usageType, rg, SavingsPlanArn.get(spArn));
         }
-
-        ReservationArn reservationArn = ReservationArn.get(lineItem.getReservationArn());
-        LineItemType lit = lineItem.getLineItemType();
-        if (operation instanceof Operation.ReservationOperation && !reservationArn.name.isEmpty() &&
-                (lit == LineItemType.DiscountedUsage || lit == LineItemType.RIFee)) {
-            return TagGroupRI.get(costType, account, region, zone, product, operation, usageType, rg, reservationArn);
+        else if (operation.isReservation()) {
+            ReservationArn reservationArn = ReservationArn.get(lineItem.getReservationArn());
+            LineItemType lit = lineItem.getLineItemType();
+            if (!reservationArn.name.isEmpty() && (lit == LineItemType.DiscountedUsage || lit == LineItemType.RIFee)) {
+                return TagGroupRI.get(costType, account, region, zone, product, operation, usageType, rg, reservationArn);
+            }
         }
         return TagGroup.getTagGroup(costType, account, region, zone, product, operation, usageType, rg);
     }
@@ -959,11 +951,6 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         if (!product.isCloudFront() && !product.isApiGateway()) {
             if (usageTypeStr.equals("DataTransfer-Regional-Bytes") || usageTypeStr.endsWith("-In-Bytes") || usageTypeStr.endsWith("-Out-Bytes"))
                 product = productService.getProduct(Product.Code.DataTransfer);
-        }
-
-        // Usage type string is empty for Support recurring fees.
-        if (usageTypeStr.equals("Unknown") || usageTypeStr.equals("Not Applicable") || usageTypeStr.isEmpty()) {
-            usageTypeStr = product.getIceName();
         }
 
         if (operation == null) {

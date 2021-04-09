@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 
+import com.netflix.ice.tag.*;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.BeforeClass;
@@ -57,14 +58,6 @@ import com.netflix.ice.processor.Instances;
 import com.netflix.ice.processor.LineItem.BillType;
 import com.netflix.ice.processor.LineItemType;
 import com.netflix.ice.processor.LineItemProcessor.Result;
-import com.netflix.ice.tag.CostType;
-import com.netflix.ice.tag.Operation;
-import com.netflix.ice.tag.ReservationArn;
-import com.netflix.ice.tag.Account;
-import com.netflix.ice.tag.Product;
-import com.netflix.ice.tag.Region;
-import com.netflix.ice.tag.SavingsPlanArn;
-import com.netflix.ice.tag.UserTagKey;
 
 public class CostAndUsageLineItemProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -1336,5 +1329,16 @@ public class CostAndUsageLineItemProcessorTest {
                 new Datum(CostType.tax, a2, Region.GLOBAL, null, ec2Product, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 744, 1),
             };
         test.run("2020-01-01T00:00:00Z", expected);                
+    }
+
+    @Test
+    public void testAnniversaryFee() throws Exception {
+        Line line = new Line(LineItemType.Fee, "", "", "Marketplace Product", "", "", "Recurring Fee", PricingTerm.none, "2021-03-01T00:00:00Z", "2021-03-01T23:59:59Z", "0", "399.00", "");
+        line.setBillType(BillType.Anniversary);
+        ProcessTest test = new ProcessTest(line, Result.hourly, 31);
+        Datum[] expected = {
+                new Datum(CostType.recurring, a2, Region.GLOBAL, null, productService.getProduct("Marketplace Product", "codemiwzegx4uipofs3uc8h3p"), Operation.getOperation("None"), "", 399, 0),
+        };
+        test.run("2021-03-01T00:00:00Z", expected);
     }
 }
