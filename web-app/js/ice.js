@@ -119,25 +119,27 @@ ice.factory('highchart', function () {
       }
     });
 
+    if (!result.isSetup)
+      result.isSetup = false;
+
     hc_options.series = [];
     var i, j;
     for (i in result.data) {
-      var data = result.data[i].data;
+      var group = result.data[i];
       var hasData = false;
-      if (zeroDataValid) {
-        // Don't filter out series with all zeros
-        hasData = true;
-      }
-      else {
+      var data = group.data;
+      if (!result.isSetup) {
+        if (!group.hasData)
+          group.hasData = false;
         for (j in data) {
           data[j] = parseFloat(data[j].toFixed(2));
           if (data[j] !== 0)
-            hasData = true;
+            group.hasData = true;
         }
       }
 
-      if (hasData) {
-        if (!result.interval && result.time) {
+      if (zeroDataValid || group.hasData) {
+        if (!result.isSetup && !result.interval && result.time) {
           for (j in data) {
             data[j] = [result.time[j], data[j]];
           }
@@ -157,6 +159,7 @@ ice.factory('highchart', function () {
         hc_options.series.push(serie);
       }
     };
+    result.isSetup = true;
 
     if (showsps && result.sps && result.sps.length > 0) {
       var serie = {
