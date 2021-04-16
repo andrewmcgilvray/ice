@@ -24,11 +24,7 @@ ice.value('ui.config', {
 });
 
 ice.factory('highchart', function () {
-  var metricname = throughput_metricname;
-  var metricunitname = throughput_metricunitname;
-  var factoredCostCurrencySign = throughput_factoredCostCurrencySign;
-
-  var hc_chart, consolidate = "hour", currencySign = global_currencySign, legends, showsps = false, factorsps = false;
+  var hc_chart, consolidate = "hour", currencySign = global_currencySign, legends;
   var hc_options = {
     chart: {
       renderTo: 'highchart_container',
@@ -83,25 +79,25 @@ ice.factory('highchart', function () {
         var s = '<span style="font-size: x-small;">' + Highcharts.dateFormat('%A, %b %e, %l%P, %Y', this.x) + '</span>';
 
         var total = 0;
-        for (var i = 0; i < this.points.length - (showsps ? 1 : 0); i++) {
+        for (var i = 0; i < this.points.length; i++) {
           total += this.points[i].y;
         }
 
         var precision = currencySign === "" ? 0 : (currencySign === "¢" ? 4 : 2);
-        for (var i = 0; i < this.points.length - (showsps ? 1 : 0); i++) {
+        for (i = 0; i < this.points.length; i++) {
           var point = this.points[i];
-          if (i == 0) {
-            s += '<br/><span>aggregated : ' + currencySign + Highcharts.numberFormat(total, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate);
+          if (i === 0) {
+            s += '<br/><span>aggregated : ' + currencySign + Highcharts.numberFormat(total, precision, '.') + ' / ' + consolidate;
           }
-          var perc = showsps ? point.y * 100 / total : point.percentage;
-          s += '<br/><span style="color: ' + point.series.color + '">' + point.series.name + '</span> : ' + currencySign + Highcharts.numberFormat(point.y, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate) + ' (' + Highcharts.numberFormat(perc, 1) + '%)';
+          var perc = point.percentage;
+          s += '<br/><span style="color: ' + point.series.color + '">' + point.series.name + '</span> : ' + currencySign + Highcharts.numberFormat(point.y, precision, '.') + ' / ' + consolidate + ' (' + Highcharts.numberFormat(perc, 1) + '%)';
           if (i > 25 && point) {
             // total up the rest and label as 'other'
             var otherTotal = 0;
-            for (var j = i + 1; j < this.points.length - (showsps ? 1 : 0); j++) {
+            for (var j = i + 1; j < this.points.length; j++) {
               otherTotal += this.points[j].y;
             }
-            s += '<br/><span>other : ' + currencySign + Highcharts.numberFormat(otherTotal, precision, '.') + ' / ' + (factorsps ? metricunitname : consolidate) + ' (' + Highcharts.numberFormat(perc, 1) + '%)';
+            s += '<br/><span>other : ' + currencySign + Highcharts.numberFormat(otherTotal, precision, '.') + ' / ' + consolidate + ' (' + Highcharts.numberFormat(perc, 1) + '%)';
             break;
           }
         }
@@ -111,7 +107,7 @@ ice.factory('highchart', function () {
     }
   };
 
-  var setupHcData = function (result, plotType, showsps, zeroDataValid) {
+  var setupHcData = function (result, plotType, zeroDataValid) {
 
     Highcharts.setOptions({
       global: {
@@ -123,15 +119,14 @@ ice.factory('highchart', function () {
       result.isSetup = false;
 
     hc_options.series = [];
-    var i, j;
-    for (i in result.data) {
+    var i, j, serie;
+    for (i = 0; i < result.data.length; i++) {
       var group = result.data[i];
-      var hasData = false;
       var data = group.data;
       if (!result.isSetup) {
         if (!group.hasData)
           group.hasData = false;
-        for (j in data) {
+        for (j = 0; j < data.length; j++) {
           data[j] = parseFloat(data[j].toFixed(2));
           if (data[j] !== 0)
             group.hasData = true;
@@ -140,12 +135,12 @@ ice.factory('highchart', function () {
 
       if (zeroDataValid || group.hasData) {
         if (!result.isSetup && !result.interval && result.time) {
-          for (j in data) {
+          for (j = 0; j < data.length; j++) {
             data[j] = [result.time[j], data[j]];
           }
         }
         var name = result.data[i].name;
-        var serie = {
+        serie = {
           name: name,
           data: data,
           pointStart: result.start,
@@ -158,33 +153,20 @@ ice.factory('highchart', function () {
 
         hc_options.series.push(serie);
       }
-    };
-    result.isSetup = true;
-
-    if (showsps && result.sps && result.sps.length > 0) {
-      var serie = {
-        name: metricname,
-        data: result.sps,
-        pointStart: result.start,
-        pointInterval: result.interval,
-        //step: true,
-        type: plotType,
-        yAxis: 1
-      };
-      hc_options.series.push(serie);
     }
+    result.isSetup = true;
   }
 
-  var setupYAxis = function (isCost, usageUnit, showsps, factorsps, elasticity, tagCoverage) {
+  var setupYAxis = function (isCost, usageUnit, elasticity, tagCoverage) {
     var unitStr = usageUnit === '' ? '' : ' (' + usageUnit + ')';
-    var unitType = "";
+    var unitType;
     if (elasticity)
       unitType = '% Elasticity';
     else if (tagCoverage)
       unitType = '% Tag Coverage';
     else
       unitType = isCost ? 'Cost' : 'Usage' + unitStr;
-    var yAxis = { title: { text: unitType + ' per ' + (factorsps ? metricunitname : consolidate) }, lineWidth: 2 };
+    var yAxis = { title: { text: unitType + ' per ' + consolidate }, lineWidth: 2 };
     if (isCost)
       yAxis.labels = {
         formatter: function () {
@@ -192,12 +174,6 @@ ice.factory('highchart', function () {
         }
       }
     hc_options.yAxis = [yAxis];
-
-    if (showsps) {
-      hc_options.yAxis.push({ title: { text: metricname }, height: 100, min: 0, lineWidth: 2, offset: 0 });
-      hc_options.yAxis[0].top = 150;
-      hc_options.yAxis[0].height = 350;
-    }
   }
 
   return {
@@ -217,25 +193,24 @@ ice.factory('highchart', function () {
 
     drawGraph: function (result, $scope, legendEnabled, elasticity, tagCoverage) {
       consolidate = $scope.consolidate === 'daily' ? 'day' : $scope.consolidate.substr(0, $scope.consolidate.length - 2);
-      currencySign = $scope.usage_cost === 'cost' ? ($scope.factorsps ? factoredCostCurrencySign : global_currencySign) : "";
+      currencySign = $scope.usage_cost === 'cost' ? global_currencySign : "";
       hc_options.legend.enabled = legendEnabled;
 
-      setupHcData(result, $scope.plotType, $scope.showsps, elasticity || tagCoverage);
-      setupYAxis($scope.usage_cost === 'cost', $scope.usageUnit, $scope.showsps, $scope.factorsps, elasticity, tagCoverage);
-      showsps = $scope.showsps;
-      factorsps = $scope.factorsps;
+      setupHcData(result, $scope.plotType, elasticity || tagCoverage);
+      setupYAxis($scope.usage_cost === 'cost', $scope.usageUnit, elasticity, tagCoverage);
 
       hc_chart = new Highcharts.StockChart(hc_options, function (chart) {
+        var legend;
         if ($scope && $scope.legends) {
-          var legend = { name: "aggregated" };
+          legend = { name: "aggregated" };
           if ($scope.stats && $scope.stats.aggregated)
             legend.stats = $scope.stats.aggregated;
           $scope.legends.push(legend);
         }
-        var i = 0;
-        for (i = 0; i < chart.series.length - ($scope.showsps ? 2 : 1); i++) {
+        var i;
+        for (i = 0; i < chart.series.length - 1; i++) {
           if ($scope && $scope.legends) {
-            var legend = {
+            legend = {
               name: chart.series[i].name,
               style: "color: " + chart.series[i].color,
               iconStyle: "background-color: " + chart.series[i].color,
@@ -252,7 +227,7 @@ ice.factory('highchart', function () {
         }
 
         var xextemes = chart.xAxis[0].getExtremes();
-        Highcharts.addEvent(chart.container, 'dblclick', function (e) {
+        Highcharts.addEvent(chart.container, 'dblclick', function (/*e*/) {
           chart.xAxis[0].setExtremes(xextemes.min, xextemes.max);
         });
       });
@@ -279,7 +254,7 @@ ice.factory('highchart', function () {
         hc_chart.series[index].setVisible(true, false);
       }
       hc_chart.redraw();
-      for (var i in legends) {
+      for (var i = 0; i < legends.length; i++) {
         legends[i].style = "color: " + legends[i].color;
         legends[i].iconStyle = "background-color: " + legends[i].color;
       }
@@ -291,7 +266,7 @@ ice.factory('highchart', function () {
           hc_chart.series[index].setVisible(false, false);
       }
       hc_chart.redraw();
-      for (var i in legends) {
+      for (var i = 0; i < legends.length; i++) {
         legends[i].style = "color: rgb(192, 192, 192)";
         legends[i].iconStyle = "background-color: rgb(192, 192, 192)";
       }
@@ -315,21 +290,21 @@ ice.factory('highchart', function () {
   }
 });
 
-ice.factory('usage_db', function ($window, $http, $filter) {
+ice.factory('usage_db', function ($window, $http, /*$filter*/) {
 
   var retrieveNamesIfNotAll = function (array, selected, preselected, filter, organizationalUnit) {
     if (!selected && !preselected)
       return;
 
-    var result = [];
+    var i, result = [];
     if (selected) {
-      for (var i = 0; i < selected.length; i++) {
+      for (i = 0; i < selected.length; i++) {
         if (filterAccountByOrg(selected[i], organizationalUnit) && filterItem(selected[i].name, filter))
           result.push(selected[i].name);
       }
     }
     else {
-      for (var i = 0; i < preselected.length; i++) {
+      for (i = 0; i < preselected.length; i++) {
         if (filterItem(preselected[i], filter))
           result.push(preselected[i]);
       }
@@ -360,9 +335,10 @@ ice.factory('usage_db', function ($window, $http, $filter) {
   var updateSelected = function (from, selected) {
     var result = [];
     var selectedArr = [];
-    for (var i = 0; i < selected.length; i++)
+    var i;
+    for (i = 0; i < selected.length; i++)
       selectedArr.push(selected[i].name);
-    for (var i = 0; i < from.length; i++) {
+    for (i = 0; i < from.length; i++) {
       if (selectedArr.indexOf(from[i].name) >= 0)
         result.push(from[i]);
     }
@@ -418,9 +394,9 @@ ice.factory('usage_db', function ($window, $http, $filter) {
 
   return {
     addParams: function (params, name, array, selected, preselected, filter, organizationalUnit) {
-      var selected = retrieveNamesIfNotAll(array, selected, preselected, filter, organizationalUnit);
-      if (selected)
-        params[name] = selected;
+      var sel = retrieveNamesIfNotAll(array, selected, preselected, filter, organizationalUnit);
+      if (sel)
+        params[name] = sel;
     },
 
     filterSelected: function (selected, filter, organizationalUnit) {
@@ -440,8 +416,10 @@ ice.factory('usage_db', function ($window, $http, $filter) {
   
     updateUrl: function ($location, data) {
       var result = "";
-      var time = "";
       for (var key in data) {
+        if (!data.hasOwnProperty(key))
+          continue;
+
         if (result)
           result += "&";
         result += key + "=";
@@ -449,10 +427,10 @@ ice.factory('usage_db', function ($window, $http, $filter) {
         if (typeof data[key] == "string") {
           result += data[key];
         }
-        else if (data[key] != undefined) {
+        else if (data[key] !== undefined) {
           var selected = data[key].selected;
-          for (var i in selected) {
-            if (i != 0)
+          for (var i = 0; i < selected.length; i++) {
+            if (i !== 0)
               result += ",";
             result += selected[i].name;
           }
@@ -469,14 +447,21 @@ ice.factory('usage_db', function ($window, $http, $filter) {
       if ($scope.showUserTags) {
         $scope.filter_userTagValues = Array($scope.userTags.length);
         $scope.selected__userTagValues = Array($scope.userTags.length);
-        for (var key in $scope.tagParams) {
+        var key;
+        for (key in $scope.tagParams) {
+          if (!$scope.tagParams.hasOwnProperty(key))
+            continue;
+
           for (j = 0; j < $scope.userTags.length; j++) {
             if ($scope.userTags[j].name === key) {
               $scope.selected__userTagValues[j] = $scope.tagParams[key].split(",");
             }
           }
         }
-        for (var key in $scope.tagFilterParams) {
+        for (key in $scope.tagFilterParams) {
+          if (!$scope.tagFilterParams.hasOwnProperty(key))
+            continue;
+
           for (j = 0; j < $scope.userTags.length; j++) {
             if ($scope.userTags[j].name === key) {
               $scope.filter_userTagValues[j] = $scope.tagFilterParams[key];
@@ -484,8 +469,9 @@ ice.factory('usage_db', function ($window, $http, $filter) {
           }
         }
       }
+      var j;
       if (!$scope.showUserTags) {
-        for (var j in $scope.groupBys) {
+        for (j = 0; j < $scope.groupBys.length; j++) {
           if ($scope.groupBys[j].name === "Tag") {
             $scope.groupBys.splice(j, 1);
             break;
@@ -493,7 +479,7 @@ ice.factory('usage_db', function ($window, $http, $filter) {
         }
       }
       var toRemove = $scope.showZones ? "Region" : "Zone";
-      for (var j in $scope.groupBys) {
+      for (j = 0; j < $scope.groupBys.length; j++) {
         if ($scope.groupBys[j].name === toRemove) {
           $scope.groupBys.splice(j, 1);
           break;
@@ -662,13 +648,13 @@ ice.factory('usage_db', function ($window, $http, $filter) {
             $scope.groupByTags = $scope.userTags;
             if ($scope.userTags.length > 0) {
               $scope.groupByTag = $scope.userTags[0];
-              for (var j in $scope.groupByTags) {
+              for (var j = 0; j < $scope.groupByTags.length; j++) {
                 if ($scope.groupByTags[j].name === $scope.initialGroupByTag) {
                   $scope.groupByTag = $scope.groupByTags[j];
                   break;
                 }
               }
-              if ($scope.enabledUserTags.length != $scope.userTags.length) {
+              if ($scope.enabledUserTags.length !== $scope.userTags.length) {
                 $scope.enabledUserTags = Array($scope.userTags.length);
                 for (var i = 0; i < $scope.userTags.length; i++)
                   $scope.enabledUserTags[i] = false;
@@ -898,10 +884,8 @@ ice.factory('usage_db', function ($window, $http, $filter) {
         start: $scope.start,
         end: $scope.end,
         breakdown: false,
-        showsps: $scope.showsps ? true : false,
-        factorsps: $scope.factorsps ? true : false,
-        consolidateGroups: $scope.consolidateGroups ? true : false,
-        tagCoverage: $scope.tagCoverage ? true : false,
+        consolidateGroups: !!$scope.consolidateGroups,
+        tagCoverage: !!$scope.tagCoverage,
         showLent: $scope.reservationSharing === "lent",
       }, params);
       
@@ -959,17 +943,21 @@ ice.factory('usage_db', function ($window, $http, $filter) {
           });
       }
       else {
-        jQuery("#download_form").empty();
+        var form = jQuery("#download_form");
+        form.empty();
 
         for (var key in params) {
+          if (!params.hasOwnProperty(key))
+            continue;
+
           jQuery("<input type='text' />")
             .attr("id", key)
             .attr("name", key)
             .attr("value", params[key])
-            .appendTo(jQuery("#download_form"));
+            .appendTo(form);
         }
 
-        jQuery("#download_form").submit();
+        form.submit();
       }
     },
 
@@ -995,8 +983,6 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
 
   $scope.init = function ($scope) {
     $scope.dimensions = [false, false, false, false, false, false];
-    $scope.showsps = false;
-    $scope.factorsps = false;
     $scope.consolidateGroups = false;
     $scope.plotType = 'area';
     $scope.reservationSharing = 'borrowed';
@@ -1057,10 +1043,6 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
       params.plotType = $scope.plotType;
     if ($scope.reservationSharing)
       params.reservationSharing = $scope.reservationSharing;
-    if ($scope.showsps)
-      params.showsps = "" + $scope.showsps;
-    if ($scope.factorsps)
-      params.factorsps = "" + $scope.factorsps;
     if ($scope.showUserTags)
       params.showUserTags = "" + $scope.showUserTags;
     if ($scope.groupBy.name)
@@ -1126,12 +1108,13 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     params.dimensions = $scope.dimensions.join(",");
   }
 
-$scope.addUserTagParams = function ($scope, params) {
+  $scope.addUserTagParams = function ($scope, params) {
     if (!$scope.showUserTags)
       return;
 
     var hasEnabledTags = false;
-    for (var i = 0; i < $scope.enabledUserTags.length; i++) {
+    var i;
+    for (i = 0; i < $scope.enabledUserTags.length; i++) {
       if ($scope.enabledUserTags[i]) {
         hasEnabledTags = true;
         break;
@@ -1141,7 +1124,7 @@ $scope.addUserTagParams = function ($scope, params) {
       return;
     
     params.enabledUserTags = $scope.enabledUserTags.join(",");
-    for (var i = 0; i < $scope.userTags.length; i++) {
+    for (i = 0; i < $scope.userTags.length; i++) {
       if ($scope.enabledUserTags[i]) {
         usage_db.addParams(params, "tag-" + $scope.userTags[i].name, $scope.userTagValues[i], $scope.selected_userTagValues[i], $scope.selected__userTagValues[i], $scope.filter_userTagValues[i]);
       }
@@ -1159,7 +1142,7 @@ $scope.addUserTagParams = function ($scope, params) {
   }
 
   var getGroupBy = function ($scope, key, value) {
-    for (var j in $scope.groupBys) {
+    for (var j = 0; j < $scope.groupBys.length; j++) {
       if ($scope.groupBys[j].name === value) {
         $scope[key] = $scope.groupBys[j];
         return;
@@ -1218,8 +1201,6 @@ $scope.addUserTagParams = function ($scope, params) {
     end: {name: "end", fn: time},
     resources: {name: "resources", fn: value},
     showZones: {name: "showZones", fn: isTrue},
-    showsps: {name: "showsps", fn: isTrue},
-    factorsps: {name: "factorsps", fn: isTrue},
     plotType: {name: "plotType", fn: value},
     reservationSharing: {name: "reservationSharing", fn: value},
     consolidate: {name: "consolidate", fn: value},
@@ -1258,18 +1239,18 @@ $scope.addUserTagParams = function ($scope, params) {
         var parts = params[i].split('=');
         if (parts[0].includes('-'))
           parts[0] = parts[0].replace('-', '_');
-        if (parts.length == 2 && parts[0] in paramDefs) {
+        if (parts.length === 2 && parts[0] in paramDefs) {
           var def = paramDefs[parts[0]];
-          var result = def.fn($scope, def.name, parts[1]);
+          def.fn($scope, def.name, parts[1]);
           continue;
         }
              
         if (params[i].indexOf("tag-") === 0) {
-          var parts = params[i].substr(4).split("=");
+          parts = params[i].substr(4).split("=");
           $scope.tagParams[parts[0]] = parts[1];
         }
         else if (params[i].indexOf("filter-tag-") === 0) {
-          var parts = params[i].substr(11).split("=");
+          parts = params[i].substr(11).split("=");
           $scope.tagFilterParams[parts[0]] = parts[1];
         }
       }
@@ -1281,7 +1262,7 @@ $scope.addUserTagParams = function ($scope, params) {
   }
 
   var pageLoaded = false;
-  $scope.$watch(function () { return $location.path(); }, function (locationPath) {
+  $scope.$watch(function () { return $location.path(); }, function (/*locationPath*/) {
     if (pageLoaded)
       $timeout(function () { location.reload() });
     else
@@ -1313,7 +1294,7 @@ $scope.addUserTagParams = function ($scope, params) {
   $scope.getConsolidateName = function (consolidate) {
     if (consolidate === 'weekly')
       return "week";
-    else if (consolidate == 'monthly')
+    else if (consolidate === 'monthly')
       return "month";
     else
       return "";
@@ -1332,12 +1313,12 @@ $scope.addUserTagParams = function ($scope, params) {
   }
 
   $scope.getTrClass = function (index) {
-    return index % 2 == 0 ? "even" : "odd";
+    return index % 2 === 0 ? "even" : "odd";
   }
 
   $scope.order = function (data, name, stats) {
 
-    if ($scope.predicate != name) {
+    if ($scope.predicate !== name) {
       $scope.reservse = name === 'name';
       $scope.predicate = name;
     }
@@ -1370,16 +1351,8 @@ $scope.addUserTagParams = function ($scope, params) {
     highchart.order(data);
   }
 
-  $scope.graphOnly = function () {
-    return $scope.graphonly;
-  }
-
-  $scope.getBodyWidth = function (defaultWidth) {
-    return $scope.graphonly ? "" : defaultWidth;
-  }
-
   $scope.updateAccounts = function ($scope) {
-    usage_db.getAccounts($scope, function (data) {
+    usage_db.getAccounts($scope, function () {
       if ($scope.showZones)
         $scope.updateZones($scope);
       else
@@ -1388,13 +1361,13 @@ $scope.addUserTagParams = function ($scope, params) {
   }
 
   $scope.updateZones = function ($scope) {
-    usage_db.getZones($scope, function (data) {
+    usage_db.getZones($scope, function () {
       $scope.updateProducts($scope);
     });
   }
 
   $scope.updateRegions = function ($scope) {
-    usage_db.getRegions($scope, function (data) {
+    usage_db.getRegions($scope, function () {
       $scope.updateProducts($scope);
     });
   }
@@ -1402,7 +1375,7 @@ $scope.addUserTagParams = function ($scope, params) {
   $scope.updateProducts = function ($scope) {
     var query = $scope.predefinedQuery ? jQuery.extend({}, $scope.predefinedQuery) : null;
 
-    usage_db.getProducts($scope, function (data) {
+    usage_db.getProducts($scope, function () {
       if ($scope.showUserTags)
         $scope.updateUserTagValues($scope, 0, true, true);
       else
@@ -1413,7 +1386,7 @@ $scope.addUserTagParams = function ($scope, params) {
   $scope.updateOperations = function ($scope) {
     var query = $scope.predefinedQuery ? jQuery.extend({}, $scope.predefinedQuery) : null;
 
-    usage_db.getOperations($scope, function (data) {
+    usage_db.getOperations($scope, function () {
       $scope.updateUsageTypes($scope);
     }, query);
   }
@@ -1425,7 +1398,7 @@ $scope.addUserTagParams = function ($scope, params) {
   }
 
   $scope.updateUserTagValues = function ($scope, index, all, updateOps) {
-    usage_db.getUserTagValues($scope, index, function (data) {
+    usage_db.getUserTagValues($scope, index, function () {
       if (all) {
         index++;
         if (index < $scope.userTags.length)
@@ -1440,7 +1413,7 @@ $scope.addUserTagParams = function ($scope, params) {
     if ($scope.showUserTags) {
       if ($scope.groupBys.length < $scope.groupBysFullLen)
         $scope.groupBys.push({name: "Tag"});
-      if ($scope.userTags.length == 0) {
+      if ($scope.userTags.length === 0) {
         usage_db.getUserTags($scope, function () {
           $scope.updateUserTagValues($scope, 0, true, false);
         });
@@ -1450,7 +1423,7 @@ $scope.addUserTagParams = function ($scope, params) {
       }
     }
     else {
-      for (var j in $scope.groupBys) {
+      for (var j = 0; j < $scope.groupBys.length; j++) {
         if ($scope.groupBys[j].name === "Tag") {
           $scope.groupBys.splice(j, 1);
           break;
@@ -1531,7 +1504,7 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
       highchart.drawGraph(result, $scope);
       $scope.loading = false;
 
-      $scope.legendPrecision = $scope.usage_cost == "cost" ? 2 : 0;
+      $scope.legendPrecision = $scope.usage_cost === "cost" ? 2 : 0;
       $scope.legendName = $scope.groupBy.name;
       $scope.legend_usage_cost = $scope.usage_cost;
     }, query, false, function (result, status) {
@@ -1552,6 +1525,14 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
     for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
       vals.push($scope.userTagValues[i]);
     return vals;
+  }
+
+  $scope.graphOnly = function () {
+    return $scope.graphonly;
+  }
+
+  $scope.getBodyWidth = function (defaultWidth) {
+    return $scope.graphonly ? "" : defaultWidth;
   }
 
   $scope.accountsEnabled = function () {
@@ -1758,7 +1739,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
       highchart.drawGraph(result, $scope);
       $scope.loading = false;
 
-      $scope.legendPrecision = $scope.usage_cost == "cost" ? 2 : 0;
+      $scope.legendPrecision = $scope.usage_cost === "cost" ? 2 : 0;
       $scope.legendName = $scope.groupBy.name;
       $scope.legend_usage_cost = $scope.usage_cost;
     }, query, false, function (result, status) {
@@ -1779,6 +1760,14 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
     for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
       vals.push($scope.userTagValues[i]);
     return vals;
+  }
+
+  $scope.graphOnly = function () {
+    return $scope.graphonly;
+  }
+
+  $scope.getBodyWidth = function (defaultWidth) {
+    return $scope.graphonly ? "" : defaultWidth;
   }
 
   $scope.accountsEnabled = function () {
@@ -1897,7 +1886,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   var getSavingsPlanProducts = function () {
     var query = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
 
-    usage_db.getProducts($scope, function (data) {
+    usage_db.getProducts($scope, function () {
       $scope.savingsPlanProducts = [];
       for (var i = 0; i < $scope.products.length; i++)
       $scope.savingsPlanProducts.push($scope.products[i].name);
@@ -1932,7 +1921,7 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   $scope.updateProducts = function ($scope) {
     var query = { operation: $scope.savingsPlanOps.join(","), forSavingsPlans: true };
 
-    usage_db.getProducts($scope, function (data) {
+    usage_db.getProducts($scope, function () {
       if ($scope.showUserTags)
         $scope.updateUserTagValues($scope, 0, true, true);
       else
@@ -1963,7 +1952,7 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
     { name: "Operation" },
     { name: "UsageType" },
     { name: "Tag" }
-  ],
+  ];
   $scope.groupBy = $scope.groupBys[1];
   $scope.consolidate = "daily";
 
@@ -2083,13 +2072,13 @@ function tagCoverageCtrl($scope, $location, $http, usage_db, highchart) {
   usage_db.processParams($scope);
 
   $scope.getUserTags = function () {
-    usage_db.getUserTags($scope, function (data) {      
+    usage_db.getUserTags($scope, function () {
       $scope.getData();
     });
   }
 
   var fn = function () {
-    usage_db.getUserTags($scope, function (data) {
+    usage_db.getUserTags($scope, function () {
       $scope.updateAccounts($scope);
       $scope.getData();
     });
@@ -2164,6 +2153,14 @@ function utilizationCtrl($scope, $location, $http, usage_db, highchart) {
     });
   }
 
+  $scope.graphOnly = function () {
+    return $scope.graphonly;
+  }
+
+  $scope.getBodyWidth = function (defaultWidth) {
+    return $scope.graphonly ? "" : defaultWidth;
+  }
+
   $scope.accountsEnabled = function () {
     $scope.updateAccounts($scope);
   }
@@ -2209,7 +2206,7 @@ function utilizationCtrl($scope, $location, $http, usage_db, highchart) {
     $scope.updateUsageTypes($scope);
   }
 
-  var fn = function (data) {
+  var fn = function () {
     $scope.predefinedQuery = { operation: $scope.utilizationOps.join(","), forReservation: true };
     $scope.getParams($location.hash(), $scope);
     usage_db.processParams($scope);
@@ -2312,6 +2309,14 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
     for (var i = index; i < index + count && i < $scope.userTagValues.length; i++)
       vals.push($scope.userTagValues[i]);
     return vals;
+  }
+
+  $scope.graphOnly = function () {
+    return $scope.graphonly;
+  }
+
+  $scope.getBodyWidth = function (defaultWidth) {
+    return $scope.graphonly ? "" : defaultWidth;
   }
 
   $scope.accountsEnabled = function () {
@@ -2452,7 +2457,7 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
     { name: "Product" },
     { name: "Operation" },
     { name: "UsageType" }
-  ],
+  ];
   $scope.groupBy = $scope.groupBys[4];
   var end = new Date();
   var start = new Date();
@@ -2479,7 +2484,7 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
 
   $scope.order = function (index) {
 
-    if ($scope.predicate != index) {
+    if ($scope.predicate !== index) {
       $scope.reservse = index === 'name';
       $scope.predicate = index;
     }
@@ -2523,11 +2528,11 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
         var values = {};
         var totals = usage_db.reverse(result.data[key]);
         $scope.headers = [];
-        for (var i in totals) {
+        for (var i = 0; i < totals.length; i++) {
           values[2 * i] = totals[i];
           values[2 * i + 1] = (totals[i] / $scope.hours[i]);
-          $scope.headers.push({ index: 2 * i, name: "total", start: highchart.dateFormat($scope.months[i]), end: highchart.dateFormat(i == 0 ? new Date().getTime() : $scope.months[i - 1]) });
-          $scope.headers.push({ index: 2 * i + 1, name: "hourly", start: highchart.dateFormat($scope.months[i]), end: highchart.dateFormat(i == 0 ? new Date().getTime() : $scope.months[i - 1]) });
+          $scope.headers.push({ index: 2 * i, name: "total", start: highchart.dateFormat($scope.months[i]), end: highchart.dateFormat(i === 0 ? new Date().getTime() : $scope.months[i - 1]) });
+          $scope.headers.push({ index: 2 * i + 1, name: "hourly", start: highchart.dateFormat($scope.months[i]), end: highchart.dateFormat(i === 0 ? new Date().getTime() : $scope.months[i - 1]) });
         }
         values.name = key;
         $scope.data[key] = (values);
@@ -2557,7 +2562,7 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
   }
 
   $scope.nextGroupBy = function (groupBy) {
-    for (var i in $scope.groupBys) {
+    for (var i = 0; i < $scope.groupBys.length; i++) {
       if ($scope.groupBys[i].name === groupBy) {
         var j = (parseInt(i) + 1) % $scope.groupBys.length;
         return $scope.groupBys[j].name;
@@ -2612,7 +2617,7 @@ function summaryCtrl($scope, $location, $window, usage_db, highchart) {
 
   $scope.getParams($location.hash(), $scope);
 
-  usage_db.getAccounts($scope, function (data) {
+  usage_db.getAccounts($scope, function () {
     $scope.updateRegions($scope);
   });
 
@@ -2662,7 +2667,7 @@ function accountsCtrl($scope, $location, $http, $window) {
 
   $scope.order = function (index) {
 
-    if ($scope.predicateIndex != index) {
+    if ($scope.predicateIndex !== index) {
       $scope.rev = $scope.revs[index];
       $scope.predicateIndex = index;
     }
@@ -2686,17 +2691,18 @@ function accountsCtrl($scope, $location, $http, $window) {
 
     if (download) {
       params["dashboard"] = "accounts";
-      jQuery("#download_form").empty();
+      var form = jQuery("#download_form");
+      form.empty();
 
       for (var key in params) {
         jQuery("<input type='text' />")
           .attr("id", key)
           .attr("name", key)
           .attr("value", params[key])
-          .appendTo(jQuery("#download_form"));
+          .appendTo(form);
       }
 
-      jQuery("#download_form").submit();
+      form.submit();
     }
     else {
       $http({
@@ -2734,10 +2740,13 @@ function accountsCtrl($scope, $location, $http, $window) {
 
   var loadData = function($scope, data) {
     let tagKeys = new Set();
-    for (var i = 0; i < data.length; i++) {
-      var account = data[i];
-      for (let key in account.tags)
-        tagKeys.add(key);
+    var i, j, account;
+    for (i = 0; i < data.length; i++) {
+      account = data[i];
+      for (let key in account.tags) {
+        if (account.tags.hasOwnProperty(key))
+          tagKeys.add(key);
+      }
     }
     var sortedTagKeys = [];
     tagKeys.forEach((key) => {
@@ -2748,11 +2757,11 @@ function accountsCtrl($scope, $location, $http, $window) {
     $scope.header = $scope.headerFixedPart.slice();
     $scope.revs = [];
     $scope.showColumn = [];
-    for (var i = 0; i < $scope.header.length; i++) {
+    for (i = 0; i < $scope.header.length; i++) {
       $scope.revs.push(false);
       $scope.showColumn.push(true);
     }
-    for (var i = 0; i < sortedTagKeys.length; i++) {
+    for (i = 0; i < sortedTagKeys.length; i++) {
       $scope.header.push(sortedTagKeys[i]);
       $scope.revs.push(false);
       $scope.showColumn.push(true);
@@ -2762,9 +2771,9 @@ function accountsCtrl($scope, $location, $http, $window) {
     var hideCols = $window.localStorage.getItem('hideAccountColumns');    
     if (hideCols) {
       var hideColsArray = hideCols.split(",");
-      for (var i = 0; i < $scope.header.length; i++) {
-        for (var j = 0; j < hideColsArray.length; j++) {
-          if ($scope.header[i] == hideColsArray[j]) {
+      for (i = 0; i < $scope.header.length; i++) {
+        for (j = 0; j < hideColsArray.length; j++) {
+          if ($scope.header[i] === hideColsArray[j]) {
             $scope.showColumn[i] = false;
             break;
           }
@@ -2772,8 +2781,8 @@ function accountsCtrl($scope, $location, $http, $window) {
       }
     }
     
-    for (var i = 0; i < data.length; i++) {
-      var account = data[i];
+    for (i = 0; i < data.length; i++) {
+      account = data[i];
       var row = []
       row.push({display: account.id});
       row.push({display: account.name});
@@ -2788,7 +2797,7 @@ function accountsCtrl($scope, $location, $http, $window) {
       row.push({display: account.joinedDate == null ? "" : account.joinedDate});
       row.push({display: account.unlinkedDate == null ? "" : account.unlinkedDate});
       row.push({display: account.email});
-      for (var j = 0; j < sortedTagKeys.length; j++) {
+      for (j = 0; j < sortedTagKeys.length; j++) {
         var tag = account.tags[sortedTagKeys[j]];
         row.push(tagValue(tag));
       }
@@ -2807,7 +2816,7 @@ function accountsCtrl($scope, $location, $http, $window) {
   }
 
   var current = function(history) {
-    if (history == "")
+    if (history === "")
       return history;
 
     var values = history.split("/");
@@ -2857,7 +2866,7 @@ function tagconfigsCtrl($scope, $location, $http) {
 
   $scope.order = function (data, name) {
 
-    if ($scope.predicate != name) {
+    if ($scope.predicate !== name) {
       $scope.rev = $scope.revs[name];
       $scope.predicate = name;
     }
@@ -2909,7 +2918,7 @@ function tagconfigsCtrl($scope, $location, $http) {
     return term.key + ' ' + term.operator + ': ' + term.values.join(", ");
   }
 
-  getTagconfigs($scope, function (data) {
+  getTagconfigs($scope, function () {
     $scope.mappedValues = {};
     var tagConfigsForPayer;
     var values;
@@ -2940,7 +2949,6 @@ function tagconfigsCtrl($scope, $location, $http) {
               }
               Object.keys(tagConfigsForMapsItem.maps).forEach(function(destValue) {
                 tagMappingTerm = tagConfigsForMapsItem.maps[destValue];
-                var tagConfigsForSrcKey;
                 values.push({
                   destKey: destKey,
                   destValue: destValue,
@@ -3028,15 +3036,15 @@ function processorStatusCtrl($scope, $location, $http, $window) {
   }
 
   $scope.updateStatus = function (index) {
-    setReprocessStatus($scope, index, function (data) {
-      getProcessorStatus($scope, function (data) {
+    setReprocessStatus($scope, index, function () {
+      getProcessorStatus($scope, function () {
         getProcessorState($scope);
       });
     });
   }
 
   $scope.isDisabled = function () {
-    if ($scope.processorState != "stopped")
+    if ($scope.processorState !== "stopped")
       return true;
 
     for (var i = 0; i < $scope.statusArray.length; i++) {
@@ -3099,7 +3107,7 @@ function processorStatusCtrl($scope, $location, $http, $window) {
     });
   }
 
-  getProcessorStatus($scope, function (data) {
+  getProcessorStatus($scope, function () {
     getProcessorState($scope);
   });
 }
@@ -3117,7 +3125,7 @@ function subscriptionsCtrl($scope, $location, $http, $window) {
 
   $scope.order = function (index) {
 
-    if ($scope.predicateIndex != index) {
+    if ($scope.predicateIndex !== index) {
       $scope.rev = $scope.revs[index];
       $scope.predicateIndex = index;
     }
@@ -3161,17 +3169,18 @@ function subscriptionsCtrl($scope, $location, $http, $window) {
     if (download) {
       params["dashboard"] = "subscriptions";
       params["type"] = $scope.ri_sp;
-      jQuery("#download_form").empty();
+      var form = jQuery("#download_form");
+      form.empty();
 
       for (var key in params) {
         jQuery("<input type='text' />")
           .attr("id", key)
           .attr("name", key)
           .attr("value", params[key])
-          .appendTo(jQuery("#download_form"));
+          .appendTo(form);
       }
 
-      jQuery("#download_form").submit();
+      form.submit();
     }
     else {
       $http({

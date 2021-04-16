@@ -18,10 +18,6 @@
 
 package com.netflix.ice
 
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.Set;
-
 import grails.converters.JSON
 
 import com.netflix.ice.tag.ConsolidatedOperation
@@ -36,7 +32,6 @@ import com.netflix.ice.tag.Zone
 import com.netflix.ice.tag.UsageType
 import com.netflix.ice.tag.OrganizationalUnit
 import com.netflix.ice.tag.Operation
-import com.netflix.ice.tag.ResourceGroup
 import com.netflix.ice.tag.Tag
 import com.netflix.ice.tag.TagType
 
@@ -46,9 +41,8 @@ import org.joda.time.DateTimeZone
 import org.joda.time.DateTime
 import org.joda.time.Interval
 
-import com.netflix.ice.processor.Instances
 import com.netflix.ice.processor.TagCoverageMetrics
-import com.netflix.ice.reader.*;
+import com.netflix.ice.reader.*
 import com.google.common.collect.Lists
 import com.google.common.collect.Sets
 import com.google.common.collect.Maps
@@ -61,15 +55,10 @@ import com.netflix.ice.common.Instance
 import com.netflix.ice.common.TagConfig
 
 import org.joda.time.Hours
-import org.slf4j.Logger;
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang.StringUtils
-import org.apache.commons.lang.time.StopWatch;
-
-import com.netflix.ice.common.AwsUtils
-
+import org.apache.commons.lang.time.StopWatch
 
 class DashboardController {
     private static Logger logger = LoggerFactory.getLogger(DashboardController.class);
@@ -303,7 +292,7 @@ class DashboardController {
         List<Operation> operations = Operation.getOperations(listParams(query, "operation"));
         boolean resources = query.has("resources") ? query.getBoolean("resources") : false;
 
-        Collection<Product> data;
+        Collection<UsageType> data;
         if (resources) {
             data = Sets.newTreeSet();
             if (products.size() == 0) {
@@ -363,12 +352,11 @@ class DashboardController {
         response.setHeader("Content-disposition", "attachment;filename=aws-accounts.csv");
         response.outputStream << body;
         response.outputStream.flush();
-        return;
     }
 
     private Collection<Account> doGetAccounts() {
         boolean all = params.getBoolean("all");
-        Collection<Account> data = null;
+        Collection<Account> data;
         if (all) {
             data = getConfig().accountService.getAccounts();
         }
@@ -380,7 +368,8 @@ class DashboardController {
     }
 
     private download_subscriptions() {
-        Managers.SubscriptionType subType = Managers.SubscriptionType.valueOf(params.get("type"));
+        String type = params.get("type")
+        Managers.SubscriptionType subType = Managers.SubscriptionType.valueOf(type);
         String month = params.get("month");
         String body = getManagers().getSubscriptionsReport(subType, month);
 
@@ -389,7 +378,6 @@ class DashboardController {
         response.setHeader("Content-disposition", "attachment;filename=aws-subscriptions-" + subType.toString().toLowerCase() + ".csv");
         response.outputStream << body;
         response.outputStream.flush();
-        return;
     }
 
     private download_data() {
@@ -441,7 +429,6 @@ class DashboardController {
         response.outputStream.flush();
         input.close();
         file.delete();
-        return;
     }
 
     def getData = {
@@ -453,7 +440,6 @@ class DashboardController {
     }
 
     def readerStats = {
-        Object o = params;
         boolean csv = params.getBoolean("csv");
         render getManagers().getStatistics(csv);
     }
@@ -463,7 +449,7 @@ class DashboardController {
         DateTime end = dateFormatter.parseDateTime(params.end);
         ConsolidateType consolidateType = ConsolidateType.valueOf(params.consolidate);
 
-        DateTime start;
+        DateTime start = null;
         if (consolidateType == ConsolidateType.daily) {
             end = end.plusDays(1).withMillisOfDay(0);
             start = end.minusDays(spans);
