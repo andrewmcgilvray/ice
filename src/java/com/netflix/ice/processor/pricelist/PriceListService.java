@@ -142,7 +142,7 @@ public class PriceListService {
 			// scan all the products and grab the metrics
         	for (Product p: prices.getPrices().values()) {
 	        	// Add stats to InstanceMetrics
-        		if (sc == ServiceCode.AmazonEC2 && OperatingSystem.valueOf(p.operatingSystem) != OperatingSystem.Linux)
+        		if (sc == ServiceCode.AmazonEC2 && !p.operatingSystem.equals(OperatingSystem.Linux.toString()))
         			continue;
 	        	instanceMetrics.add(p.instanceType, p.vcpu, p.ecu, p.normalizationSizeFactor);
         	}
