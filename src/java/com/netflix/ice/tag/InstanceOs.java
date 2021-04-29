@@ -27,6 +27,7 @@ public enum InstanceOs {
     winsqlent(".winsqlent", ":0102", "Windows with SQL Server Enterprise", false),
     sles(".sles", ":000g", "SUSE Linux", false),
     rhel(".rhel", ":0010", "Red Hat Enterprise Linux", false),
+    rhelha(".rhelha", ":1010", "Red Hat Enterprise Linux with HA", false),
     rhbl(".rhbl", ":00g0", "Red Hat BYOL Linux", false),
     windows(".windows", ":0002", "Windows", false),
     winbyol(".winbyol", ":0800", "Windows BYOL", false),
