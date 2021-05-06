@@ -105,8 +105,6 @@ public class ProcessorConfig extends Config {
      * @param properties (required)
      * @param productService (required)
      * @param reservationService (required)
-     * @param resourceService (optional)
-     * @param randomizer (optional)
      */
     public ProcessorConfig(
             Properties properties,

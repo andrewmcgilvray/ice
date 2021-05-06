@@ -186,7 +186,9 @@ class DashboardController {
         List<Account> accounts = getConfig().accountService.getAccounts(listParams(query, "account"));
 
         TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
-        Collection<Region> data = tagGroupManager == null ? []: tagGroupManager.getRegions(new TagLists(null, accounts));
+        Collection<Tag> data = tagGroupManager == null ? []: tagGroupManager.getRegions(new TagLists(null, accounts));
+        if (data.size() == 1 && data.iterator().next() == null)
+            data = Lists.newArrayList(UserTag.get(UserTag.none));
 
         def result = [status: 200, data: data]
         render result as JSON
@@ -199,7 +201,9 @@ class DashboardController {
         List<Region> regions = Region.getRegions(listParams(query, "region"));
 
         TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
-        Collection<Zone> data = tagGroupManager == null ? []: tagGroupManager.getZones(new TagLists(null, accounts, regions));
+        Collection<Tag> data = tagGroupManager == null ? []: tagGroupManager.getZones(new TagLists(null, accounts, regions));
+        if (data.size() == 1 && data.iterator().next() == null)
+            data = Lists.newArrayList(UserTag.get(UserTag.none));
 
         def result = [status: 200, data: data]
         render result as JSON
@@ -219,7 +223,7 @@ class DashboardController {
             zones = Lists.newArrayList(getManagers().getTagGroupManager(null).getZones(new TagLists(null, accounts)));
         }
 
-        Collection<Product> data;
+        Collection<Tag> data;
         if (resources) {
             data = Sets.newTreeSet();
             for (Product product: getManagers().getProducts()) {
@@ -235,6 +239,9 @@ class DashboardController {
             TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
             data = tagGroupManager == null ? []: tagGroupManager.getProducts(new TagLists(null, accounts, regions, zones, products, operations));
         }
+
+        if (data.size() == 1 && data.iterator().next() == null)
+            data = Lists.newArrayList(UserTag.get(UserTag.none));
 
         def result = [status: 200, data: data]
         render result as JSON
@@ -276,7 +283,9 @@ class DashboardController {
 
         List<Operation.Identity.Value> exclude = Operation.exclude(showLent);
 
-        Collection<Operation> data = getManagers().getOperations(new TagLists(costTypes, accounts, regions, zones, products, operations, null, null), products, exclude, resources);
+        Collection<Tag> data = getManagers().getOperations(new TagLists(costTypes, accounts, regions, zones, products, operations, null, null), products, exclude, resources);
+        if (data.size() == 1 && data.iterator().next() == null)
+            data = Lists.newArrayList(UserTag.get(UserTag.none));
 
         def result = [status: 200, data: data]
         render result as JSON
@@ -292,7 +301,7 @@ class DashboardController {
         List<Operation> operations = Operation.getOperations(listParams(query, "operation"));
         boolean resources = query.has("resources") ? query.getBoolean("resources") : false;
 
-        Collection<UsageType> data;
+        Collection<Tag> data;
         if (resources) {
             data = Sets.newTreeSet();
             if (products.size() == 0) {
@@ -311,6 +320,9 @@ class DashboardController {
             TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
             data = tagGroupManager == null ? []: tagGroupManager.getUsageTypes(new TagLists(null, accounts, regions, zones, products, operations, null, null));
         }
+
+        if (data.size() == 1 && data.iterator().next() == null)
+            data = Lists.newArrayList(UserTag.get(UserTag.none));
 
         def result = [status: 200, data: data]
         render result as JSON

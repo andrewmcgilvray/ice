@@ -34,6 +34,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import com.amazonaws.services.ec2.model.AmazonEC2Exception;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.joda.time.DateTime;
@@ -135,6 +137,13 @@ public class Instances {
         try {
             downloaded = AwsUtils.downloadFileIfChanged(workS3BucketName, workS3BucketPrefix, file);
         }
+		catch(AmazonS3Exception e) {
+			if (e.getStatusCode() == 404)
+				logger.warn("File not found in s3: " + file);
+			else
+				logger.error("Error downloading " + file, e);
+			return;
+		}
         catch (Exception e) {
             logger.error("error downloading " + file, e);
             return;

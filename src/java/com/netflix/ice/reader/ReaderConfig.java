@@ -74,7 +74,6 @@ public class ReaderConfig extends Config {
      * @param properties (required)
      * @param managers (required)
      * @param productService (required)
-     * @param applicationGroupService (optional)
      * @param throughputMetricService (optional)
      * @throws IOException 
      * @throws InterruptedException 

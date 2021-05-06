@@ -38,7 +38,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.PurchaseOption;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.ProcessorConfig.JsonFileType;

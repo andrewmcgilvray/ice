@@ -192,7 +192,7 @@ public class BillingFileProcessorTest {
 		//bfp.reservationProcessor.setDebugHour(0);
 		//bfp.reservationProcessor.setDebugFamily("c4");
     	
-		CostAndUsageData costAndUsageData = new CostAndUsageData(startMilli, null, null, TagCoverage.none, null, productService);
+		CostAndUsageData costAndUsageData = new CostAndUsageData(null, startMilli, null, null, TagCoverage.none, null, productService);
 		costAndUsageData.enableTagGroupCache(true);
         Instances instances = new Instances(null, null, null);
         

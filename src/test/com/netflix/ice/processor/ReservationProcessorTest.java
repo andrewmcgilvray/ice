@@ -164,7 +164,7 @@ public class ReservationProcessorTest {
 			ReservationProcessor reservationProcessor,
 			Product product) throws Exception {
 		
-		CostAndUsageData caud = new CostAndUsageData(startMillis, null, null, TagCoverage.none, null, null);
+		CostAndUsageData caud = new CostAndUsageData(null, startMillis, null, null, TagCoverage.none, null, null);
 		caud.enableTagGroupCache(true);
 		if (product != null) {
 			caud.put(product, new DataSerializer(1));

@@ -69,7 +69,7 @@ public class CostAndUsageDataTest {
 
 	@Test
 	public void testAddTagCoverage() {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(null, 0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		
 		cau.addTagCoverage(null, 0, tg, new boolean[]{true, false});
 		
@@ -84,7 +84,7 @@ public class CostAndUsageDataTest {
 	
 	@Test
 	public void testAggregateSummaryData() {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(null, 0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		cau.enableTagGroupCache(true);
 		DataSerializer data = new DataSerializer(userTagKeys.size());
 		cau.put(null, data);
@@ -147,7 +147,7 @@ public class CostAndUsageDataTest {
 	
 	@Test
 	public void testGetPartialWeekFromLastMonth() throws Exception {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(null, 0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		cau.enableTagGroupCache(true);
 		DataSerializer data = new DataSerializer(userTagKeys.size());
 		cau.put(null, data);
@@ -199,7 +199,7 @@ public class CostAndUsageDataTest {
 		public DateTime endMonth;
 
 		public TestCostAndUsageData(DateTime startMonth, DateTime currentMonth, DateTime endMonth) {
-			super(startMonth.getMillis(), null, userTagKeys, TagCoverage.withUserTags, as, ps);
+			super(null, startMonth.getMillis(), null, userTagKeys, TagCoverage.withUserTags, as, ps);
 			this.startMonth = startMonth;
 			this.currentMonth = currentMonth;
 			this.endMonth = endMonth;

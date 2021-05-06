@@ -19,7 +19,7 @@ package com.netflix.ice.processor;
 
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AwsUtils;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.processor.ReadWriteDataSerializer.TagGroupFilter;
 
@@ -47,7 +47,7 @@ public class DataWriter extends DataFile {
                 data.deserialize(accountService, productService, in);		
             }
             catch (Exception e) {
-                throw new RuntimeException("DataWriter: failed to load " + file.getName() + ", " + e + ", " + e.getMessage());
+                throw new RuntimeException("DataWriter: failed to load " + file.getPath() + ", " + e + ", " + e.getMessage());
             }
             finally {
                 in.close();

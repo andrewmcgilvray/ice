@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.ice.reader.ReadOnlyData;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.joda.time.DateTime;
@@ -50,7 +51,7 @@ import com.netflix.ice.basic.BasicReservationService.Reservation;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.Config;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.PurchaseOption;
 import com.netflix.ice.common.TagGroup;
@@ -71,7 +72,8 @@ import com.netflix.ice.tag.UserTagKey;
 public class CostAndUsageData {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final long startMilli;
+    private final DateTime startDate; // start date of full data set in the work bucket
+    private final long startMilli; // milliseconds at start of this month's data
     
     private Map<Product, DataSerializer> dataByProduct;
     
@@ -89,7 +91,8 @@ public class CostAndUsageData {
     private List<Status> archiveFailures;
     private boolean cacheTagGroups;
     
-	public CostAndUsageData(long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
+	public CostAndUsageData(DateTime startDate, long startMilli, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys, Config.TagCoverage tagCoverage, AccountService accountService, ProductService productService) {
+		this.startDate = startDate;
 		this.startMilli = startMilli;
         this.userTagKeys = userTagKeys;
         
@@ -116,12 +119,13 @@ public class CostAndUsageData {
 	/*
 	 * Constructor that creates a new empty data set based on another data set. Used by the post processor for generating reports
 	 */
-	public CostAndUsageData(CostAndUsageData other, List<UserTagKey> userTagKeys) {
+	public CostAndUsageData(CostAndUsageData other, WorkBucketConfig workBucketConfig, List<UserTagKey> userTagKeys) {
+		this.startDate = other.startDate;
 		this.startMilli = other.startMilli;
         this.userTagKeys = userTagKeys;
         this.dataByProduct = Maps.newHashMap();
 		this.dataByProduct.put(null, new DataSerializer(0)); // Non-resource data has no user tags
-        this.workBucketConfig = other.workBucketConfig;
+        this.workBucketConfig = workBucketConfig;
         this.accountService = other.accountService;
         this.productService = other.productService;
         this.tagCoverage = null;
@@ -132,7 +136,10 @@ public class CostAndUsageData {
         this.postProcessorStats = null;
         this.cacheTagGroups = false;
 	}
-	
+
+	public WorkBucketConfig getWorkBucketConfig() {
+		return workBucketConfig;
+	}
 	public DateTime getStart() {
 		return new DateTime(startMilli, DateTimeZone.UTC);
 	}
@@ -157,6 +164,10 @@ public class CostAndUsageData {
 			for (ReadWriteTagCoverageData tcd: tagCoverage.values())
 				tcd.enableTagGroupCache(enabled);
 		}
+	}
+
+	public List<UserTagKey> getUserTagKeys() {
+		return userTagKeys;
 	}
 	
 	public List<String> getUserTagKeysAsStrings() {
@@ -189,6 +200,32 @@ public class CostAndUsageData {
     public Collection<TagGroup> getTagGroups(Product product) {
         return dataByProduct.get(product).getTagGroups();
     }
+
+    public void normalize() {
+		// Called by the post processor when saving a report to a work bucket.
+		// Move the data with resources from the "null" product to the proper product-based map
+		// and create the new non-resource map for the "null" entry.
+		DataSerializer data = dataByProduct.get(null);
+		dataByProduct.put(null, new DataSerializer(0));
+		for (int index = 0; index < data.getNum(); index++) {
+			Map<TagGroup, DataSerializer.CostAndUsage> hourData = data.getData(index);
+			for (TagGroup tg: hourData.keySet()) {
+				DataSerializer.CostAndUsage cau = hourData.get(tg);
+
+				put(tg.product, index, tg, cau);
+				add(null, index, tg.withoutResourceGroup(), cau.cost, cau.usage);
+			}
+		}
+	}
+
+	private void put(Product product, int i, TagGroup tagGroup, CostAndUsage costAndUsage) {
+		DataSerializer ds = dataByProduct.get(product);
+		if (ds == null) {
+			ds = new DataSerializer(userTagKeys.size());
+			dataByProduct.put(product, ds);
+		}
+		ds.put(i, tagGroup, costAndUsage);
+	}
     
     public void add(Product product, int i, TagGroup tagGroup, double cost, double usage) {
     	DataSerializer ds = dataByProduct.get(product);
@@ -343,8 +380,12 @@ public class CostAndUsageData {
     	}
     }
 
+    public void archive(List<JsonFileType> jsonFiles, int numThreads) throws Exception {
+    	archive(jsonFiles, null, null, numThreads, false);
+	}
+
     // If archiveHourlyData is false, only archive hourly data used for reservations and savings plans
-    public void archive(DateTime startDate, List<JsonFileType> jsonFiles, InstanceMetrics instanceMetrics, 
+    public void archive(List<JsonFileType> jsonFiles, InstanceMetrics instanceMetrics,
     		PriceListService priceListService, int numThreads, boolean archiveHourlyData) throws Exception {
     	
     	archiveFailures = Lists.newArrayList();
@@ -353,8 +394,13 @@ public class CostAndUsageData {
     	ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     	List<Future<Status>> futures = Lists.newArrayList();
     	
-    	for (JsonFileType jft: jsonFiles)
-        	futures.add(archiveJson(jft, instanceMetrics, priceListService, pool));
+    	for (JsonFileType jft: jsonFiles) {
+    		if (jft == JsonFileType.hourlyRI && (priceListService == null || instanceMetrics == null)) {
+				logger.error("Cannot write hourlyRI JsonFileType without PriceListService or InstanceMetrics");
+				continue;
+			}
+			futures.add(archiveJson(jft, instanceMetrics, priceListService, pool));
+		}
     	
         for (Product product: dataByProduct.keySet()) {
         	futures.add(archiveTagGroups(startMilli, product, dataByProduct.get(product).getTagGroups(), pool));
@@ -806,6 +852,9 @@ public class CostAndUsageData {
     }
 
     private void archiveReservations() throws IOException {
+    	if (reservations == null)
+    		return;
+
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
         File file = new File(workBucketConfig.localDir, "reservations_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
         
@@ -831,7 +880,10 @@ public class CostAndUsageData {
     }
  
     private void archiveSavingsPlans() throws IOException {
-        DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+		if (savingsPlans == null)
+			return;
+
+		DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
         File file = new File(workBucketConfig.localDir, "savingsPlans_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
         
     	OutputStream os = new FileOutputStream(file);
@@ -856,6 +908,9 @@ public class CostAndUsageData {
     }
     
     private void archivePostProcessorStats() throws IOException {
+		if (postProcessorStats == null)
+			return;
+
         DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
         File file = new File(workBucketConfig.localDir, "postProcessorStats_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
         

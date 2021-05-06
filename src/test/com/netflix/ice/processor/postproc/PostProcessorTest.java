@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import com.netflix.ice.processor.ProcessorConfig;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -116,8 +117,9 @@ public class PostProcessorTest {
 		
         List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
         List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
-        
-        PostProcessor pp = new PostProcessor(rules, "", as, ps, rs, null, 0);
+
+        List<ProcessorConfig.JsonFileType> jsonFiles = Lists.newArrayList();
+        PostProcessor pp = new PostProcessor(null, rules, "", as, ps, rs, null, jsonFiles,0);
         pp.aggregateSummaryData(ds, daily, monthly);
         
         assertEquals("wrong number of monthly entries", 1, monthly.size());

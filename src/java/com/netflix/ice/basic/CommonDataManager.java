@@ -29,7 +29,7 @@ import org.joda.time.Months;
 import org.joda.time.Weeks;
 
 import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.ConsolidateType;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;

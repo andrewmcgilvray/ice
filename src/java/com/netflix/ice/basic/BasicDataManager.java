@@ -30,7 +30,7 @@ import org.joda.time.Interval;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.ConsolidateType;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
@@ -210,6 +210,8 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
         Map<Tag, double[]> rawResult = Maps.newTreeMap();
 //        StopWatch sw = new StopWatch();
 //        sw.start();
+
+		Tag none = UserTag.get(UserTag.none);
         
         // For each of the groupBy values
         for (Tag tag: tagListsMap.keySet()) {
@@ -220,7 +222,7 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
             	// Check for values in the data array and ignore if all zeros
                 if (hasData(data)) {
 	                if (groupBy == TagType.Tag) {
-	                	Tag userTag = tag.name.isEmpty() ? UserTag.get(UserTag.none) : tag;
+	                	Tag userTag = tag.name.isEmpty() ? none : tag;
 	                	
 	        			if (rawResult.containsKey(userTag)) {
 	        				// aggregate current data with the one already in the map
@@ -232,7 +234,7 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
 	        			}
 	                }
 	                else {
-	                	rawResult.put(tag, data);
+	                	rawResult.put(tag == null ? none : tag, data);
 	                }
                 }
             }

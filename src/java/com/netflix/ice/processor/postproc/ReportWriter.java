@@ -123,8 +123,8 @@ public class ReportWriter {
     		Map<TagGroup, DataSerializer.CostAndUsage> hourData = data.getData(index);
     		for (TagGroup tg: hourData.keySet()) {
     			DataSerializer.CostAndUsage cau = hourData.get(tg);
-    			
-    			List<String> cols = Lists.newArrayList();
+
+    			List<String> cols = Lists.newArrayListWithCapacity(header.size());
     			cols.add(dateString); // StartDate
     			
     			if (hasCost) {

@@ -633,7 +633,7 @@ public class CostAndUsageLineItemProcessorTest {
         
         public void runProcessTest(LineItem lineItem, long startMilli, long reportMilli, Datum[] expected, Datum expectedReservation, Datum expectedSP) throws Exception {
             Instances instances = null;
-            CostAndUsageData costAndUsageData = new CostAndUsageData(startMilli, null, Lists.<UserTagKey>newArrayList(), TagCoverage.none, accountService, productService);
+            CostAndUsageData costAndUsageData = new CostAndUsageData(null, startMilli, null, Lists.<UserTagKey>newArrayList(), TagCoverage.none, accountService, productService);
             
             CostAndUsageReportLineItemProcessor lineItemProc = newLineItemProcessor(lineItem, reservation);
             

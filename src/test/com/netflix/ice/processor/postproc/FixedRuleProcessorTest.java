@@ -96,7 +96,7 @@ public class FixedRuleProcessorTest {
 
     @Test
     public void testRunQuery() throws Exception {
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.enableTagGroupCache(true);
         DataSerializer data = cauData.get(null);
         loadComputedCostData(data);
@@ -140,7 +140,7 @@ public class FixedRuleProcessorTest {
     @Test
     public void testProcessData() throws Exception {
         
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.enableTagGroupCache(true);
         DataSerializer data = cauData.get(null);
         loadComputedCostData(data);
@@ -194,7 +194,7 @@ public class FixedRuleProcessorTest {
         DataSerializer data = new DataSerializer(2);
         loadComputedCostDataWithResources(data);
         Product product = ps.getProduct(Product.Code.CloudFront);
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.put(product, data);
         cauData.enableTagGroupCache(true);
 
@@ -276,7 +276,7 @@ public class FixedRuleProcessorTest {
     
     @Test
     public void testSurchargeGetInValues() throws Exception {
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.enableTagGroupCache(true);
         DataSerializer data = cauData.get(null);
         loadSurchargeData(data);
@@ -403,7 +403,7 @@ public class FixedRuleProcessorTest {
                 new TagGroupSpec("Recurring", a3, "us-west-2", productCode, "None", "Dollar", 500, 0),
         };
         
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.enableTagGroupCache(true);
         DataSerializer data = cauData.get(null);
         TagGroupSpec.loadData(dataSpecs, data, 0, as, ps);
@@ -471,7 +471,7 @@ public class FixedRuleProcessorTest {
                 new TagGroupSpec("Recurring", a3, "us-west-2", productCode, "None", "Dollar", new String[]{"Tag4", ""}, 500.0, 0),
         };
         
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         DataSerializer data = new DataSerializer(2);
         TagGroupSpec.loadData(globalFeeSpecs, data, 0, as, ps);
         Product globalFee = ps.getProduct("GlobalFee", "GlobalFee");
@@ -580,7 +580,7 @@ public class FixedRuleProcessorTest {
                 new TagGroupSpec("Recurring", a3, "us-west-2", productCode, "None", "Dollar", 500.0, 0),
         };
         
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.enableTagGroupCache(true);
         DataSerializer data = cauData.get(null);
         TagGroupSpec.loadData(dataSpecs0, data, 0, as, ps);
@@ -666,7 +666,7 @@ public class FixedRuleProcessorTest {
                 new TagGroupSpec("Recurring", a3, "us-west-2", productCode, "None", "Dollar", 500.0, 0),
         };
         
-        CostAndUsageData cauData = new CostAndUsageData(0, null, null, null, as, ps);
+        CostAndUsageData cauData = new CostAndUsageData(null, 0, null, null, null, as, ps);
         cauData.enableTagGroupCache(true);
         DataSerializer data = cauData.get(null);
         TagGroupSpec.loadData(dataSpecs0, data, 0, as, ps);

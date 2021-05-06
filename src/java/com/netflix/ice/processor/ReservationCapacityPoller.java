@@ -71,7 +71,7 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicReservationService.Reservation;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.AwsUtils;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.Poller;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.PurchaseOption;

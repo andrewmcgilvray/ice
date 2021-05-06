@@ -17,6 +17,8 @@
  */
 package com.netflix.ice.processor.postproc;
 
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.google.common.collect.Maps;
+import com.netflix.ice.common.*;
+import com.netflix.ice.processor.ProcessorConfig;
+import com.netflix.ice.reader.InstanceMetrics;
+import com.netflix.ice.tag.Region;
+import com.netflix.ice.tag.Zone;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -32,11 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.Config.WorkBucketConfig;
-import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.ResourceService;
-import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
@@ -47,22 +55,32 @@ public class PostProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     protected boolean debug = false;
 
+    private final DateTime startDate;
 	private List<RuleConfig> rules;
 	private String reportSubPrefix;
 	private AccountService accountService;
 	private ProductService productService;
 	private ResourceService resourceService;
 	private WorkBucketConfig workBucketConfig;
+	List<ProcessorConfig.JsonFileType> jsonFiles;
 	private int numThreads;
 	private ExecutorService pool;
-		
-	public PostProcessor(List<RuleConfig> rules, String reportSubPrefix, AccountService accountService, ProductService productService, ResourceService resourceService, WorkBucketConfig workBucketConfig, int numThreads) {
+
+	static final DateTimeFormatter yearMonth = DateTimeFormat.forPattern("yyyy-MM").withZone(DateTimeZone.UTC);
+
+	public PostProcessor(DateTime startDate, List<RuleConfig> rules, String reportSubPrefix,
+						 AccountService accountService, ProductService productService,
+						 ResourceService resourceService, WorkBucketConfig workBucketConfig,
+						 List<ProcessorConfig.JsonFileType> jsonFiles, int numThreads) {
+		this.startDate = startDate;
 		this.rules = rules;
 		this.reportSubPrefix = reportSubPrefix;
 		this.accountService = accountService;
 		this.productService = productService;
 		this.resourceService = resourceService;
 		this.workBucketConfig = workBucketConfig;
+		this.jsonFiles = Lists.newArrayList(jsonFiles);
+		this.jsonFiles.remove(ProcessorConfig.JsonFileType.hourlyRI); // Don't generate hourlyRI for allocation reports
 		this.numThreads = numThreads;
 		this.pool = null; // lazy initialize
 	}
@@ -140,7 +158,21 @@ public class PostProcessor {
 			
 			if (rc.isReport()) {
 				outUserTagKeys = rule.getOutUserTagKeys();
-				outData = new CostAndUsageData(data, UserTagKey.getUserTagKeys(outUserTagKeys));
+				WorkBucketConfig reportWorkBucketConfig = null;
+				if (rc.getReport().isArchiveToWorkBucket()) {
+					File file = new File(workBucketConfig.localDir, rc.getName());
+					if (!file.exists()) {
+						boolean success = file.mkdir();
+						if (!success) {
+							logger.error("Unable to create local directory for report work bucket files: " + file.getPath());
+						}
+					}
+					reportWorkBucketConfig = new WorkBucketConfig(workBucketConfig.workS3BucketName,
+							workBucketConfig.workS3BucketRegion,
+							workBucketConfig.workS3BucketPrefix + rc.getName() + "/",
+							file.getPath());
+				}
+				outData = new CostAndUsageData(data, reportWorkBucketConfig, UserTagKey.getUserTagKeys(outUserTagKeys));
 			}
 			
 			if (pool == null && numThreads > 0)
@@ -151,6 +183,24 @@ public class PostProcessor {
 			if (processed && rc.isReport()) {
 				outData.enableTagGroupCache(true);
 				writeReports(rule, outData);
+
+				WorkBucketConfig reportWorkBucketConfig = outData.getWorkBucketConfig();
+
+				if (reportWorkBucketConfig != null) {
+					// Normalize the cost and usage data for use by a work bucket
+					outData.normalize();
+
+					outData.archive(jsonFiles, numThreads);
+					// Create work bucket data config for the report data
+					String monthStr = startDate.toString(yearMonth);
+					saveWorkBucketDataConfig(monthStr, outData.getUserTagKeys(), reportWorkBucketConfig);
+
+					List<ProcessorStatus.Report> statusReports = Lists.newArrayList();
+					ProcessorStatus ps = new ProcessorStatus(monthStr, statusReports, new DateTime(DateTimeZone.UTC).toString(), "", outData.getArchiveFailures());
+					saveInstanceMetrics(reportWorkBucketConfig);
+					saveProcessorStatus(monthStr, ps, reportWorkBucketConfig);
+					productService.archive(reportWorkBucketConfig.localDir, reportWorkBucketConfig.workS3BucketName, reportWorkBucketConfig.workS3BucketPrefix);
+				}
 			}
 		}		
 	}
@@ -169,7 +219,7 @@ public class PostProcessor {
 		}
 		if (aggregate.contains(RuleConfig.Aggregation.monthly) || aggregate.contains(RuleConfig.Aggregation.daily)) {
 			List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
-			List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
+			List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayListWithCapacity(744);
 			
 			aggregateSummaryData(data, daily, monthly);
 			if (aggregate.contains(RuleConfig.Aggregation.monthly)) {
@@ -180,10 +230,47 @@ public class PostProcessor {
 			}
 		}
 	}
-	
-	protected String reportName(DateTime month, String ruleName, RuleConfig.Aggregation aggregation) {
-        DateTimeFormatter yearMonth = DateTimeFormat.forPattern("yyyy-MM").withZone(DateTimeZone.UTC);
 
+	private void saveWorkBucketDataConfig(String startMonth, List<UserTagKey> userTagKeys, WorkBucketConfig workBucketConfig) throws IOException {
+		Map<String, List<String>> zones = Maps.newHashMap();
+		for (Region r: Region.getAllRegions()) {
+			List<String> zlist = Lists.newArrayList();
+			for (Zone z: r.getZones())
+				zlist.add(z.name);
+			zones.put(r.name, zlist);
+		}
+		WorkBucketDataConfig wbdc = new WorkBucketDataConfig(startMonth, null, null,
+				accountService.getAccounts(), zones, userTagKeys, Config.TagCoverage.none, null);
+		File file = new File(workBucketConfig.localDir, Config.workBucketDataConfigFilename);
+		OutputStream os = new FileOutputStream(file);
+		OutputStreamWriter writer = new OutputStreamWriter(os);
+		writer.write(wbdc.toJSON());
+		writer.close();
+
+		logger.info("Upload work bucket data config file");
+		AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+	}
+
+	private void saveProcessorStatus(String timeStr, ProcessorStatus status, WorkBucketConfig workBucketConfig) {
+		String filename = ProcessorStatus.prefix + timeStr + ProcessorStatus.suffix;
+
+		AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
+		String statusStr = status.toJSON();
+		ObjectMetadata metadata = new ObjectMetadata();
+		metadata.setContentLength(statusStr.length());
+
+		s3Client.putObject(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + filename, IOUtils.toInputStream(statusStr, StandardCharsets.UTF_8), metadata);
+	}
+
+	private void saveInstanceMetrics(WorkBucketConfig reportWorkBucketConfig) throws IOException {
+		File instanceMetrics = new File(workBucketConfig.localDir, InstanceMetrics.dbName);
+		File localCopy = new File(reportWorkBucketConfig.localDir, InstanceMetrics.dbName);
+		FileUtils.copyFile(instanceMetrics, localCopy);
+		logger.info("Upload instance metrics");
+		AwsUtils.upload(reportWorkBucketConfig.workS3BucketName, reportWorkBucketConfig.workS3BucketPrefix, localCopy);
+	}
+
+	protected String reportName(DateTime month, String ruleName, RuleConfig.Aggregation aggregation) {
 		return "report-" + ruleName + "-" + aggregation.toString() + "-" + month.toString(yearMonth) + ".csv.gz";
 	}
 	

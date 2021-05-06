@@ -94,7 +94,7 @@ public class SavingsPlanProcessorTest {
 	}
 	
 	private void runTest(SavingsPlan sp, Datum[] data, Datum[] expected, Product product) {
-		CostAndUsageData caud = new CostAndUsageData(new DateTime("2019-12", DateTimeZone.UTC).getMillis(), null, null, null, null, null);
+		CostAndUsageData caud = new CostAndUsageData(null, new DateTime("2019-12", DateTimeZone.UTC).getMillis(), null, null, null, null, null);
 		if (product != null) {
 			caud.put(product, new DataSerializer(1));
 		}

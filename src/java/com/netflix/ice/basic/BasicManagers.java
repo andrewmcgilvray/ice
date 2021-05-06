@@ -29,7 +29,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.*;
 import com.netflix.ice.common.Config.TagCoverage;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.processor.TagGroupWriter;
 import com.netflix.ice.reader.*;
 import com.netflix.ice.tag.Account;

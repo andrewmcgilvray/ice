@@ -647,7 +647,7 @@ public class AwsUtils {
         boolean download = !file.exists() || metadata.getLastModified().getTime() > file.lastModified();
 
         if (download) {
-            logger.info("downloadFileIfChanged " + file + " " + metadata.getLastModified().getTime() + " " + file.lastModified());
+            logger.info("downloadFileIfChanged " + bucketFilePrefix + file.getName() + " " + metadata.getLastModified().getTime() + " " + file.lastModified());
             return download(bucketName, bucketFilePrefix + file.getName(), file);
         }
             
