@@ -286,14 +286,14 @@ public class DataJsonWriter extends DataFile {
 			this.usage = usage;
 			
 			org = String.join("/", tg.account.getParents());
-			costType = tg.costType.name;
+			costType = tg.costType == null ? null : tg.costType.name;
 			accountId = tg.account.getId();
 			account = tg.account.getIceName();
-			region = tg.region.name;
+			region = tg.region == null ? null : tg.region.name;
 			zone = tg.zone == null ? null : tg.zone.name;
-			product = tg.product.getIceName();
-			operation = tg.operation.name;
-			usageType = tg.usageType.name;
+			product = tg.product == null ? null : tg.product.getIceName();
+			operation = tg.operation == null ? null : tg.operation.name;
+			usageType = tg.usageType == null ? null : tg.usageType.name;
 			tags = tg.resourceGroup;
 			
 			// EC2 & RDS instances
