@@ -24,6 +24,11 @@ img          { border: none; }
     color: #000;
     background-color: #f0f9ff;
 }
+.titlebar .links {
+    margin: 20px;
+    float: right
+}
+.titlebar .links a { text-decoration: underline; cursor: pointer; }
 .titlebar img.console     { margin-right: 6px; height: 58px; }
 .titlebar .header         { float: left; height: 43px; padding-top:15px; }
 .titlebar .region         { float: left; margin: 0 7px 0 0; }

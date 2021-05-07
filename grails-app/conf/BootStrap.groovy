@@ -200,8 +200,10 @@ class BootStrap {
                     properties.setProperty(IceOptions.HIGHSTOCK_URL, prop.getProperty(IceOptions.HIGHSTOCK_URL));
 				if (prop.getProperty(IceOptions.COMPANY_NAME) != null)
 					properties.setProperty(IceOptions.COMPANY_NAME, prop.getProperty(IceOptions.COMPANY_NAME));
-				if (prop.getProperty(IceOptions.DASHBOARD_NOTICE) != null)
-					properties.setProperty(IceOptions.DASHBOARD_NOTICE, prop.getProperty(IceOptions.DASHBOARD_NOTICE));
+                if (prop.getProperty(IceOptions.DASHBOARD_NOTICE) != null)
+                    properties.setProperty(IceOptions.DASHBOARD_NOTICE, prop.getProperty(IceOptions.DASHBOARD_NOTICE));
+                if (prop.getProperty(IceOptions.DASHBOARD_LINKS) != null)
+                    properties.setProperty(IceOptions.DASHBOARD_LINKS, prop.getProperty(IceOptions.DASHBOARD_LINKS));
 				properties.setProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, prop.getProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, "false"));
 					
                 readerConfig = new ReaderConfig(

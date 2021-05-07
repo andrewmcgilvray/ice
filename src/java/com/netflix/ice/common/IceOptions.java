@@ -217,10 +217,11 @@ public class IceOptions {
     public static final String DEBUG = "ice.debug";
     
     /**
-     * dashboard notice
+     * dashboard notice and links
      */
     public static final String DASHBOARD_NOTICE = "ice.notice";
-    
+    public static final String DASHBOARD_LINKS = "ice.links";
+
     /**
      * post processor report sub-prefix - all report S3 keys will have this value inserted
      * between the bucket prefix and filename if a value is specified. 

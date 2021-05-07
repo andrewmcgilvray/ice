@@ -30,16 +30,19 @@
 </head>
 <body class="nactest" ng-controller="mainCtrl">
   <div class="titlebar" ng-show="!graphOnly()">
-    <div class="header">
+    <span class="header">
       <a href="${resource(dir: '/')}">
         <span class="mainHeader">
           ${ReaderConfig.getInstance().companyName} AWS Usage Dashboard
         </span>
       </a>
-    </div>
-    <div class="notice" ng-show="${!ReaderConfig.getInstance().dashboardNotice.isEmpty()}">
+    </span>
+    <span class="notice" ng-show="${!ReaderConfig.getInstance().dashboardNotice.isEmpty()}">
     	${ReaderConfig.getInstance().dashboardNotice}
-    </div>
+    </span>
+    <span class="links">
+      ${ReaderConfig.getInstance().dashboardLinks}
+    </span>
   </div>
   <ul class="nav" ng-show="!graphOnly()">
     <li class="menuButton">
