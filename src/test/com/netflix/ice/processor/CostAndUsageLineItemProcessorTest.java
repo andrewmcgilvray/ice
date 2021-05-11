@@ -87,6 +87,7 @@ public class CostAndUsageLineItemProcessorTest {
     private final Product redshiftInstance = productService.getProduct(Product.Code.Redshift);
     private final Product config = productService.getProduct("AWSConfig", "AWSConfig");
     private final Product lambda = productService.getProduct(Product.Code.Lambda);
+    private final Product registrar = productService.getProduct(Product.Code.Registrar);
     
     private static Account a2;
     private static String account1 = "123456789012";
@@ -572,17 +573,17 @@ public class CostAndUsageLineItemProcessorTest {
             long reportMilli = new DateTime(reportDate, DateTimeZone.UTC).getMillis();
             
             String manifest = "";
-            switch(dt.getYear()) {
-            case 2018:
-                manifest = manifest2018;
-                break;
-            case 2019:
-            case 2020:
-                manifest = dt.getMonthOfYear() == 12 ? manifest2019a : manifest2019;
-                break;
-            default:
+            if (dt.getYear() < 2018) {
                 manifest = manifest2017;
-                break;
+            }
+            else if (dt.getYear() == 2018) {
+                manifest = manifest2018;
+            }
+            else if (dt.getYear() == 2019) {
+                manifest = dt.getMonthOfYear() == 12 ? manifest2019a : manifest2019;
+            }
+            else {
+                manifest = manifest2019a;
             }
 
             LineItem lineItem = newCurLineItem(manifest, new DateTime(netUnblendedStart, DateTimeZone.UTC));
@@ -1306,6 +1307,18 @@ public class CostAndUsageLineItemProcessorTest {
         line.setTaxFields("USSalesTax", "Amazon Web Services, Inc.");
         test = new ProcessTest(line, Result.ignore, 31);
         test.run("2019-12-01T00:00:00Z", null);        
+    }
+
+    @Test
+    public void testRegistrarTax() throws Exception {
+        // Route-53 Registrar renewals come in before they expire - often in the previous month
+        Line line = new Line(LineItemType.Tax, "", "", "Amazon Registrar", "", "", "Tax for product code AmazonRegistrar", PricingTerm.none, "2021-04-19T23:59:59Z", "2022-04-19T00:00:00Z", "1", "5.25", "");
+        line.setTaxFields("VAT", "AWS EMEA SARL");
+        ProcessTest test = new ProcessTest(line, Result.hourly, 31);
+        Datum[] expected = {
+                new Datum(CostType.tax, a2, Region.GLOBAL, null, registrar, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 5.25, 1),
+        };
+        test.run("2021-03-01T00:00:00Z", expected);
     }
     
     @Test

@@ -236,6 +236,22 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
         long millisStart = lineItem.getStartMillis();
         long millisEnd = lineItem.getEndMillis();
 
+        // Pull any line items that fall outside of this month to the first of the month
+        // and put the whole fee in the first hour.
+        // Registrar renewals are a prime example
+        long nextMonthStartMillis = reportStart.plusMonths(1).getMillis();
+        if (millisStart > nextMonthStartMillis) {
+            millisStart = reportStart.getMillis();
+            millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
+        }
+        else {
+            Product origProduct = productService.getProduct(lineItem.getProduct(), lineItem.getProductServiceCode());
+            if (origProduct.isRegistrar() || origProduct.isSupport()) {
+                // Put the whole fee in the first hour
+                millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
+            }
+        }
+
         BillType bt = lineItem.getBillType();
         switch (bt) {
         case Anniversary:
@@ -254,22 +270,6 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
             case RIFee:
                 break;
             default:
-                Product origProduct = productService.getProduct(lineItem.getProduct(), lineItem.getProductServiceCode());
-                if (origProduct.isRegistrar()) {
-                    // Put all out-of-month registrar fees at the start of the month
-                    long nextMonthStartMillis = reportStart.plusMonths(1).getMillis();
-                    if (millisStart > nextMonthStartMillis) {
-                        millisStart = reportStart.getMillis();
-                    }
-                    // Put the whole fee in the first hour
-                    millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
-                }
-                else if (origProduct.isSupport()) {
-                    // Put the whole fee in the first hour
-                    millisEnd = new DateTime(millisStart, DateTimeZone.UTC).plusHours(1).getMillis();
-                    logger.info(fileName + " Support: " + lineItem);
-                }
-            
                 break;
             }
             break;
