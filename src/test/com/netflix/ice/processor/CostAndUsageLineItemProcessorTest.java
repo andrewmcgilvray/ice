@@ -412,7 +412,7 @@ public class CostAndUsageLineItemProcessorTest {
             String[] items = new String[Line.numDbrItems];
             for (int i = 0; i < items.length; i++)
                 items[i] = "";
-            items[1] = account; // payer account
+            items[1] = account1; // payer account
             items[2] = account;
             items[11] = zone;
             items[5] = product;
@@ -432,7 +432,7 @@ public class CostAndUsageLineItemProcessorTest {
             for (int i = 0; i < items.length; i++)
                 items[i] = "";
             items[lineItem.getBillTypeIndex()] = billType.name();
-            items[lineItem.getPayerAccountIdIndex()] = account;
+            items[lineItem.getPayerAccountIdIndex()] = account1;
             items[lineItem.getAccountIdIndex()] = account;
             items[lineItem.getLineItemProductCodeIndex()] = productCode;
             items[lineItem.getZoneIndex()] = zone;

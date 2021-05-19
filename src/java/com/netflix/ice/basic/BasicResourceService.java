@@ -23,16 +23,13 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.netflix.ice.common.*;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.ResourceService;
-import com.netflix.ice.common.TagConfig;
-import com.netflix.ice.common.TagMappings;
 import com.netflix.ice.processor.LineItem;
 import com.netflix.ice.processor.TagMappers;
 import com.netflix.ice.tag.Account;
@@ -48,56 +45,55 @@ public class BasicResourceService extends ResourceService {
     protected final List<String> customTags;
     private final List<UserTagKey> userTagKeys;
     private final boolean includeReservationIds;
-    
-    
-    // Map of tags where each tag has a list of aliases. Outer key is the payerAccountId.
-    private Map<String, Map<String, TagConfig>> tagConfigs;
-    
-    // Map of tag values to canonical name. All keys are lower case.
-    // Maps are nested by Payer Account ID, Tag Key, then Value
-    private Map<String, Map<String, Map<String, String>>> tagValuesInverted;
-    
-    // Map containing the lineItem column indeces that match the canonical tag keys specified by CustomTags
-    // Key is the Custom Tag name (without the "user:" prefix). First index in the list is always the exact
-    // custom tag name match if present.
-    private Map<String, List<Integer>> tagLineItemIndeces;
 
-	// Map of tag filter patterns. Outer key is the payerAccountId.
-	private Map<String, Map<String, Pattern>> tagPatterns;
+    // Collection of tag properties for each payer account
+    class PayerAccountTagProperties {
+		private Map<String, TagConfig> tagConfigs;
+
+		// Map of tag values to canonical name. All keys are lower case.
+		// Maps are nested by Tag Key, then Value
+		private Map<String, Map<String, String>> tagValuesInverted;
+
+		// Map containing the lineItem column indeces that match the canonical tag keys specified by CustomTags
+		// Key is the Custom Tag name (without the "user:" prefix). First index in the list is always the exact
+		// custom tag name match if present.
+		private Map<String, List<Integer>> tagLineItemIndeces;
+
+		// Map of tag filter patterns.
+		private Map<Integer, Pattern> tagPatterns;
+
+		/**
+		 * List of time-ordered tag mappers for each custom tag.
+		 * TagMappers are applied if active and either no tag value has yet been applied or the force flag
+		 * is set for the mapper rule.
+		 *
+		 * List index is the tag key index.
+		 */
+		private List<TagMappers> tagMappers;
+
+		private PayerAccountTagProperties(Map<String, TagConfig> tagConfigs) {
+			this.tagConfigs = tagConfigs;
+		}
+	}
+
+	// Map of tag configs keyed by payerAccountId.
+	private Map<String, Map<String, TagConfig>> tagConfigs;
+
+	// Map of tag properties keyed by payerAccountId.
+	private Map<String, PayerAccountTagProperties> tagProperties;
 
 	private final Map<String, Integer> tagResourceGroupIndeces;
     
     private static final String USER_TAG_PREFIX = "user:";
     private static final String AWS_TAG_PREFIX = "aws:";
     private static final String reservationIdsKeyName = "RI/SP ID";
-    
-    /**
-     * Map keyed off payer account that holds the list of time-ordered tag mappers for each custom tag.
-     * TagMappers are applied if active and either no tag value has yet been applied or the force flag
-     * is set for the mapper rule.
-     * 
-     * Primary map key is the payer account ID,
-     * List index is the tag key index,
-     * .
-     *  <pre>
-     *  tagMappers:
-     *    <payerAcctId1>:
-     *    - <tagMappersA>:
-     *    - <tagMappersB>
-     *        ...
-     *    <payerAcctId2>:
-     *      ...
-     *  </pre>
-     */
-    private Map<String, List<TagMappers>> tagMappers;
-    
+
     public BasicResourceService(ProductService productService, String[] customTags, boolean includeReservationIds) {
 		super();
 		this.includeReservationIds = includeReservationIds;
 		this.customTags = Lists.newArrayList(customTags);
 		if (includeReservationIds)
 			this.customTags.add(reservationIdsKeyName);
-		this.tagValuesInverted = Maps.newHashMap();
 		this.tagResourceGroupIndeces = Maps.newHashMap();
 		for (int i = 0; i < customTags.length; i++)
 			tagResourceGroupIndeces.put(customTags[i], i);
@@ -107,11 +103,9 @@ public class BasicResourceService extends ResourceService {
 			if (!tag.isEmpty())
 				userTagKeys.add(UserTagKey.get(tag));
 		}
-		
+
+		this.tagProperties = Maps.newHashMap();
 		this.tagConfigs = Maps.newHashMap();
-		this.tagValuesInverted = Maps.newHashMap();
-		this.tagMappers = Maps.newHashMap();
-		this.tagPatterns = Maps.newHashMap();
 	}
     
     @Override
@@ -139,8 +133,7 @@ public class BasicResourceService extends ResourceService {
     	if (tagConfigs == null) {
     		// Remove existing configs and indeces
     		this.tagConfigs.remove(payerAccountId);
-    		this.tagValuesInverted.remove(payerAccountId);
-    		this.tagPatterns.remove(payerAccountId);
+    		tagProperties.remove(payerAccountId);
     		return;
     	}
     	
@@ -160,7 +153,8 @@ public class BasicResourceService extends ResourceService {
     		}
     	}
     	this.tagConfigs.put(payerAccountId, configs);
-    	
+    	PayerAccountTagProperties properties = new PayerAccountTagProperties(configs);
+    	this.tagProperties.put(payerAccountId, properties);
     	
     	// Create inverted indexes for each of the tag value alias sets
 		Map<String, Map<String, String>> indeces = Maps.newHashMap();
@@ -179,7 +173,7 @@ public class BasicResourceService extends ResourceService {
 			}
 			indeces.put(config.name, invertedIndex);
 		}
-		this.tagValuesInverted.put(payerAccountId, indeces);
+		properties.tagValuesInverted = indeces;
 		
 		// Create the maps setting tags based on the values of other tags
 		List<TagMappers> mapped = Lists.newArrayList();
@@ -192,16 +186,7 @@ public class BasicResourceService extends ResourceService {
 			}
 			mapped.add(new TagMappers(tagIndex, tagKey, tc.mapped, tagResourceGroupIndeces));
 		}
-		this.tagMappers.put(payerAccountId, mapped);
-
-		// Compile and store any filter patterns
-		Map<String, Pattern> patterns = Maps.newHashMap();
-		for (TagConfig config: configs.values()) {
-			if (config.filter == null || config.filter.isEmpty())
-				continue;
-			patterns.put(config.name, Pattern.compile(config.filter, Pattern.CASE_INSENSITIVE));
-		}
-		tagPatterns.put(payerAccountId, patterns);
+		properties.tagMappers = mapped;
     }
 
 	@Override
@@ -229,14 +214,16 @@ public class BasicResourceService extends ResourceService {
     	if (customTags.size() == 0)
     		return null;
 
+		PayerAccountTagProperties properties = tagProperties.get(lineItem.getPayerAccountId());
+
         // Build the resource group based on the values of the custom tags
     	String[] tags = new String[customTags.size()];
        	for (int i = 0; i < customTags.size(); i++) {
-       		tags[i] = getUserTagValue(lineItem, customTags.get(i));
+       		tags[i] = getUserTagValue(lineItem, customTags.get(i), properties);
        	}
        	
        	// Handle any tag mapping
-    	List<TagMappers> tagMappersForPayerAccount = tagMappers.get(lineItem.getPayerAccountId());
+    	List<TagMappers> tagMappersForPayerAccount = properties == null ? null : properties.tagMappers;
     	
        	for (int i = 0; i < customTags.size(); i++) {
        		String v = tags[i];
@@ -315,9 +302,13 @@ public class BasicResourceService extends ResourceService {
     	}    	
     	return ret.toString();
     }
-    
-    @Override
-    public String getUserTagValue(LineItem lineItem, String tag) {
+
+    protected String getUserTagValue(LineItem lineItem, String tag) {
+		PayerAccountTagProperties properties = tagProperties.get(lineItem.getPayerAccountId());
+		return getUserTagValue(lineItem, tag, properties);
+	}
+
+    protected String getUserTagValue(LineItem lineItem, String tag, PayerAccountTagProperties properties) {
     	if (includeReservationIds && tag == reservationIdsKeyName) {
     		String id = lineItem.getReservationArn();
     		if (id.isEmpty())
@@ -325,11 +316,11 @@ public class BasicResourceService extends ResourceService {
     		return id;
     	}
     	
-    	Map<String, Map<String, String>> indeces = tagValuesInverted.get(lineItem.getPayerAccountId());    	
+    	Map<String, Map<String, String>> indeces = properties.tagValuesInverted;
     	Map<String, String> invertedIndex = indeces == null ? null : indeces.get(tag);
     	
     	// Grab the first non-empty value
-    	for (int index: tagLineItemIndeces.get(tag)) {
+    	for (int index: properties.tagLineItemIndeces.get(tag)) {
     		if (lineItem.getResourceTagsSize() > index) {
     	    	// cut all white space from tag value
     			String val = stripSpaces(lineItem.getResourceTag(index));
@@ -338,16 +329,16 @@ public class BasicResourceService extends ResourceService {
     				if (invertedIndex != null && invertedIndex.containsKey(val.toLowerCase())) {
 						val = invertedIndex.get(val.toLowerCase());
 					}
-	    			return filter(val, lineItem.getPayerAccountId(), tag);
+	    			return filter(val, index, tag, properties);
     			}
     		}
     	}
     	return null;
     }
 
-    private String filter(String value, String payerAccountId, String tag) {
-		if (tagConfigs.containsKey(payerAccountId)) {
-			TagConfig tc = tagConfigs.get(payerAccountId).get(tag);
+    private String filter(String value, int index, String tag, PayerAccountTagProperties properties) {
+		if (properties.tagConfigs != null) {
+			TagConfig tc = properties.tagConfigs.get(tag);
 			if (tc != null && tc.getConvert() != null) {
 				switch(tc.getConvert()) {
 					case toLower: value = value.toLowerCase(); break;
@@ -356,8 +347,8 @@ public class BasicResourceService extends ResourceService {
 				}
 			}
 		}
-    	if (tagPatterns.containsKey(payerAccountId)) {
-			Pattern filter = tagPatterns.get(payerAccountId).get(tag);
+    	if (properties.tagPatterns != null) {
+			Pattern filter = properties.tagPatterns.get(index);
 			if (filter != null) {
 				Matcher m = filter.matcher(value);
 				if (m.find())
@@ -372,8 +363,10 @@ public class BasicResourceService extends ResourceService {
     @Override
     public boolean[] getUserTagCoverage(LineItem lineItem) {
     	boolean[] userTagCoverage = new boolean[userTagKeys.size()];
+		PayerAccountTagProperties properties = tagProperties.get(lineItem.getPayerAccountId());
+
         for (int i = 0; i < userTagKeys.size(); i++) {
-        	String v = getUserTagValue(lineItem, userTagKeys.get(i).name);
+        	String v = getUserTagValue(lineItem, userTagKeys.get(i).name, properties);
         	userTagCoverage[i] = !StringUtils.isEmpty(v);
         }    	
     	return userTagCoverage;
@@ -386,9 +379,15 @@ public class BasicResourceService extends ResourceService {
     
     @Override
     public void initHeader(String[] header, String payerAccountId) {
-    	tagLineItemIndeces = Maps.newHashMap();
-    	Map<String, TagConfig> configs = tagConfigs.get(payerAccountId);
-    	
+    	PayerAccountTagProperties properties = tagProperties.get(payerAccountId);
+    	if (properties == null) {
+    		// Must not have had any tag configs for the payer
+			properties = new PayerAccountTagProperties(tagConfigs.get(payerAccountId));
+			tagProperties.put(payerAccountId, properties);
+		}
+    	properties.tagLineItemIndeces = Maps.newHashMap();
+    	properties.tagPatterns = Maps.newHashMap();
+
     	/*
     	 * Create a list of billing report line item indeces for
     	 * each of the configured user tags. The list will first have
@@ -398,7 +397,7 @@ public class BasicResourceService extends ResourceService {
     	for (UserTagKey tagKey: userTagKeys) {
     		String fullTag = USER_TAG_PREFIX + tagKey.name;
     		List<Integer> indeces = Lists.newArrayList();
-    		tagLineItemIndeces.put(tagKey.name, indeces);
+    		properties.tagLineItemIndeces.put(tagKey.name, indeces);
     		
     		// First check the preferred key name
     		int index = -1;
@@ -411,7 +410,7 @@ public class BasicResourceService extends ResourceService {
     		if (index >= 0) {
     			indeces.add(index);
     		}
-    		// Look for alternate names
+    		// Look for alternate names with only case variation
             for (int i = 0; i < header.length; i++) {
             	if (i == index) {
             		continue;	// skip the exact match we handled above
@@ -421,18 +420,32 @@ public class BasicResourceService extends ResourceService {
             	}
             }
             // Look for aliases
-            if (configs != null && configs.containsKey(tagKey.name)) {
-            	TagConfig config = configs.get(tagKey.name);
-            	if (config != null && config.aliases != null) {
-	            	for (String alias: config.aliases) {
-	            		String fullAlias = alias.startsWith(AWS_TAG_PREFIX) ? alias : USER_TAG_PREFIX + alias;
-	                    for (int i = 0; i < header.length; i++) {
-	                    	if (fullAlias.equalsIgnoreCase(header[i])) {
-	                    		indeces.add(i);
-	                    	}
-	                    }
-	            	}
-            	}
+            if (properties.tagConfigs != null && properties.tagConfigs.containsKey(tagKey.name)) {
+            	TagConfig config = properties.tagConfigs.get(tagKey.name);
+
+            	if (config != null) {
+					// Assign any filters to the preferred key name and case variations
+					if (config.filter != null && !config.filter.isEmpty()) {
+						Pattern pattern = Pattern.compile(config.filter, Pattern.CASE_INSENSITIVE);
+						for (int j: indeces)
+							properties.tagPatterns.put(j, pattern);
+					}
+
+					if (config.aliases != null) {
+						for (TagConfig.KeyAlias alias : config.aliases) {
+							String fullAliasName = alias.name.startsWith(AWS_TAG_PREFIX) ? alias.name : USER_TAG_PREFIX + alias.name;
+							for (int i = 0; i < header.length; i++) {
+								if (fullAliasName.equalsIgnoreCase(header[i])) {
+									indeces.add(i);
+
+									// Compile and store any filter patterns
+									if (alias.filter != null && !alias.filter.isEmpty())
+										properties.tagPatterns.put(i, Pattern.compile(alias.filter, Pattern.CASE_INSENSITIVE));
+								}
+							}
+						}
+					}
+				}
             }
     	}
     }

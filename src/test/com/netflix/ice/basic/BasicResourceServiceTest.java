@@ -122,7 +122,7 @@ public class BasicResourceServiceTest {
 		String[] customTags = new String[]{
 				"Environment"
 			};
-		List<String> aliases = Lists.newArrayList("Alias");
+		List<TagConfig.KeyAlias> aliases = Lists.newArrayList(new TagConfig.KeyAlias("Alias", null, null));
 		List<String> displayAliases = Lists.newArrayList("DisplayAlias");
 		
 		Map<String, List<String>> tagValues = Maps.newHashMap();
@@ -152,8 +152,8 @@ public class BasicResourceServiceTest {
 		tagValues.put("Prod", Lists.newArrayList("production", "prd"));
 		tagValues.put("QA", Lists.newArrayList("test", "quality assurance"));
 		TagConfig tc = new TagConfig("Environment", null, null, tagValues);
-		
-		ResourceService rs = new BasicResourceService(ps, customTags, false);
+
+		BasicResourceService rs = new BasicResourceService(ps, customTags, false);
 		List<TagConfig> configs = Lists.newArrayList();
 		configs.add(tc);
 		rs.setTagConfigs("234567890123", configs);
@@ -235,7 +235,7 @@ public class BasicResourceServiceTest {
 		Account a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod");
 		
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
-		rs.initHeader(li.getResourceTagsHeader(), "12345");		
+		rs.initHeader(li.getResourceTagsHeader(), "123456789012");
 		
 		ResourceGroup resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		UserTag[] userTags = resourceGroup.getUserTags();
@@ -346,7 +346,7 @@ public class BasicResourceServiceTest {
 			}
 		}
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
-		rs.initHeader(new String[]{ "user:Email", "user:Department", "user:Environment" }, "1234");
+		rs.initHeader(new String[]{ "user:Email", "user:Department", "user:Environment" }, "123456789012");
 		LineItem lineItem = new TestLineItem(new String[]{ "joe@company.com", "1234", "" });
 		boolean[] coverage = rs.getUserTagCoverage(lineItem);
 		
@@ -398,7 +398,9 @@ public class BasicResourceServiceTest {
 	public void testTagKeyAlias() throws Exception {
 		String yaml = "" +
 		"name: TagKey1\n" +
-		"aliases: ['aws:createdBy',TagKey2]\n";
+		"aliases:\n" +
+		"  - name: 'aws:createdBy'\n" +
+		"  - name: TagKey2\n";
 		
 		String[] customTags = new String[]{"TagKey1", "TagKey3"};
 		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
@@ -420,7 +422,8 @@ public class BasicResourceServiceTest {
 		// Mapping rules for new virtual tag
 		String yaml = "" +
 		"name: DestKey\n" +
-		"aliases: [TagKey2]\n" +
+		"aliases:\n" +
+		"  - name: TagKey2\n" +
 		"values:\n" +
 		"  DestValueDefault: [DestValueDefaultAlias]\n" +
 		"mapped:\n" +
@@ -703,7 +706,8 @@ public class BasicResourceServiceTest {
 		String yaml = "" +
 		"tags:\n" +
 		"  - name: DestKey\n" +
-		"    aliases: [TagKey2]\n" +
+		"    aliases:\n" +
+		"      - name: TagKey2\n" +
 		"    mapped:\n" +
 		"      - include: [" + payerAccount + "]\n" +
 		"        maps:\n" +
@@ -712,7 +716,8 @@ public class BasicResourceServiceTest {
 		"            operator: isOneOf\n" +
 		"            values: [SrcValue3]\n" +
 		"  - name: TagKey4\n" +
-		"    aliases: [TagKey3]\n";
+		"    aliases:\n" +
+		"      - name: TagKey3\n";
 		
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4"};
@@ -735,28 +740,30 @@ public class BasicResourceServiceTest {
 		String yaml = "" +
 				"tags:\n" +
 				"  - name: TagKey1\n" +
-				"    aliases: ['aws:createdBy']\n" +
-				"    filter: '([a-zA-Z0-9\\.]+@company.com)'\n" +
+				"    aliases:\n" +
+				"      - name: 'aws:createdBy'\n" +
+				"        filter: '([a-zA-Z0-9\\.]+@company.com)'\n" +
 				"    convert: toLower\n";
 
-		// Test with empty TagKey1 value
+		// Test with empty TagKey1 value and matching value in alias
 		String[] tags = { "AssumedRole:ABCD12EFG23H5IJ6KLM7N:foo.Bar@Company.com", "", "", "SrcValue3", "SrcValue4" };
 		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foo.bar@company.com", "", "SrcValue4"}), resource);
 
-		// Test with empty TagKey1 value
+		// Test with empty TagKey1 value and non-matching value in alias
+		tags[0] = "FooBar";
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"Other", "", "SrcValue4"}), resource);
+
+		// Test with TagKey1 value
 		tags[1] = "FooBar@company.com";
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foobar@company.com", "", "SrcValue4"}), resource);
 
-		// Test value that doesn't match the pattern
+		// Test value TagKey1 value and value with match in alias
+		tags[0] = "AssumedRole:ABCD12EFG23H5IJ6KLM7N:foo.Bar@Company.com";
 		tags[1] = "foobar";
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
-		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"Other", "", "SrcValue4"}), resource);
-
-		// Test value that doesn't match in either place
-		tags[0] = "AssumedRole:ABCD12EFG23H5IJ6KLM7N:foobar";
-		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
-		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"Other", "", "SrcValue4"}), resource);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foobar", "", "SrcValue4"}), resource);
 	}
 }

@@ -22,7 +22,7 @@ public class TagConfigTest {
 	@Test
 	public void testConstructor() {
 		String name = "Env";
-		List<String> aliases = Lists.newArrayList(new String[]{"Environment"});
+		List<TagConfig.KeyAlias> aliases = Lists.newArrayList(new TagConfig.KeyAlias("Environment", null, null));
 		List<String> displayAliases = Lists.newArrayList(new String[]{"Alias"});
 		Map<String, List<String>> values = Maps.newHashMap();
 		List<String> prodAliases = Lists.newArrayList(new String[]{"production"});
@@ -32,7 +32,7 @@ public class TagConfigTest {
 		TagConfig tc = new TagConfig(name, aliases, displayAliases, values);
 		assertEquals("wrong tag name", "Env", tc.name);
 		assertEquals("wrong number of aliases", 1, tc.aliases.size());
-		assertEquals("wrong alias", "Environment", tc.aliases.get(0));
+		assertEquals("wrong alias", "Environment", tc.aliases.get(0).name);
 		assertEquals("wrong number of displayAliases", 1, tc.displayAliases.size());
 		assertEquals("wrong displayAlias", "Alias", tc.displayAliases.get(0));
 		assertEquals("wrong number of values", 1, tc.values.size());
@@ -45,7 +45,8 @@ public class TagConfigTest {
 	public void testDeserializeFromYaml() throws JsonParseException, JsonMappingException, IOException {
 		String yaml = "" +
 		"name: Env\n" +
-		"aliases: [Environment]\n" +
+		"aliases:\n" +
+		"  - name: Environment\n" +
 		"values:\n" +
 		"  Prod: [production]\n" +
 		"mapped:\n" +
@@ -64,7 +65,7 @@ public class TagConfigTest {
 		
 		assertEquals("wrong tag name", "Env", tc.name);
 		assertEquals("wrong number of aliases", 1, tc.aliases.size());
-		assertEquals("wrong alias", "Environment", tc.aliases.get(0));
+		assertEquals("wrong alias", "Environment", tc.aliases.get(0).name);
 		assertEquals("wrong number of values", 1, tc.values.size());
 		assertTrue("wrong value name", tc.values.containsKey("Prod"));
 		assertEquals("wrong number of value aliases", 1, tc.values.get("Prod").size());

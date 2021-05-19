@@ -81,9 +81,7 @@ public abstract class ResourceService {
     abstract public void initHeader(String[] header, String payerAccountId);
     
     abstract public void setTagConfigs(String payerAccountId, List<TagConfig> tagConfigs);
-        
-	abstract public String getUserTagValue(LineItem lineItem, String tag);
-	
+
     abstract public boolean[] getUserTagCoverage(LineItem lineItem);
 
     /**
