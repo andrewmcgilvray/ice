@@ -547,7 +547,7 @@ public class BasicManagers extends Poller implements Managers {
 	public UserTagStatistics getUserTagStatistics() throws ResourceException {
 		List<UserTagStats> stats = Lists.newArrayList();
 		
-		// Build the full set of unique tagGroups across across all products and time
+		// Build the full set of unique tagGroups across all products and time
 		Set<TagGroup> tagGroups = Sets.newHashSet();
 		
 		for (Product p: products) {

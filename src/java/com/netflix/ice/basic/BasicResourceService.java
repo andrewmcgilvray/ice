@@ -352,7 +352,7 @@ public class BasicResourceService extends ResourceService {
 			if (filter != null) {
 				Matcher m = filter.matcher(value);
 				if (m.find())
-					value = m.group();
+					value = m.group(m.groupCount() > 0 ? 1 : 0);
 				else
 					value = "Other";
 			}

@@ -742,7 +742,7 @@ public class BasicResourceServiceTest {
 				"  - name: TagKey1\n" +
 				"    aliases:\n" +
 				"      - name: 'aws:createdBy'\n" +
-				"        filter: '([a-zA-Z0-9\\.]+@company.com)'\n" +
+				"        filter: '[a-zA-Z0-9\\.]+@company.com'\n" +
 				"    convert: toLower\n";
 
 		// Test with empty TagKey1 value and matching value in alias
@@ -765,5 +765,17 @@ public class BasicResourceServiceTest {
 		tags[1] = "foobar";
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
 		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foobar", "", "SrcValue4"}), resource);
+
+		// Test with capture group in the filter
+		yaml = "" +
+				"tags:\n" +
+				"  - name: TagKey1\n" +
+				"    aliases:\n" +
+				"      - name: 'aws:createdBy'\n" +
+				"        filter: '.*:([a-zA-Z0-9\\.]+)'\n" +
+				"    convert: toLower\n";
+		tags = new String[]{ "AssumedRole:ABCD12EFG23H5IJ6KLM7N:foo.Bar@Company.com", "", "", "SrcValue3", "SrcValue4" };
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foo.bar", "", "SrcValue4"}), resource);
 	}
 }
