@@ -189,7 +189,11 @@ public class InstancePrices implements Comparable<InstancePrices> {
     	}
     
     	Region region = Region.US_EAST_1;
-    	if (usageTypeStr.contains("-") && !usageTypeStr.startsWith("Multi-AZ")) {
+		if (usageTypeStr.contains(":")) {
+			// UsageTypeStr contains a colon and region must appear before
+			usageTypeStr = usageTypeStr.substring(0, usageTypeStr.indexOf(":"));
+		}
+		if (usageTypeStr.contains("-") && !usageTypeStr.startsWith("Multi-AZ")) {
     		Region r = Region.getRegionByShortName(usageTypeStr.substring(0, usageTypeStr.indexOf("-")));
     		if (r != null)
     			region = r;
