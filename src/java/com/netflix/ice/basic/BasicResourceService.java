@@ -20,6 +20,8 @@ package com.netflix.ice.basic;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
@@ -59,8 +61,11 @@ public class BasicResourceService extends ResourceService {
     // Key is the Custom Tag name (without the "user:" prefix). First index in the list is always the exact
     // custom tag name match if present.
     private Map<String, List<Integer>> tagLineItemIndeces;
-    
-    private final Map<String, Integer> tagResourceGroupIndeces;
+
+	// Map of tag filter patterns. Outer key is the payerAccountId.
+	private Map<String, Map<String, Pattern>> tagPatterns;
+
+	private final Map<String, Integer> tagResourceGroupIndeces;
     
     private static final String USER_TAG_PREFIX = "user:";
     private static final String AWS_TAG_PREFIX = "aws:";
@@ -106,6 +111,7 @@ public class BasicResourceService extends ResourceService {
 		this.tagConfigs = Maps.newHashMap();
 		this.tagValuesInverted = Maps.newHashMap();
 		this.tagMappers = Maps.newHashMap();
+		this.tagPatterns = Maps.newHashMap();
 	}
     
     @Override
@@ -134,6 +140,7 @@ public class BasicResourceService extends ResourceService {
     		// Remove existing configs and indeces
     		this.tagConfigs.remove(payerAccountId);
     		this.tagValuesInverted.remove(payerAccountId);
+    		this.tagPatterns.remove(payerAccountId);
     		return;
     	}
     	
@@ -186,6 +193,15 @@ public class BasicResourceService extends ResourceService {
 			mapped.add(new TagMappers(tagIndex, tagKey, tc.mapped, tagResourceGroupIndeces));
 		}
 		this.tagMappers.put(payerAccountId, mapped);
+
+		// Compile and store any filter patterns
+		Map<String, Pattern> patterns = Maps.newHashMap();
+		for (TagConfig config: configs.values()) {
+			if (config.filter == null || config.filter.isEmpty())
+				continue;
+			patterns.put(config.name, Pattern.compile(config.filter, Pattern.CASE_INSENSITIVE));
+		}
+		tagPatterns.put(payerAccountId, patterns);
     }
 
 	@Override
@@ -320,15 +336,39 @@ public class BasicResourceService extends ResourceService {
     			
     			if (!StringUtils.isEmpty(val)) {
     				if (invertedIndex != null && invertedIndex.containsKey(val.toLowerCase())) {
-	    				val = invertedIndex.get(val.toLowerCase());
-	    			}
-	    			return val;
+						val = invertedIndex.get(val.toLowerCase());
+					}
+	    			return filter(val, lineItem.getPayerAccountId(), tag);
     			}
     		}
     	}
     	return null;
     }
-    
+
+    private String filter(String value, String payerAccountId, String tag) {
+		if (tagConfigs.containsKey(payerAccountId)) {
+			TagConfig tc = tagConfigs.get(payerAccountId).get(tag);
+			if (tc != null && tc.getConvert() != null) {
+				switch(tc.getConvert()) {
+					case toLower: value = value.toLowerCase(); break;
+					case toUpper: value = value.toUpperCase(); break;
+					default: break;
+				}
+			}
+		}
+    	if (tagPatterns.containsKey(payerAccountId)) {
+			Pattern filter = tagPatterns.get(payerAccountId).get(tag);
+			if (filter != null) {
+				Matcher m = filter.matcher(value);
+				if (m.find())
+					value = m.group();
+				else
+					value = "Other";
+			}
+		}
+		return value;
+	}
+
     @Override
     public boolean[] getUserTagCoverage(LineItem lineItem) {
     	boolean[] userTagCoverage = new boolean[userTagKeys.size()];

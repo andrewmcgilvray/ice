@@ -97,7 +97,7 @@ public class BasicResourceServiceTest {
 	}
 	
 	@Test
-	public void testUserTags() {
+	public void testGetUserTagKeys() {
 		ProductService ps = new BasicProductService();
 		String[] customTags = new String[]{
 				"Environment", "Product"
@@ -722,5 +722,41 @@ public class BasicResourceServiceTest {
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "", "SrcValue4"});
 		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);		
+	}
+
+	@Test
+	public void testTagValueFilter() throws Exception {
+    	// Test tag value filter that extracts email address from the aws:createdBy tag
+		String[] customTags = new String[]{ "TagKey1", "TagKey2", "TagKey4" };
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
+		String start = "2020-01-01T00:00:00Z";
+
+		// Tag config for tag that folds in aws:createdBy and only accepts constrained email addresses
+		String yaml = "" +
+				"tags:\n" +
+				"  - name: TagKey1\n" +
+				"    aliases: ['aws:createdBy']\n" +
+				"    filter: '([a-zA-Z0-9\\.]+@company.com)'\n" +
+				"    convert: toLower\n";
+
+		// Test with empty TagKey1 value
+		String[] tags = { "AssumedRole:ABCD12EFG23H5IJ6KLM7N:foo.Bar@Company.com", "", "", "SrcValue3", "SrcValue4" };
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foo.bar@company.com", "", "SrcValue4"}), resource);
+
+		// Test with empty TagKey1 value
+		tags[1] = "FooBar@company.com";
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"foobar@company.com", "", "SrcValue4"}), resource);
+
+		// Test value that doesn't match the pattern
+		tags[1] = "foobar";
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"Other", "", "SrcValue4"}), resource);
+
+		// Test value that doesn't match in either place
+		tags[0] = "AssumedRole:ABCD12EFG23H5IJ6KLM7N:foobar";
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", ResourceGroup.getResourceGroup(new String[]{"Other", "", "SrcValue4"}), resource);
 	}
 }
