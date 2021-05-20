@@ -96,15 +96,17 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     }
     
     public Collection<TagGroup> getTagGroupsWithResourceGroups(Long monthMillis) {
+        Set<TagGroup> uniqueTagGroups = Sets.newHashSet();
+
     	if (tagGroupsWithResourceGroups == null)
-    		return Sets.newHashSet();
+    		return uniqueTagGroups;
 
     	if (monthMillis != null) {
-    	    return tagGroupsWithResourceGroups.get(monthMillis);
+            Collection<TagGroup> ret = tagGroupsWithResourceGroups.get(monthMillis);
+    	    return ret != null ? ret : uniqueTagGroups;
         }
 
         // span all time
-        Set<TagGroup> uniqueTagGroups = Sets.newHashSet();
         for (Collection<TagGroup> tgs : tagGroupsWithResourceGroups.values()) {
             uniqueTagGroups.addAll(tgs);
         }
