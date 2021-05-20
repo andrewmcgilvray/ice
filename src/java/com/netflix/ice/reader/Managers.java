@@ -143,7 +143,7 @@ public interface Managers {
         }
     }
     
-    UserTagStatistics getUserTagStatistics() throws ResourceException;
+    UserTagStatistics getUserTagStatistics(String month) throws ResourceException;
     
     Collection<ProcessorStatus> getProcessorStatus();
     

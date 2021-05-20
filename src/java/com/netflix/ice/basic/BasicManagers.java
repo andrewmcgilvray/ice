@@ -544,16 +544,18 @@ public class BasicManagers extends Poller implements Managers {
 	}
 
 	@Override
-	public UserTagStatistics getUserTagStatistics() throws ResourceException {
+	public UserTagStatistics getUserTagStatistics(String month) throws ResourceException {
 		List<UserTagStats> stats = Lists.newArrayList();
 		
-		// Build the full set of unique tagGroups across all products and time
+		// Build the full set of unique tagGroups across all products.
+		// If month is null, span all time, else just include the requested month
 		Set<TagGroup> tagGroups = Sets.newHashSet();
-		
+		Long monthMillis = month == null ? null : new DateTime(month, DateTimeZone.UTC).getMillis();
+
 		for (Product p: products) {
 			if (p == null)
 				continue;			
-			tagGroups.addAll(tagGroupManagers.get(p).getTagGroupsWithResourceGroups());
+			tagGroups.addAll(tagGroupManagers.get(p).getTagGroupsWithResourceGroups(monthMillis));
 		}
 		
 		// Extract the unique set of resource Groups

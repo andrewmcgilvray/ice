@@ -25,8 +25,8 @@
 </head>
 <body>
 <div class="list" style="margin: auto; width: 1200px; padding: 20px 30px" ng-controller="statisticsCtrl">
-  <h1>User Tag Statistics</h1>
-  <g:set var="statistics" value="${ReaderConfig.getInstance().managers.getUserTagStatistics()}" scope="request"/>
+  <h1>User Tag Statistics ${params.month == null ? "" : params.month}</h1>
+  <g:set var="statistics" value="${ReaderConfig.getInstance().managers.getUserTagStatistics(params.month)}" scope="request"/>
   <div>Total TagGroups if no user tags: ${statistics.nonResourceTagGroups}</div>
   <div>Total TagGroups with user tags: ${statistics.resourceTagGroups}</div>
   <table>
