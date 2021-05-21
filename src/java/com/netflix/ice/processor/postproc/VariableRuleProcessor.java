@@ -117,6 +117,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 				info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
 				logger.warn(info);
 			}
+			if (allocationReport.isParsingError())
+				info = "Parser encountered empty or bad allocation values" + (!info.isEmpty() ? ", " + info : "");
 		}
 		sw.stop();
 		info = "Elapsed time: " + sw.toString() + (!info.isEmpty() ? ", " + info : "");

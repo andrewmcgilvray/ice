@@ -180,6 +180,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
@@ -238,6 +239,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterC,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
@@ -281,6 +283,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
@@ -319,6 +322,73 @@ public class VariableRuleProcessorTest {
         	Map<TagGroup, CostAndUsage> costData = data.get(tg.product).getData(0);
         	assertEquals("wrong data for spec " + spec.toString(), spec.value.cost, costData.get(tg).cost, 0.0001);
         }
+	}
+
+	@Test
+	public void testAllocationReportWithEmptyFields() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2","Key3","Key4"}, false);
+		String allocationYaml = "" +
+				"name: simple\n" +
+				"start: 2019-11\n" +
+				"end: 2022-11\n" +
+				"in:\n" +
+				"  filter:\n" +
+				"    account: [" + a1 + "]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  out:\n" +
+				"    Key1: Key1\n";
+
+		TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "", "", ""}, 100.0, 0),
+		};
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
+		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
+		loadData(dataSpecs, data, 1, rs.getUserTagKeys().size());
+		loadData(dataSpecs, data, 2, rs.getUserTagKeys().size());
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
+
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+
+		// Process with a report
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,Key1\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,seventy\n" +
+				"2020-08-01T01:00:00Z,2020-08-01T02:00:00Z,,twenty-five\n" +
+				"2020-08-01T01:00:00Z,2020-08-01T02:00:00Z,,seventy\n" +
+				"2020-08-01T02:00:00Z,2020-08-01T03:00:00Z,0.25,twenty-five\n" +
+				"2020-08-01T02:00:00Z,2020-08-01T03:00:00Z,0.70,seventy\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertTrue("report parser should have flagged an error", ar.isParsingError());
+
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
+		vrp.process(data);
+		assertEquals("wrong number of output records", 3, data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+
+		TagGroupSpec[] expected = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "", "", ""}, 5.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"twenty-five", "", "", ""}, 25.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"seventy", "", "", ""}, 70.0, 0),
+		};
+
+		for (int i = 0; i < 3; i++) {
+			if (i == 1) {
+				TagGroup tg = expected[0].getTagGroup(as, ps);
+
+				Map<TagGroup, CostAndUsage> costData = data.get(tg.product).getData(i);
+				assertEquals("wrong data for unallocated hour " + i, 100, costData.get(tg).cost, 0.001);
+			}
+			else {
+				for (TagGroupSpec spec: expected) {
+					TagGroup tg = spec.getTagGroup(as, ps);
+					Map<TagGroup, CostAndUsage> costData = data.get(tg.product).getData(i);
+					assertEquals("wrong data for spec " + spec.toString() + " in hour " + i, spec.value.cost, costData.get(tg).cost, 0.001);
+				}
+			}
+		}
 	}
 
 	@Test
@@ -368,6 +438,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		vrp.process(data);
 		assertEquals("wrong number of output records", 3, data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
@@ -465,6 +536,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 
 		CostAndUsageData outData = new CostAndUsageData(data, null, rs.getUserTagKeys());
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
@@ -540,6 +612,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,1.0,,,one-hundred-no-account\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 
 		CostAndUsageData outData = new CostAndUsageData(data, null, rs.getUserTagKeys());
 		outData.enableTagGroupCache(true);
@@ -613,6 +686,7 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.40,clusterA,forty,extra1B,extra2B\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 
 		CostAndUsageData outData = new CostAndUsageData(data, null, UserTagKey.getUserTagKeys(reportUserTagKeys));
 		outData.enableTagGroupCache(true);

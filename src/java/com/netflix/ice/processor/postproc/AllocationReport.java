@@ -83,6 +83,7 @@ public class AllocationReport extends Report {
 	private List<String> header;
 	private List<TagMappers> taggers;
 	private List<String> newTagKeys;
+	private boolean parsingError = false;
 	
 	/**
 	 * KeyMatcher supports the glob style wildcards '*' and '?' in tag names
@@ -309,7 +310,9 @@ public class AllocationReport extends Report {
 			}
 		}
 	}
-	
+
+	public boolean isParsingError() { return parsingError; }
+
 	protected List<String> getHeader() {
 		return header;
 	}
@@ -691,9 +694,16 @@ public class AllocationReport extends Report {
 		    	List<String> outTags = Lists.newArrayList();
 		    	int startHour = (int) ((new DateTime(record.getString(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
 		    	int endHour = (int) ((new DateTime(record.getString(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
-		    	double allocation = Double.parseDouble(record.getString(AllocationColumn.Allocation));
+		    	String allocationStr = record.getString(AllocationColumn.Allocation);
+		    	if (allocationStr.isEmpty()) {
+		    		logger.warn("Skipping allocation report entry with empty value at line " + lineNumber + ": \"" + record + "\"");
+					parsingError = true;
+		    		continue;
+				}
+		    	double allocation = Double.parseDouble(allocationStr);
 		    	if (Double.isNaN(allocation) || Double.isInfinite(allocation)) {
-		    		logger.warn("Allocation report entry with NaN or Inf allocation, skipping.");
+		    		logger.warn("Skipping allocation report entry with NaN or Inf allocation at line " + lineNumber + ": \"" + record + "\"");
+		    		parsingError = true;
 		    		continue;
 		    	}
 		    	for (String key: inTagKeys)
