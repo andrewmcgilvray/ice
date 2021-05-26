@@ -369,25 +369,12 @@ ice.factory('usage_db', function ($window, $http, /*$filter*/) {
 
   var getCostTypes = function ($scope) {
     costTypes = [];
-    if ($scope.recurring)
-      costTypes.push("Recurring");
-    if ($scope.allocated)
-      costTypes.push("Allocated");
-    if ($scope.amortization)
-      costTypes.push("Amortization");
-    if ($scope.credit)
-      costTypes.push("Credit");
-    if ($scope.tax)
-      costTypes.push("Tax");
-    if ($scope.savings)
-      costTypes.push("Savings");
-    if ($scope.subscription) {
-      costTypes.push("Subscription");
-      costTypes.push("SubscriptionTax");
-    }
-    if ($scope.refund) {
-      costTypes.push("Refund");
-      costTypes.push("RefundTax");
+    for (key in $scope.costType) {
+      if ($scope.costType[key]) {
+        costTypes.push(key);
+        if (key === 'Subscription' || key === 'Refund')
+          costTypes.push(key + 'Tax');
+      }
     }
     return costTypes.join(",");
   }
@@ -994,15 +981,14 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     $scope.initialGroupByTag = '';
     $scope.showUserTags = false;
     $scope.predefinedQuery = null;
-    $scope.recurring = true;
-    $scope.allocated = true;
-    $scope.amortization = true;
-    $scope.credit = true;
-    $scope.tax = true;
-    $scope.savings = false;
-    $scope.refund = false;
-    $scope.subscription = false;
     $scope.graphonly = false;
+    $scope.costType = {
+      Recurring: true,
+      Allocated: true,
+      Amortization: true,
+      Credit: true,
+      Tax: true,
+    }
 
     var end = new Date();
     var start = new Date();
@@ -1055,6 +1041,15 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
       params.consolidate = $scope.consolidate;
     if ($scope.showZones)
       params.showZones = "" + $scope.showZones;
+    if ($scope.costType) {
+      costTypes = [];
+      for (key in $scope.costType) {
+        if ($scope.costType[key])
+          costTypes.push(key);
+      }
+      if (costTypes.length > 0)
+        params.costType = costTypes.join(',');
+    }
   }
 
   $scope.addDimensionParams = function($scope, params) {
@@ -1186,6 +1181,13 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     $scope[key] = enabledUserTags;
   }
 
+  var trueIfPresent = function ($scope, key, value) {
+    $scope[key] = {};
+    for (const ct of value.split(',')) {
+      $scope[key][ct] = true;
+    }
+  }
+
   var time = function ($scope, key, value) {
     if (timeParams)
       timeParams += "&";
@@ -1208,6 +1210,7 @@ function mainCtrl($scope, $location, $timeout, usage_db, highchart) {
     usageUnit: {name: "usageUnit", fn: value},
     groupBy: {name: "groupBy", fn: getGroupBy},
     groupByTag: {name: "initialGroupByTag", fn: value},
+    costType: {name: "costType", fn: trueIfPresent},
     orgUnit: {name: "organizationalUnit", fn: value},
     account: {name: "selected__accounts", fn: split},
     region: {name: "selected__regions", fn: split},
@@ -2254,6 +2257,8 @@ function detailCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.getUserTagDisplayName = function (index) {
+    if ($scope.userTags == null || $scope.userTags[index] == null)
+      return '';
     var display = $scope.userTags[index].name;
     if ($scope.userTags[index].aliases.length > 0)
       display += "/" + $scope.userTags[index].aliases.join("/");

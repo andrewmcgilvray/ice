@@ -47,14 +47,14 @@
         </div>
         <div ng-show="usage_cost=='cost'" class="metaCostTypeHeader">CostType</div>
         <div ng-show="usage_cost=='cost'" class="metaCostType">
-          <div><input type="checkbox" ng-model="recurring" ng-change="costTypesChanged()"> Recurring</div>
-          <div><input type="checkbox" ng-model="credit" ng-change="costTypesChanged()"> Credit</div>
-          <div><input type="checkbox" ng-model="allocated" ng-change="costTypesChanged()"> Allocated</div>
-          <div><input type="checkbox" ng-model="tax" ng-change="costTypesChanged()"> Tax</div>
-          <div><input type="checkbox" ng-model="amortization" ng-change="costTypesChanged()"> Amortization</div>
-          <div><input type="checkbox" ng-model="refund" ng-change="costTypesChanged()"> Refund</div>
-          <div><input type="checkbox" ng-model="subscription" ng-change="costTypesChanged()"> Subscription</div>
-          <div><input type="checkbox" ng-model="savings" ng-change="costTypesChanged()"> Savings</div>
+          <div><input type="checkbox" ng-model="costType['Recurring']" ng-change="costTypesChanged()"> Recurring</div>
+          <div><input type="checkbox" ng-model="costType['Credit']" ng-change="costTypesChanged()"> Credit</div>
+          <div><input type="checkbox" ng-model="costType['Allocated']" ng-change="costTypesChanged()"> Allocated</div>
+          <div><input type="checkbox" ng-model="costType['Tax']" ng-change="costTypesChanged()"> Tax</div>
+          <div><input type="checkbox" ng-model="costType['Amortization']" ng-change="costTypesChanged()"> Amortization</div>
+          <div><input type="checkbox" ng-model="costType['Refund']" ng-change="costTypesChanged()"> Refund</div>
+          <div><input type="checkbox" ng-model="costType['Subscription']" ng-change="costTypesChanged()"> Subscription</div>
+          <div><input type="checkbox" ng-model="costType['Savings']" ng-change="costTypesChanged()"> Savings</div>
         </div>
       </div>
       <div class="metaShow" nowrap="">
