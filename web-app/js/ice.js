@@ -1466,6 +1466,8 @@ function reservationCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.getUserTagDisplayName = function (index) {
+    if ($scope.userTags == null || $scope.userTags[index] == null)
+      return '';
     var display = $scope.userTags[index].name;
     if ($scope.userTags[index].aliases.length > 0)
       display += "/" + $scope.userTags[index].aliases.join("/");
@@ -1699,6 +1701,8 @@ function savingsPlansCtrl($scope, $location, $http, usage_db, highchart) {
   }
 
   $scope.getUserTagDisplayName = function (index) {
+    if ($scope.userTags == null || $scope.userTags[index] == null)
+      return '';
     var display = $scope.userTags[index].name;
     if ($scope.userTags[index].aliases.length > 0)
       display += "/" + $scope.userTags[index].aliases.join("/");
