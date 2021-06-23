@@ -42,6 +42,9 @@ public enum InstanceDb {
     sqlweb(".sqlweb", ":0011", "sqlweb", false), // "RDS running SQL Server Web"
     sqlstd(".sqlstd", ":0012", "sqlstd", false), // "RDS running SQL Server Standard"
     sqlent(".sqlent", ":0015", "sqlent", false), // "RDS running SQL Server Enterprise"
+    sqlopweb(".sqlopweb", ":0232", "sqlopweb", false), // "RDS running SQL Server (on-premise for Outpost) Web"
+    sqlopstd(".sqlopstd", ":0231", "sqlopstd", false), // "RDS running SQL Server (on-premise for Outpost) Standard"
+    sqlopent(".sqlopent", ":0230", "sqlopent", false), // "RDS running SQL Server (on-premise for Outpost) Enterprise"
     others(".others", ":others", "others", false);
 
     public final String usageType;
