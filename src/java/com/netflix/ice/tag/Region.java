@@ -67,6 +67,7 @@ public class Region extends Tag {
     public static final Region EU_WEST_1 = new Region("eu-west-1", "EU", "EU (Ireland)");
     public static final Region EU_CENTRAL_1 = new Region("eu-central-1", "EUC1", "EU (Frankfurt)");
     public static final Region EU_WEST_2 = new Region("eu-west-2", "EUW2", "EU (London)");
+    public static final Region EU_WEST_2_WL1_LON1 = new Region("eu-west-2-wl1-lon-wlz-1", "EUW2WL1LON1", "EU West (Vodafone) - London");
     public static final Region EU_WEST_3 = new Region("eu-west-3", "EUW3", "EU (Paris)");
     public static final Region EU_NORTH_1 = new Region("eu-north-1", "EUN1", "EU (Stockholm)");
     public static final Region EU_SOUTH_1 = new Region("eu-south-1", "EUS1", "EU (Milan)");
