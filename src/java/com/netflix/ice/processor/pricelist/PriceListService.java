@@ -392,7 +392,9 @@ public class PriceListService {
 		ToLocationType("To Location Type"), // EC2 only
 		UsageType("usageType"),
 		Operation("operation"),
+		AvailabilityZone, // EC2 only
 		CapacityStatus, // EC2 only
+		ClassicNetworkingSupport, // EC2 only
 		ConcurrencyScalingFreeUsage, // Redshift only
 		DedicatedEbsThroughput("Dedicated EBS Throughput"), // EC2 and RDS only
 		ECU, // EC2 and Redshift only
@@ -424,6 +426,7 @@ public class PriceListService {
 		IntelAvxAvailable("Intel AVX Available"),
 		IntelAvx2Available("Intel AVX2 Available"),
 		IntelTurboAvailable("Intel Turbo Available"),
+		MarketOption,
 		
 		NormalizationSizeFactor("Normalization Size Factor"), // EC2 and RDS only
 		PhysicalCores("Physical Cores"), // EC2 only
@@ -433,6 +436,7 @@ public class PriceListService {
 		ResourceType("Resource Type"), // EC2 only
 		ServiceName("serviceName"),
 		VolumeApiName("Volume API Name"), // EC2 only
+		VPCNetworkingSupport, // EC2 only
 		UsageFamily("Usage Family"), // Redshift only
 		
 		// Old EC2 columns
@@ -563,7 +567,7 @@ public class PriceListService {
     		prices.setProduct(key, product);
     	}
     	else if (!product.sku.equals(sku)) {
-    		logger.error("Pricelist product has two SKUs with same product key: " + product.sku + ", " + sku + ". Existing product: " + product + ", Ignored conflicting product: " + items);
+    		logger.error("Pricelist product has two SKUs with same product key: " + product.sku + ", " + sku + ". Existing product: " + product + ", Ignored conflicting product: " + String.join(",", items));
     		product = null;
     	}
     	return product;

@@ -46,19 +46,31 @@ public class Region extends Tag {
 	};	
 	
 	public static final Region US_EAST_1 = new Region("us-east-1", "USE1", "US East (N. Virginia)");
-	public static final Region US_EAST_1_BOS_1 = new Region("us-east-1-bos-1", "BOS1", "US East (Boston)");
-	public static final Region US_EAST_1_IAH_1 = new Region("us-east-1-iah-1", "IAH1", "US East (Houston)");
-	public static final Region US_EAST_1_MIA_1 = new Region("us-east-1-mia-1", "MIA1", "US East (Miami)");
+    public static final Region US_EAST_1_ATL_1 = new Region("us-east-1-atl-1", "ATL1", "US East (Atlanta)");
+    public static final Region US_EAST_1_BOS_1 = new Region("us-east-1-bos-1", "BOS1", "US East (Boston)");
+    public static final Region US_EAST_1_CHI_1 = new Region("us-east-1-chi-1", "CHI1", "US East (Chicago)");
+    public static final Region US_EAST_1_DFW1 = new Region("us-east-1-dfw-1", "DFW1", "US East (Dallas)");
+    public static final Region US_EAST_1_IAH_1 = new Region("us-east-1-iah-1", "IAH1", "US East (Houston)");
+    public static final Region US_EAST_1_MCI_1 = new Region("us-east-1-mci-1", "MCI1", "US East (Kansas City)");
+    public static final Region US_EAST_1_MIA_1 = new Region("us-east-1-mia-1", "MIA1", "US East (Miami)");
+    public static final Region US_EAST_1_MSP_1 = new Region("us-east-1-msp-1", "MSP1", "US East (Minneapolis)");
+    public static final Region US_EAST_1_NYC_1 = new Region("us-east-1-nyc-1", "NYC1", "US East (New York)");
+    public static final Region US_EAST_1_PHL1 = new Region("us-east-1-phl-1", "PHL1", "US East (Philadelphia)");
 	public static final Region US_EAST_1_WL1_BOS1 = new Region("us-east-1-wl1-bos-wlz-1", "USE1WL1", "US East (Verizon) - Boston");
 	public static final Region US_EAST_1_WL1_ATL1 = new Region("us-east-1-wl1-atl-wlz-1", "USE1WL1ATL1", "US East (Verizon) - Atlanta");
 	public static final Region US_EAST_1_WL1_BWAS1 = new Region("us-east-1-wl1-was-wlz-1", "USE1WL1BWAS1", "US East (Verizon) - Washington DC");
 	public static final Region US_EAST_1_WL1_NYC1 = new Region("us-east-1-wl1-nyc-wlz-1", "USE1WL1NYC1", "US East (Verizon) - New York");
 	public static final Region US_EAST_1_WL1_DFW1 = new Region("us-east-1-wl1-dfw-wlz-1", "USE1WL1DFW1", "US East (Verizon) - Dallas");
-	public static final Region US_EAST_1_WL1_MIA1 = new Region("us-east-1-wl1-mia-wlz-1", "USE1WL1MIA1", "US East (Verizon) - Miami");
+    public static final Region US_EAST_1_WL1_MIA1 = new Region("us-east-1-wl1-mia-wlz-1", "USE1WL1MIA1", "US East (Verizon) - Miami");
     public static final Region US_EAST_2 = new Region("us-east-2", "USE2", "US East (Ohio)");
     public static final Region US_WEST_1 = new Region("us-west-1", "USW1", "US West (N. California)");
     public static final Region US_WEST_2 = new Region("us-west-2", "USW2", "US West (Oregon)");
+    public static final Region US_WEST_2_DEN_1 = new Region("us-west-2-den-1", "DEN1", "US West (Denver)");
     public static final Region US_WEST_2_LAX_1 = new Region("us-west-2-lax-1", "LAX1", "US West (Los Angeles)");
+    public static final Region US_WEST_2_LAS_1 = new Region("us-west-2-las-1", "LAS1", "US West (Los Vegas)");
+    public static final Region US_WEST_2_PHX_1 = new Region("us-west-2-phx-1", "PHX1", "US West (Phoenix)");
+    public static final Region US_WEST_2_PDX_1 = new Region("us-west-2-pdx-1", "PDX1", "US West (Portland)");
+    public static final Region US_WEST_2_SEA_1 = new Region("us-west-2-sea-1", "SEA1", "US West (Seattle)");
     public static final Region US_WEST_2_WL1_SFO1 = new Region("us-west-2-wl1-sfo-wlz-1", "USW2WL1", "US West (Verizon) - San Francisco Bay Area");
     public static final Region US_WEST_2_WL1_LAS1 = new Region("us-west-2-wl1-las-wlz-1", "USW2WL1LAS1", "US West (Verizon) - Las Vegas");
     public static final Region US_WEST_2_WL1_DEN1 = new Region("us-west-2-wl1-den-wlz-1", "USW2WL1DEN1", "US West (Verizon) - Denver");
@@ -108,8 +120,9 @@ public class Region extends Tag {
         this.shortName = shortName;
         this.priceListName = priceListName;
         
-        if (!this.shortName.isEmpty())
-        	regionsByShortName.put(this.shortName, this);
+        if (!this.shortName.isEmpty()) {
+            regionsByShortName.put(this.shortName, this);
+        }
         regionsByName.put(this.name, this);
     }
 
