@@ -212,7 +212,7 @@ public class PriceListService {
 	        
 	        if (workS3BucketName != null) {
 		        logger.info("downloading " + file + "...");
-		        AwsUtils.downloadFileIfNotExist(workS3BucketName, workS3BucketPrefix, file);
+		        AwsUtils.downloadFileIfNotExist(workS3BucketName, workS3BucketPrefix + file.getName(), file);
 	        	logger.info("downloaded " + file);
 	        }
 	
@@ -282,7 +282,7 @@ public class PriceListService {
         
         if (workS3BucketName != null) {
 	        logger.info(name + " uploading to s3...");
-	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, file);
+	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix + file.getName(), file);
 	        logger.info(name + " uploading done.");
         }
     }
@@ -296,7 +296,7 @@ public class PriceListService {
 		
 		if (workS3BucketName != null) {
 			logger.info("downloading " + file + "...");
-			AwsUtils.downloadFileIfNotExist(workS3BucketName, workS3BucketPrefix, file);
+			AwsUtils.downloadFileIfNotExist(workS3BucketName, workS3BucketPrefix + file.getName(), file);
 		}
 	
 		if (file.exists()) {
@@ -328,7 +328,7 @@ public class PriceListService {
         
         if (workS3BucketName != null) {
 	        logger.info(InstanceMetrics.dbName + " uploading to s3...");
-	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, file);
+	        AwsUtils.upload(workS3BucketName, workS3BucketPrefix + file.getName(), file);
 	        logger.info(InstanceMetrics.dbName + " uploading done.");
         }
     }

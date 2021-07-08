@@ -166,7 +166,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     
     @Override
     public boolean refresh() {
-        boolean downloaded = AwsUtils.downloadFileIfChanged(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        boolean downloaded = AwsUtils.downloadFileIfChanged(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         if (downloaded || tagGroups == null) {
 	        logger.info("trying to read from " + file);
 	        InputStream is = null;

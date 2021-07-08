@@ -77,7 +77,7 @@ public class InstanceMetricsService implements DataCache {
 
     private boolean downloadFile(File file) {
         try {
-            return AwsUtils.downloadFileIfChanged(workS3BucketName, workS3BucketPrefix, file);
+            return AwsUtils.downloadFileIfChanged(workS3BucketName, workS3BucketPrefix + file.getName(), file);
         }
         catch (Exception e) {
             logger.error("error downloading " + file + " from " + workS3BucketName + "/" + workS3BucketPrefix + file.getName(), e);

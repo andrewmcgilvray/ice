@@ -52,7 +52,7 @@ public class TagGroupWriter {
         String filename = dbName + (compress ? compressExtension : "");
         file = new File(workBucketConfig.localDir, filename);
         logger.info("creating TagGroupWriter for " + file);
-        AwsUtils.downloadFileIfNotExist(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.downloadFileIfNotExist(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
 
         if (file.exists()) {
         	InputStream is = new FileInputStream(file);
@@ -88,7 +88,7 @@ public class TagGroupWriter {
         }
         
         logger.info(dbName + " uploading to s3...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         logger.info(dbName + " uploading done.");
     }
     

@@ -170,7 +170,7 @@ abstract public class DataFileCache<T> implements DataCache {
 
     protected synchronized boolean downloadFile(File file) {
         try {
-            return AwsUtils.downloadFileIfChanged(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+            return AwsUtils.downloadFileIfChanged(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         }
         catch (AmazonServiceException ase) {
         	if (ase.getStatusCode() == 404) {

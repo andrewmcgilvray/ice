@@ -649,7 +649,7 @@ public class BasicManagers extends Poller implements Managers {
         File file = new File(config.workBucketConfig.localDir, prefix + AwsUtils.monthDateFormat.print(monthDateTime) + ".csv");
         
         try {
-            AwsUtils.downloadFileIfChanged(config.workBucketConfig.workS3BucketName, config.workBucketConfig.workS3BucketPrefix, file);
+            AwsUtils.downloadFileIfChanged(config.workBucketConfig.workS3BucketName, config.workBucketConfig.workS3BucketPrefix + file.getName(), file);
         }
         catch (Exception e) {
             logger.error("error downloading " + file, e);

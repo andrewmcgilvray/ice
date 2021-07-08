@@ -826,7 +826,7 @@ public class CostAndUsageData {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         logger.info("uploaded " + file);
     }
  
@@ -851,7 +851,7 @@ public class CostAndUsageData {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         logger.info("uploaded " + file);
     }
     
@@ -876,7 +876,7 @@ public class CostAndUsageData {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         logger.info("uploaded " + file);
     }
     

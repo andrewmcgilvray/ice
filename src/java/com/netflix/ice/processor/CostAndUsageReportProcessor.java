@@ -191,12 +191,10 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 				if (aborting)
 					return null;
 				
-				String prefix = fileKey.substring(0, fileKey.lastIndexOf("/") + 1);
-				String filename = fileKey.substring(prefix.length());
+				String filename = fileKey.substring(fileKey.lastIndexOf("/") + 1);
 		        File file = new File(localDir, filename);
 		        S3BucketConfig bc = report.getS3BucketConfig();
-		        String fileKey = report.getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName();
-		        
+
 		        try {
 			        
 			        // We delete files now once processed, so if it already exists it's probably not complete, so delete it
@@ -214,7 +212,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 			        	retryCount++;
 				        
 				        try {
-				        	downloaded = AwsUtils.downloadFileIfChangedSince(report.getS3ObjectSummary().getBucketName(), bc.getRegion(), prefix, file, lastProcessed,
+				        	downloaded = AwsUtils.downloadFileIfChangedSince(report.getS3ObjectSummary().getBucketName(), bc.getRegion(), fileKey, file, lastProcessed,
 				                bc.getAccountId(), bc.getAccessRole(), bc.getExternalId());
 				        }
 				        catch (com.amazonaws.SdkClientException e) {

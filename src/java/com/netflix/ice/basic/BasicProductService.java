@@ -272,7 +272,7 @@ public class BasicProductService implements ProductService {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(bucket, prefix, file);
+        AwsUtils.upload(bucket, prefix + file.getName(), file);
         logger.info("uploaded " + file);
     }
 
@@ -289,7 +289,7 @@ public class BasicProductService implements ProductService {
     public void updateReader(String localDir, String bucket, String prefix) {
         File file = new File(localDir, productsFileName);
     	
-        boolean downloaded = AwsUtils.downloadFileIfChanged(bucket, prefix, file);
+        boolean downloaded = AwsUtils.downloadFileIfChanged(bucket, prefix + file.getName(), file);
         if (downloaded) {
         	logger.info("downloaded " + file);
         	load(file);
@@ -301,7 +301,7 @@ public class BasicProductService implements ProductService {
     	
         boolean downloaded = false;
         try {
-        	downloaded = AwsUtils.downloadFileIfChanged(bucket, prefix, file);
+        	downloaded = AwsUtils.downloadFileIfChanged(bucket, prefix + file.getName(), file);
         }
         catch (AmazonS3Exception e) {
             if (e.getStatusCode() != 404)
