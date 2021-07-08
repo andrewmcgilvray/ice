@@ -184,6 +184,10 @@ public class InstancePrices implements Comparable<InstancePrices> {
         			return null;
         		}
     			break;
+			case AmazonElastiCache:
+				if (usageTypeStr.contains("Outpost-"))
+					return null;
+				break;
     		default:
     			break;
     	}
