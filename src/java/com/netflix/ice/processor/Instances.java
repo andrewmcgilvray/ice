@@ -115,7 +115,7 @@ public class Instances {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(workS3BucketName, workS3BucketPrefix, file);
+        AwsUtils.upload(workS3BucketName, workS3BucketPrefix + file.getName(), file);
         logger.info("uploaded " + file);
     }
     
@@ -135,7 +135,7 @@ public class Instances {
         boolean downloaded = false;
         
         try {
-            downloaded = AwsUtils.downloadFileIfChanged(workS3BucketName, workS3BucketPrefix, file);
+            downloaded = AwsUtils.downloadFileIfChanged(workS3BucketName, workS3BucketPrefix + file.getName(), file);
         }
 		catch(AmazonS3Exception e) {
 			if (e.getStatusCode() == 404)

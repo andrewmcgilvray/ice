@@ -50,7 +50,7 @@ public class MapDb {
             AmazonS3Client s3Client = AwsUtils.getAmazonS3Client();
             for (S3ObjectSummary s3ObjectSummary: s3Client.listObjects(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + this.dbName).getObjectSummaries()) {
                 File dbFile = new File(workBucketConfig.localDir, s3ObjectSummary.getKey().substring(workBucketConfig.workS3BucketPrefix.length()));
-                AwsUtils.downloadFileIfNotExist(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, dbFile);
+                AwsUtils.downloadFileIfNotExist(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + dbFile.getName(), dbFile);
             }
         }
         this.db = DBMaker.newFileDB(new File(workBucketConfig.localDir, this.dbName)).make();

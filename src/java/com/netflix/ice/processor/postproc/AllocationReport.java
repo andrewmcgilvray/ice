@@ -581,7 +581,7 @@ public class AllocationReport extends Report {
         
         // archive to s3
         logger.info("uploading " + filename + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         logger.info("uploaded " + filename);
 	}
 	
@@ -629,15 +629,14 @@ public class AllocationReport extends Report {
 
 	private File download(String localDir) {
         String fileKey = getS3ObjectSummary().getKey();
-		String prefix = fileKey.substring(0, fileKey.lastIndexOf("/") + 1);
-		String filename = fileKey.substring(prefix.length());
+		String filename = fileKey.substring(fileKey.lastIndexOf("/") + 1);
         File file = new File(localDir, filename);
 
         if (getS3ObjectSummary().getLastModified().getTime() > file.lastModified()) {
-	        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + prefix + file.getName() + 
+	        logger.info("trying to download " + getS3ObjectSummary().getBucketName() + "/" + fileKey +
 	        		" from account " + s3BucketConfig.getAccountId() + " using role " + s3BucketConfig.getAccessRole() + 
 	        		(StringUtils.isEmpty(s3BucketConfig.getExternalId()) ? "" : " with exID: " + s3BucketConfig.getExternalId()) + "...");
-	        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), s3BucketConfig.getRegion(), prefix, file, file.lastModified(),
+	        boolean downloaded = AwsUtils.downloadFileIfChangedSince(getS3ObjectSummary().getBucketName(), s3BucketConfig.getRegion(), fileKey, file, file.lastModified(),
 	        		s3BucketConfig.getAccountId(), s3BucketConfig.getAccessRole(), s3BucketConfig.getExternalId());
 	        if (downloaded)
 	            logger.info("downloaded " + fileKey);

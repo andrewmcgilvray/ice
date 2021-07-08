@@ -100,12 +100,6 @@ public class ProcessorConfig extends Config {
     private static final String postProcBasename = "ice_postproc";
     private static final String debugCacheAccounts = "cacheAccounts";
 
-    /**
-     *
-     * @param properties (required)
-     * @param productService (required)
-     * @param reservationService (required)
-     */
     public ProcessorConfig(
             Properties properties,
             AWSCredentialsProvider credentialsProvider,
@@ -315,7 +309,7 @@ public class ProcessorConfig extends Config {
     	writer.close();
     	
     	logger.info("Upload work bucket data config file");
-    	AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+    	AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
     }
     
     /**
@@ -541,9 +535,9 @@ public class ProcessorConfig extends Config {
     	}
     	
     	String fileKey = configFiles.get(0).getKey();
-        File file = new File(workBucketConfig.localDir, fileKey.substring(prefix.length()));
+        File file = new File(workBucketConfig.localDir, fileKey.substring(fileKey.lastIndexOf("/") + 1));
         // Always download - specify 0 for time since.
-		boolean downloaded = AwsUtils.downloadFileIfChangedSince(bb.getName(), bb.getRegion(), prefix, file, 0, bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
+		boolean downloaded = AwsUtils.downloadFileIfChangedSince(bb.getName(), bb.getRegion(), fileKey, file, 0, bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
     	if (downloaded) {
         	String body;
 			try {

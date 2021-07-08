@@ -37,7 +37,7 @@ public class DataWriter extends DataFile {
         if (!load)
         	return;
         
-        AwsUtils.downloadFileIfNotExist(config.workS3BucketName, config.workS3BucketPrefix, file);
+        AwsUtils.downloadFileIfNotExist(config.workS3BucketName, config.workS3BucketPrefix + file.getName(), file);
 
         if (file.exists()) {
         	InputStream is = new FileInputStream(file);

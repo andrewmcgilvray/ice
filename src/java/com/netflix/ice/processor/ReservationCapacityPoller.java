@@ -427,7 +427,7 @@ public class ReservationCapacityPoller extends Poller {
         // read from s3 if not exists
         if (!file.exists()) {
             logger.info("downloading " + file + "...");
-            AwsUtils.downloadFileIfNotExist(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+            AwsUtils.downloadFileIfNotExist(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
             logger.info("downloaded " + file);
         }
         
@@ -495,7 +495,7 @@ public class ReservationCapacityPoller extends Poller {
 
         // archive to s3
         logger.info("uploading " + file + "...");
-        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+        AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
         logger.info("uploaded " + file);
     }
 

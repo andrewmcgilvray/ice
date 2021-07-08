@@ -97,7 +97,7 @@ public class ReportWriter {
     	S3BucketConfig s3 = config.getS3Bucket();
     	String prefix = (s3.getPrefix() == null ? "" : s3.getPrefix()) + reportSubPrefix;
         logger.info(prefix + filename + " uploading to s3...");
-        AwsUtils.upload(s3.getName(), s3.getRegion(), prefix, file, s3.getAccountId(), s3.getAccessRole(), s3.getExternalId());
+        AwsUtils.upload(s3.getName(), s3.getRegion(), prefix + filename, file, s3.getAccountId(), s3.getAccessRole(), s3.getExternalId());
         logger.info(prefix + filename + " uploading done.");    	
 
     }
