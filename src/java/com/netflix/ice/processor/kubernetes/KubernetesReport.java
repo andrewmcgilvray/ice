@@ -348,11 +348,19 @@ public class KubernetesReport extends Report {
 		// the scope to use for breaking out the cost.
 		// Each scope duplicates the data set, so we only want to process one.
 		if (type != Type.None && type != typeToProcess)
-			return startMillis;		
+			return startMillis;
+
+		String startDateStr = item[reportIndeces.get(KubernetesColumn.StartDate)];
+		String endDateStr = item[reportIndeces.get(KubernetesColumn.EndDate)];
+
+		if (startDateStr.isEmpty() || endDateStr.isEmpty()) {
+			logger.error("Empty start or end date string in kubernetes report record: " + item);
+			return startMillis;
+		}
 		
-		DateTime startDate = new DateTime(item[reportIndeces.get(KubernetesColumn.StartDate)], DateTimeZone.UTC);
+		DateTime startDate = new DateTime(startDateStr, DateTimeZone.UTC);
 		long millisStart = startDate.getMillis();
-		DateTime endDate = new DateTime(item[reportIndeces.get(KubernetesColumn.EndDate)], DateTimeZone.UTC);
+		DateTime endDate = new DateTime(endDateStr, DateTimeZone.UTC);
 		long millisEnd = endDate.getMillis();
         int startIndex = (int)((millisStart - startMillis)/ AwsUtils.hourMillis);
         int endIndex = (int)((millisEnd + 1000 - startMillis)/ AwsUtils.hourMillis);
