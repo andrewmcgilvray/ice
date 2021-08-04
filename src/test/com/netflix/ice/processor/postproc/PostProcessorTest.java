@@ -119,7 +119,7 @@ public class PostProcessorTest {
         List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
 
         List<ProcessorConfig.JsonFileType> jsonFiles = Lists.newArrayList();
-        PostProcessor pp = new PostProcessor(null, rules, "", as, ps, rs, null, jsonFiles,0);
+        PostProcessor pp = new PostProcessor(null, rules, "", as, ps, rs, null, jsonFiles, false,0);
         pp.aggregateSummaryData(ds, daily, monthly);
         
         assertEquals("wrong number of monthly entries", 1, monthly.size());

@@ -479,7 +479,7 @@ public class VariableRuleProcessorTest {
 		CostAndUsageData data = new CostAndUsageData(null, new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		List<ProcessorConfig.JsonFileType> jsonFiles = Lists.newArrayList();
-		PostProcessor pp = new PostProcessor(null, null, "", as, ps, rs, null, jsonFiles,0);
+		PostProcessor pp = new PostProcessor(null, null, "", as, ps, rs, null, jsonFiles, false,0);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 

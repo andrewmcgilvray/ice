@@ -200,7 +200,12 @@ public class IceOptions {
      * write JSON data files for ingest into services such as ElasticSearch
      */
     public static final String WRITE_JSON_FILES = "ice.writeJsonFiles";
-    
+
+    /**
+     * write JSON data files for ingest into services such as ElasticSearch
+     */
+    public static final String WRITE_PARQUET_FILES = "ice.writeParquetFiles";
+
     /**
      * enable tag coverage metrics: none, basic, withUserTags
      */

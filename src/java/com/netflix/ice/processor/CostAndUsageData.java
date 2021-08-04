@@ -380,12 +380,12 @@ public class CostAndUsageData {
     	}
     }
 
-    public void archive(List<JsonFileType> jsonFiles, int numThreads) throws Exception {
-    	archive(jsonFiles, null, null, numThreads, false);
+    public void archive(List<JsonFileType> jsonFiles, boolean parquetFiles, int numThreads) throws Exception {
+    	archive(jsonFiles, parquetFiles, null, null, numThreads, false);
 	}
 
     // If archiveHourlyData is false, only archive hourly data used for reservations and savings plans
-    public void archive(List<JsonFileType> jsonFiles, InstanceMetrics instanceMetrics,
+    public void archive(List<JsonFileType> jsonFiles, boolean parquetFiles, InstanceMetrics instanceMetrics,
     		PriceListService priceListService, int numThreads, boolean archiveHourlyData) throws Exception {
     	
     	archiveFailures = Lists.newArrayList();
@@ -400,6 +400,10 @@ public class CostAndUsageData {
 				continue;
 			}
 			futures.add(archiveJson(jft, instanceMetrics, priceListService, pool));
+		}
+
+    	if (parquetFiles) {
+    		futures.add(archiveParquet(pool));
 		}
     	
         for (Product product: dataByProduct.keySet()) {
@@ -498,6 +502,26 @@ public class CostAndUsageData {
     		}
     	});        
     }
+
+    private Future<Status> archiveParquet(final ExecutorService pool) {
+    	return pool.submit(new Callable<Status>() {
+			@Override
+			public Status call () {
+				logger.info("archiving Parquet data...");
+				DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
+				String filename = "all_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".parquet";
+				try {
+					DataParquetWriter writer = new DataParquetWriter(filename, userTagKeys, dataByProduct, workBucketConfig);
+					writer.archive();
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+					return new Status(filename, e);
+				}
+				return new Status(filename);
+			}
+		});
+	}
     
     private Future<Status> archiveTagGroups(final long startMilli, final Product product, final Collection<TagGroup> tagGroups, ExecutorService pool) {
     	return pool.submit(new Callable<Status>() {

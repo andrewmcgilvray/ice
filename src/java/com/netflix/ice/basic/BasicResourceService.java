@@ -86,7 +86,7 @@ public class BasicResourceService extends ResourceService {
     
     private static final String USER_TAG_PREFIX = "user:";
     private static final String AWS_TAG_PREFIX = "aws:";
-    private static final String reservationIdsKeyName = "RI/SP ID";
+    private static final String reservationIdsKeyName = "RI_SP_ID";
 
     public BasicResourceService(ProductService productService, String[] customTags, boolean includeReservationIds) {
 		super();

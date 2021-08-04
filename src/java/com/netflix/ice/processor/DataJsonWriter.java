@@ -61,10 +61,9 @@ public class DataJsonWriter extends DataFile {
     
 	private final DateTime monthDateTime;
 	protected OutputStreamWriter writer;
-	private List<UserTagKey> tagKeys;
+	private final List<UserTagKey> tagKeys;
 	private JsonFileType fileType;
     private final Map<Product, DataSerializer> dataByProduct;
-    protected boolean addNormalizedRates;
     protected InstanceMetrics instanceMetrics;
     protected InstancePrices ec2Prices;
     protected InstancePrices rdsPrices;

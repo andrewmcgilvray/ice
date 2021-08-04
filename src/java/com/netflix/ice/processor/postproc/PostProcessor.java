@@ -63,6 +63,7 @@ public class PostProcessor {
 	private ResourceService resourceService;
 	private WorkBucketConfig workBucketConfig;
 	List<ProcessorConfig.JsonFileType> jsonFiles;
+	private boolean parquetFiles;
 	private int numThreads;
 	private ExecutorService pool;
 
@@ -71,7 +72,7 @@ public class PostProcessor {
 	public PostProcessor(DateTime startDate, List<RuleConfig> rules, String reportSubPrefix,
 						 AccountService accountService, ProductService productService,
 						 ResourceService resourceService, WorkBucketConfig workBucketConfig,
-						 List<ProcessorConfig.JsonFileType> jsonFiles, int numThreads) {
+						 List<ProcessorConfig.JsonFileType> jsonFiles, boolean parquetFiles, int numThreads) {
 		this.startDate = startDate;
 		this.rules = rules;
 		this.reportSubPrefix = reportSubPrefix;
@@ -81,6 +82,7 @@ public class PostProcessor {
 		this.workBucketConfig = workBucketConfig;
 		this.jsonFiles = Lists.newArrayList(jsonFiles);
 		this.jsonFiles.remove(ProcessorConfig.JsonFileType.hourlyRI); // Don't generate hourlyRI for allocation reports
+		this.parquetFiles = parquetFiles;
 		this.numThreads = numThreads;
 		this.pool = null; // lazy initialize
 	}
@@ -190,7 +192,7 @@ public class PostProcessor {
 					// Normalize the cost and usage data for use by a work bucket
 					outData.normalize();
 
-					outData.archive(jsonFiles, numThreads);
+					outData.archive(jsonFiles, parquetFiles, numThreads);
 					// Create work bucket data config for the report data
 					String monthStr = startDate.toString(yearMonth);
 					saveWorkBucketDataConfig(monthStr, outData.getUserTagKeys(), reportWorkBucketConfig);

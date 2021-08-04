@@ -237,7 +237,7 @@ public class BillingFileProcessor extends Poller {
         try {
             PostProcessor pp = new PostProcessor(config.startDate, config.postProcessorRules, config.reportSubPrefix,
                     config.accountService, config.productService, config.resourceService, config.workBucketConfig,
-                    config.jsonFiles, config.numthreads);
+                    config.jsonFiles, config.parquetFiles, config.numthreads);
             pp.process(costAndUsageData);
         }
         catch (Exception e) {
@@ -252,7 +252,7 @@ public class BillingFileProcessor extends Poller {
         config.productService.archive(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
 
         logger.info("archiving results for " + month + (config.hourlyData ? " with" : " without") + " hourly data...");
-        costAndUsageData.archive(config.jsonFiles, config.priceListService.getInstanceMetrics(), config.priceListService, config.numthreads, config.hourlyData);
+        costAndUsageData.archive(config.jsonFiles, config.parquetFiles, config.priceListService.getInstanceMetrics(), config.priceListService, config.numthreads, config.hourlyData);
         
         logger.info("archiving instance data...");
         archiveInstances();
