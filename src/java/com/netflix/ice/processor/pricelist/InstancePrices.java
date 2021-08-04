@@ -169,9 +169,15 @@ public class InstancePrices implements Comparable<InstancePrices> {
             	}
             	// Skip anything related to reserved capacity if attribute is available
             	if (!StringUtils.isEmpty(capacityStatusStr)) {
-	            	CapacityStatus capacityStatus = CapacityStatus.valueOf(capacityStatusStr);
-	            	if (capacityStatus == CapacityStatus.AllocatedCapacityReservation || capacityStatus == CapacityStatus.UnusedCapacityReservation)
-	            		return null;
+            		// As of July 2021, EC2 pricelists started to contain capacity status strings with
+					// Fleet codes tacked on the end: e.g. "UnusedCapacityReservationFFP-C42T22-1"
+					// so now we just look for a prefix
+	            	//CapacityStatus capacityStatus = CapacityStatus.valueOf(capacityStatusStr);
+					//if (capacityStatus == CapacityStatus.AllocatedCapacityReservation || capacityStatus == CapacityStatus.UnusedCapacityReservation)
+					//	return null;
+					if (capacityStatusStr.startsWith(CapacityStatus.AllocatedCapacityReservation.name()) ||
+							capacityStatusStr.startsWith(CapacityStatus.UnusedCapacityReservation.name()))
+						return null;
             	}
             	
         		if (!operation.startsWith("RunInstances") ||
