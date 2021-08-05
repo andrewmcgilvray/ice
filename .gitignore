@@ -12,6 +12,7 @@ src/java/ice.properties
 src/test/resources/prices_*
 src/test/resources/ice.properties
 src/test/data
+src/test/tmp
 test.xml
 src/test/resources/private
 out
