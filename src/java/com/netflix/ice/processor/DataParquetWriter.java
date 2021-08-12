@@ -1,6 +1,7 @@
 package com.netflix.ice.processor;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.WorkBucketConfig;
@@ -19,6 +20,7 @@ import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,20 +34,19 @@ import java.util.Map;
 public class DataParquetWriter {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
-    private ParquetWriterWrapper writer;
+    private final DateTime monthDateTime;
     private final List<UserTagKey> tagKeys;
     private final Map<Product, DataSerializer> dataByProduct;
-    private final File file;
     private final WorkBucketConfig config;
     private final MessageType schema;
 
-    public DataParquetWriter(String name, List<UserTagKey> tagKeys,
+    public DataParquetWriter(DateTime monthDateTime, List<UserTagKey> tagKeys,
                              Map<Product, DataSerializer> dataByProduct,
                              WorkBucketConfig workBucketConfig) {
+        this.monthDateTime = monthDateTime;
         this.tagKeys = tagKeys;
         this.dataByProduct = dataByProduct;
         this.config = workBucketConfig;
-        this.file = new File(config.localDir, name);
 
         // Build the Schema
         StringBuilder sb = new StringBuilder(1024);
@@ -83,20 +84,18 @@ public class DataParquetWriter {
         this.schema = MessageTypeParser.parseMessageType(sb.toString());
     }
 
-    static class ParquetWriterWrapper implements Closeable {
+    class ParquetWriterWrapper implements Closeable {
         private final ParquetWriter<Group> parquetWriter;
 
-        public ParquetWriterWrapper(
-                final Path file,
-                final WriteSupport<Group> writeSupport,
-                final CompressionCodecName codecName,
-                final Configuration conf
-        ) throws IOException {
+        public ParquetWriterWrapper(final Path file) throws IOException {
+            GroupWriteSupport writeSupport = new GroupWriteSupport();
+            Configuration conf = new Configuration();
+            GroupWriteSupport.setSchema(schema, conf);
             parquetWriter = new ParquetWriter<Group>(
                     file,
                     ParquetFileWriter.Mode.OVERWRITE,
                     writeSupport,
-                    codecName,
+                    ParquetWriter.DEFAULT_COMPRESSION_CODEC_NAME,
                     ParquetWriter.DEFAULT_BLOCK_SIZE,
                     ParquetWriter.DEFAULT_PAGE_SIZE,
                     ParquetWriter.DEFAULT_PAGE_SIZE,
@@ -128,7 +127,6 @@ public class DataParquetWriter {
         }
 
         public void write(Group group) throws IOException {
-            //logger.info("Write group: " + group.toString());
             parquetWriter.write(group);
         }
 
@@ -139,49 +137,70 @@ public class DataParquetWriter {
     }
 
     public void archive() throws IOException {
-        Configuration conf = new Configuration();
-        GroupWriteSupport writeSupport = new GroupWriteSupport();
-        GroupWriteSupport.setSchema(schema, conf);
-        writer = new ParquetWriterWrapper(new Path(file.getPath()), writeSupport,
-                ParquetWriter.DEFAULT_COMPRESSION_CODEC_NAME,
-                conf);
+        String yearAndMonth = AwsUtils.monthDateFormat.print(monthDateTime);
+        String suffix =  yearAndMonth + ".parquet";
+        File dailyFile = new File(config.localDir, "daily_" + suffix);
+        File monthlyFile = new File(config.localDir, "monthly_" + suffix);
+        write(dailyFile, monthlyFile);
 
-        write();
-
-        writer.close();
         if (config.workS3BucketName != null) {
-            logger.info(file.getName() + " uploading to s3...");
-            AwsUtils.upload(config.workS3BucketName, config.workS3BucketPrefix + file.getName(), file);
-            logger.info(file.getName() + " uploading done.");
+            String[] ym = yearAndMonth.split("-");
+            String dailyKey = "daily_parquet/" + ym[0] + "/" + ym[1] + "/" + dailyFile.getName();
+            String monthlyKey = "monthly_parquet/" + ym[0] + "/" + ym[1] + "/" + monthlyFile.getName();
+
+            upload(dailyKey, dailyFile);
+            upload(monthlyKey, monthlyFile);
         }
     }
 
-    protected void write() throws IOException {
+    private void upload(String key, File file) {
+        logger.info(file.getName() + " uploading to s3...");
+        AwsUtils.upload(config.workS3BucketName, config.workS3BucketPrefix + key, file);
+        logger.info(file.getName() + " uploading done.");
+    }
+
+    protected void write(File dailyFile, File monthlyFile) throws IOException {
+        ParquetWriterWrapper dailyWriter = new ParquetWriterWrapper(new Path(dailyFile.getPath()));
+        ParquetWriterWrapper monthlyWriter = new ParquetWriterWrapper(new Path(monthlyFile.getPath()));
+
         for (Product product: dataByProduct.keySet()) {
             // Skip the "null" product map that doesn't have resource tags
             if (product == null)
                 continue;
 
-            writeDaily(dataByProduct.get(product));
+            DataSerializer data = dataByProduct.get(product);
+            Collection<TagGroup> tagGroups = data.getTagGroups();
+
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
+            List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
+
+            // Aggregate
+            for (int hour = 0; hour < data.getNum(); hour++) {
+                Map<TagGroup, DataSerializer.CostAndUsage> cauMap = data.getData(hour);
+
+                for (TagGroup tagGroup : tagGroups) {
+                    DataSerializer.CostAndUsage cau = cauMap.get(tagGroup);
+                    if (cau != null && !cau.isZero()) {
+                        addValue(daily, hour / 24, tagGroup, cau);
+                        addValue(monthly, 0, tagGroup, cau);
+                    }
+                }
+            }
+            writeData(dailyWriter, tagGroups, daily);
+            writeData(monthlyWriter, tagGroups, monthly);
         }
+        dailyWriter.close();
+        monthlyWriter.close();
     }
 
-    private void writeDaily(DataSerializer data) throws IOException {
-        List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
+    private void addValue(List<Map<TagGroup, DataSerializer.CostAndUsage>> list,
+                          int index, TagGroup tagGroup, DataSerializer.CostAndUsage v) {
+        Map<TagGroup, DataSerializer.CostAndUsage> map = DataSerializer.getCreateData(list, index);
+        DataSerializer.CostAndUsage existedV = map.get(tagGroup);
+        map.put(tagGroup, existedV == null ? v : existedV.add(v));
+    }
 
-        Collection<TagGroup> tagGroups = data.getTagGroups();
-
-        // Aggregate
-        for (int hour = 0; hour < data.getNum(); hour++) {
-            Map<TagGroup, DataSerializer.CostAndUsage> cauMap = data.getData(hour);
-
-            for (TagGroup tagGroup: tagGroups) {
-                DataSerializer.CostAndUsage cau = cauMap.get(tagGroup);
-                if (cau != null && !cau.isZero())
-                    addValue(daily, hour/24, tagGroup, cau);
-            }
-        }
-
+    private void writeData(ParquetWriterWrapper writer, Collection<TagGroup> tagGroups, List<Map<TagGroup, DataSerializer.CostAndUsage>> data) throws IOException {
         // Write it out
         GroupFactory groupFactory = new SimpleGroupFactory(schema);
 
@@ -224,8 +243,8 @@ public class DataParquetWriter {
             }
 
             Group daysList = record.addGroup("days").addGroup("list");
-            for (int day = 0; day < daily.size(); day++) {
-                Map<TagGroup, DataSerializer.CostAndUsage> cauMap = daily.get(day);
+            for (int day = 0; day < data.size(); day++) {
+                Map<TagGroup, DataSerializer.CostAndUsage> cauMap = data.get(day);
                 DataSerializer.CostAndUsage cau = cauMap.get(tagGroup);
 
                 if (cau == null)
@@ -235,11 +254,5 @@ public class DataParquetWriter {
             }
             writer.write(record);
         }
-    }
-
-    private void addValue(List<Map<TagGroup, DataSerializer.CostAndUsage>> list, int index, TagGroup tagGroup, DataSerializer.CostAndUsage v) {
-        Map<TagGroup, DataSerializer.CostAndUsage> map = DataSerializer.getCreateData(list, index);
-        DataSerializer.CostAndUsage existedV = map.get(tagGroup);
-        map.put(tagGroup, existedV == null ? v : existedV.add(v));
     }
 }

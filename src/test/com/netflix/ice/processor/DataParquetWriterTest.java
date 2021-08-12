@@ -106,15 +106,15 @@ public class DataParquetWriterTest {
 
         List<UserTagKey> tagKeys = Lists.newArrayList();
         tagKeys.add(UserTagKey.get("Tag1"));
-        tagKeys.add(UserTagKey.get("Tag 2"));
+        tagKeys.add(UserTagKey.get("Tag2"));
 
-        File file = new File(tmpDir, "test.parquet");
+        File file = new File(tmpDir, "daily_2017-08.parquet");
         if (file.exists())
             file.delete();
 
         WorkBucketConfig workBucketConfig = new WorkBucketConfig(null, null, null, tmpDir);
 
-        DataParquetWriter djw = new DataParquetWriter(file.getName(), tagKeys, data.dataByProduct, workBucketConfig);
+        DataParquetWriter djw = new DataParquetWriter(dt, tagKeys, data.dataByProduct, workBucketConfig);
         djw.archive();
 
         GroupReadSupport readSupport = new GroupReadSupport();

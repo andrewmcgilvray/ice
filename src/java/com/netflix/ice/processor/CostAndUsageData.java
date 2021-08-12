@@ -509,9 +509,9 @@ public class CostAndUsageData {
 			public Status call () {
 				logger.info("archiving Parquet data...");
 				DateTime monthDateTime = new DateTime(startMilli, DateTimeZone.UTC);
-				String filename = "all_" + AwsUtils.monthDateFormat.print(monthDateTime) + ".parquet";
+				String filename = AwsUtils.monthDateFormat.print(monthDateTime) + ".parquet";
 				try {
-					DataParquetWriter writer = new DataParquetWriter(filename, userTagKeys, dataByProduct, workBucketConfig);
+					DataParquetWriter writer = new DataParquetWriter(monthDateTime, userTagKeys, dataByProduct, workBucketConfig);
 					writer.archive();
 				}
 				catch (Exception e) {
