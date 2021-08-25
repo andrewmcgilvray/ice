@@ -41,7 +41,9 @@ public abstract class RuleProcessor {
 	
 	/**
 	 * Aggregate the data using the regex groups contained in the input filters
-	 * @throws Exception 
+	 * If not grouping by usageType, zero out all usage data as it doesn't make sense to mix usage units
+	 * or provide usage data without also providing the units.
+	 * @throws Exception
 	 */
 	public Map<AggregationTagGroup, CostAndUsage[]> runQuery(Query query, CostAndUsageData data,
 			boolean isNonResource, int maxHours, String ruleName) throws Exception {
@@ -59,8 +61,8 @@ public abstract class RuleProcessor {
 			CostAndUsage[] values = new CostAndUsage[query.isMonthly() ? 1 : maxHours];
 			for (int i = 0; i < values.length; i++)
 				values[i] = new CostAndUsage();
-			getData(inData, tg, values, query.isMonthly());
 			AggregationTagGroup aggregatedTagGroup = query.aggregateTagGroup(tg, accountService, productService);
+			getData(inData, tg, values, query.isMonthly(), aggregatedTagGroup.getUsageType() != null);
 			valuesMap.put(aggregatedTagGroup, values);
 		}
 		else {
@@ -81,7 +83,7 @@ public abstract class RuleProcessor {
 							values[i] = new CostAndUsage();
 						valuesMap.put(aggregatedTagGroup, values);
 					}
-					getData(inData, tg, values, query.isMonthly());
+					getData(inData, tg, values, query.isMonthly(), aggregatedTagGroup.getUsageType() != null);
 				}
 			}
 		}
@@ -92,10 +94,15 @@ public abstract class RuleProcessor {
 		return valuesMap;
 	}
 
-	private void getData(DataSerializer data, TagGroup tg, CostAndUsage[] values, boolean isMonthly) {
+	private void getData(DataSerializer data, TagGroup tg, CostAndUsage[] values, boolean isMonthly, boolean hasUsageType) {
 		for (int hour = 0; hour < data.getNum(); hour++) {
 			int index = isMonthly ? 0 : hour;
-			values[index] = values[index].add(data.get(hour, tg));
+			CostAndUsage cau = data.get(hour, tg);
+			if (cau == null)
+				continue;
+
+			// Only aggregate usage if we're grouping by usage type
+			values[index] = values[index].add(cau.cost, hasUsageType ? cau.usage : 0.0);
 		}
 	}
 	
