@@ -135,12 +135,12 @@ public class CostAndUsageLineItemProcessorTest {
     }
     
     public CostAndUsageReportLineItemProcessor newLineItemProcessor(LineItem lineItem, Reservation reservation) {
-        BasicReservationService reservationService = new BasicReservationService(ReservationPeriod.oneyear, PurchaseOption.PartialUpfront);
-        if (reservation != null)
-            reservationService.injectReservation(reservation);
-        
-        resourceService.initHeader(lineItem.getResourceTagsHeader(), account1);
-        return new CostAndUsageReportLineItemProcessor(accountService, productService, reservationService, resourceService);
+		BasicReservationService reservationService = new BasicReservationService(ReservationPeriod.oneyear, PurchaseOption.PartialUpfront);
+		if (reservation != null)
+			reservationService.injectReservation(reservation);
+    	
+    	resourceService.initHeader(lineItem.getResourceTagsHeader(), account1);
+    	return new CostAndUsageReportLineItemProcessor(accountService, productService, reservationService, resourceService, false);
     }
     
     private ReformedMetaData testReform(Line line, PurchaseOption purchaseOption) throws IOException {
@@ -151,7 +151,7 @@ public class CostAndUsageLineItemProcessorTest {
     
     @Test
     public void testGetRegion() throws IOException {
-        CostAndUsageReportLineItemProcessor lineItemProcessor = new CostAndUsageReportLineItemProcessor(accountService, productService, null, resourceService);
+        CostAndUsageReportLineItemProcessor lineItemProcessor = new CostAndUsageReportLineItemProcessor(accountService, productService, null, resourceService, false);
         LineItem lineItem = newCurLineItem(manifest2017, null);
 
         // Test case where region is in usage-type prefix

@@ -124,6 +124,10 @@ public class ReportWriter {
     		for (TagGroup tg: hourData.keySet()) {
     			DataSerializer.CostAndUsage cau = hourData.get(tg);
 
+    			// Don't output zero values if only writing cost or usage
+				if ((!hasUsage && cau.cost == 0.0) || (!hasCost && cau.usage == 0.0))
+					continue;
+    			
     			List<String> cols = Lists.newArrayListWithCapacity(header.size());
     			cols.add(dateString); // StartDate
     			

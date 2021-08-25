@@ -73,18 +73,22 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
 
     protected ResourceService resourceService;
     protected final int numUserTags;
-    
-    public CostAndUsageReportLineItemProcessor(
-            AccountService accountService,
-            ProductService productService,
-            ReservationService reservationService,
-            ResourceService resourceService) {
-        this.accountService = accountService;
-        this.productService = productService;
-        this.reservationService = reservationService;
-        this.resourceService = resourceService;
-        this.numUserTags = resourceService == null ? 0 : resourceService.getCustomTags().size();
-    }
+
+    protected final boolean includeZeroCostUsage;
+	
+	public CostAndUsageReportLineItemProcessor(
+			AccountService accountService,
+			ProductService productService,
+			ReservationService reservationService,
+			ResourceService resourceService,
+			boolean includeZeroCostUsage) {
+    	this.accountService = accountService;
+    	this.productService = productService;
+    	this.reservationService = reservationService;
+    	this.resourceService = resourceService;
+    	this.numUserTags = resourceService == null ? 0 : resourceService.getCustomTags().size();
+    	this.includeZeroCostUsage = includeZeroCostUsage;
+	}
    
     protected boolean ignore(String fileName, DateTime reportStart, DateTime reportModTime, String root, Interval usageInterval, LineItem lineItem) {        
         // Ignore the following line item types
@@ -708,6 +712,10 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
             break;
                 
         }
+
+        if (!includeZeroCostUsage && costValue == 0.0) {
+			return Result.ignore;
+		}
         
         Result result = Result.hourly;
         if (tg.product.isDataTransfer()) {
