@@ -78,6 +78,7 @@ public class ProcessorConfig extends Config {
     public final ReservationCapacityPoller reservationCapacityPoller;
     public final PriceListService priceListService;
     public final boolean useBlended;
+    public final boolean includeZeroCostUsage;
     public final boolean processOnce;
     public final String processorRegion;
     public final String processorInstanceId;
@@ -150,7 +151,8 @@ public class ProcessorConfig extends Config {
         	edpDiscounts.put(new DateTime(parts[0], DateTimeZone.UTC), Double.parseDouble(parts[1]) / 100);
         }
 
-        useBlended = properties.getProperty(IceOptions.USE_BLENDED) == null ? false : Boolean.parseBoolean(properties.getProperty(IceOptions.USE_BLENDED));
+        useBlended = Boolean.parseBoolean(properties.getProperty(IceOptions.USE_BLENDED));
+        includeZeroCostUsage = Boolean.parseBoolean(properties.getProperty(IceOptions.INCLUDE_ZERO_COST_USAGE));
 
         //useCostForResourceGroup = properties.getProperty(IceOptions.RESOURCE_GROUP_COST, "modeled");
         useCostForResourceGroup = properties.getProperty(IceOptions.RESOURCE_GROUP_COST, "");

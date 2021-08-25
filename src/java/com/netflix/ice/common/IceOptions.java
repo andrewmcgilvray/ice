@@ -121,6 +121,11 @@ public class IceOptions {
     public static final String USE_BLENDED = "ice.use_blended";
 
     /**
+     * Boolean Flag whether to include usage with zero cost.  Default is Include(false)
+     */
+    public static final String INCLUDE_ZERO_COST_USAGE = "ice.includeZeroCostUsage";
+
+    /**
      * s3 bucket name where output files are to be store. Both read and write permissions are needed. It must be specified in Config.
      */
     public static final String WORK_S3_BUCKET_NAME = "ice.work_s3bucketname";
