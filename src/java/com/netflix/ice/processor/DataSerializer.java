@@ -26,7 +26,7 @@ import com.netflix.ice.tag.Zone.BadZone;
 
 public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-	
+
     public static class CostAndUsage {
     	public final double cost;
     	public final double usage;
@@ -48,7 +48,7 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     	public boolean isZero() {
     		return cost == 0.0 && usage == 0.0;
     	}
-    	
+
     	public CostAndUsage add(CostAndUsage value) {
     		if (value == null || value.isZero())
     			return this;
@@ -70,9 +70,6 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     		return new CostAndUsage(cost - value.cost, usage - value.usage);
     	}
     	
-    	public CostAndUsage mul(double value) {
-    		return new CostAndUsage(cost * value, usage * value);
-    	}  	
     }
     
     
