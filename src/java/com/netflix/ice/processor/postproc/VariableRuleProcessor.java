@@ -1,13 +1,15 @@
 package com.netflix.ice.processor.postproc;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import com.amazonaws.services.dynamodbv2.xspec.M;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 
@@ -33,6 +35,7 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
+import org.aspectj.lang.annotation.Around;
 
 public class VariableRuleProcessor extends RuleProcessor {
 	private CostAndUsageData outCauData;
@@ -188,7 +191,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 			Product p = copy ? null : tagGroup.product;
 			DataSerializer data = cauData.get(p);
 		
-			if (inValues[hour] == null || inValues[hour].isZero())
+			if (inValues[hour] == null || inValues[hour].cost == 0.0)
 				continue;
 			
 			processHourData(allocationReport, data, hour, tagGroup, inValues[hour], allocatedTagGroups);
@@ -299,8 +302,98 @@ public class VariableRuleProcessor extends RuleProcessor {
 				ar = null; // No report to process
 		}
 		return ar;
-	}	
-	
+	}
+
+	static class Allocation implements Comparable<Allocation> {
+		public static int scale = 5;
+		public AllocationReport.Key key;
+		public BigDecimal allocation;
+
+		Allocation(AllocationReport.Key key, Double allocation) {
+			this.key = key;
+			this.allocation = BigDecimal.valueOf(allocation);
+		}
+
+		Allocation(AllocationReport.Key key, BigDecimal allocation) {
+			this.key = key;
+			this.allocation = allocation;
+		}
+
+		@Override
+		public String toString() {
+			return key.toString() + "=" + allocation.toString();
+		}
+
+		@Override
+		public int compareTo(Allocation o) {
+			if (this == o)
+				return 0;
+			return allocation.compareTo(o.allocation);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o)
+				return true;
+			if (!(o instanceof Allocation))
+				return false;
+			Allocation other = (Allocation)o;
+			return allocation.compareTo(other.allocation) == 0;
+		}
+	}
+
+	/**
+	 * Produce a sorted list of allocations
+	 * omitting insignificant amounts and normalizing any overallocation.
+	 */
+	protected static List<Allocation> getCleanedAllocations(Map<AllocationReport.Key, Double> hourData, CostAndUsage total) {
+		// Compute the total allocation so that if greater than 1 we can compute a
+		// scaling factor for all the allocations to prevent over-allocation.
+		BigDecimal totalAllocated = BigDecimal.ZERO;
+
+		// Add up the allocations that produce tiny values so we can skip them
+		// and apply the amount to the greatest allocated tag group
+		BigDecimal totalSkipAllocated = BigDecimal.ZERO;
+
+		List<Allocation> adjustedAllocations = Lists.newArrayList();
+		BigDecimal totalCost = BigDecimal.valueOf(total.cost);
+
+		for (Map.Entry<AllocationReport.Key, Double> e: hourData.entrySet()) {
+			double d = e.getValue();
+			BigDecimal bd = BigDecimal.valueOf(d).setScale(Allocation.scale, RoundingMode.HALF_EVEN);
+			totalAllocated = totalAllocated.add(bd);
+			BigDecimal rounded = totalCost.multiply(bd).setScale(Allocation.scale, RoundingMode.HALF_EVEN);
+			if (rounded.compareTo(BigDecimal.ZERO) == 0) {
+				totalSkipAllocated = totalSkipAllocated.add(bd);
+			}
+			else {
+				adjustedAllocations.add(new Allocation(e.getKey(), bd));
+			}
+		}
+
+		// Sort the list
+		Collections.sort(adjustedAllocations);
+
+		// Add the skipped allocations to the greatest allocation
+		// or the unallocated portion if it's bigger.
+		BigDecimal unAllocated = BigDecimal.ONE.subtract(totalAllocated).max(BigDecimal.ZERO);
+
+		if (adjustedAllocations.size() > 0) {
+			Allocation biggest = adjustedAllocations.get(adjustedAllocations.size()-1);
+			if (unAllocated.compareTo(biggest.allocation) < 0)
+				biggest.allocation = biggest.allocation.add(totalSkipAllocated);
+		}
+
+		// If we have an over-allocation, scale each allocation back
+		if (totalAllocated.compareTo(BigDecimal.ONE) > 0) {
+			for (Allocation a: adjustedAllocations) {
+				a.allocation = a.allocation.divide(totalAllocated, RoundingMode.HALF_EVEN);
+			}
+		}
+
+		return adjustedAllocations;
+	}
+
 	protected void processHourData(AllocationReport report, DataSerializer data, int hour, TagGroup tg, CostAndUsage total, Set<TagGroup> allocatedTagGroups) throws Exception {
 		Map<AllocationReport.Key, Double> hourData = report.getData(hour, tg);
 		if (hourData == null || hourData.isEmpty()) {
@@ -310,30 +403,33 @@ public class VariableRuleProcessor extends RuleProcessor {
 		// Remove the source value - we'll add any unallocated back at the end
 		data.remove(hour, tg);
 
-		CostAndUsage unAllocated = total;
-		for (AllocationReport.Key key: hourData.keySet()) {
-			CostAndUsage allocated = total.mul(hourData.get(key));
-			if (allocated.isZero())
-				continue;
-			
-			TagGroup allocatedTagGroup = report.getOutputTagGroup(key, tg);
-			
+		// Use BigDecimal to control rounding errors
+		BigDecimal totalCost = BigDecimal.valueOf(total.cost);
+		BigDecimal totalUsage = BigDecimal.valueOf(total.usage);
+		BigDecimal allocationRemainder = BigDecimal.ONE;
+
+		List<Allocation> allocations = getCleanedAllocations(hourData, total);
+		for (Allocation a: allocations) {
+			BigDecimal costAllocation = totalCost.multiply(a.allocation, MathContext.DECIMAL64);
+			BigDecimal usageAllocation = totalUsage.multiply(a.allocation, MathContext.DECIMAL64);
+
+			TagGroup allocatedTagGroup = report.getOutputTagGroup(a.key, tg);
+
+			allocationRemainder = allocationRemainder.subtract(a.allocation, MathContext.DECIMAL64);
+
 			allocatedTagGroups.add(allocatedTagGroup);
 			
-			data.add(hour,  allocatedTagGroup, allocated);
-			
-			unAllocated = unAllocated.sub(allocated);
+			data.add(hour,  allocatedTagGroup,
+					new CostAndUsage(costAllocation.setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue(),
+									 usageAllocation.setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue()));
 		}
 		
-		double threshold = 0.000000001;
-		// Unused cost can go negative if, for example, a K8s cluster is over-subscribed, so test the absolute value.
-		if (Math.abs(unAllocated.cost) > threshold || Math.abs(unAllocated.usage) > threshold) {
+		if (allocationRemainder.compareTo(BigDecimal.ZERO) > 0) {
 			// Add the remaining cost on the original tagGroup
-			data.add(hour, tg, unAllocated);
+			double cost = totalCost.multiply(allocationRemainder, MathContext.DECIMAL64).setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue();
+			double usage = totalUsage.multiply(allocationRemainder, MathContext.DECIMAL64).setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue();
+			data.add(hour, tg, new CostAndUsage(cost, usage));
 		}
-		//boolean overAllocated = unAllocated < -threshold;
-		//if (overAllocated)
-		//	logger.warn("Over allocation at hour " + hour + " for tag group: " + tg + " --- amount: " + unAllocated);
 	}
 
 	protected AllocationReport generateAllocationReport(KubernetesReport report, CostAndUsageData data,
