@@ -112,6 +112,7 @@ public class ProcessorConfigTest {
         props.setProperty(IceOptions.BILLING_S3_BUCKET_NAME, "bar");
         props.setProperty(IceOptions.BILLING_S3_BUCKET_REGION, "us-east-1");        
         props.setProperty(IceOptions.EDP_DISCOUNTS, "2019-01:5,2019-02:8");
+        props.setProperty(IceOptions.INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS, "");
 	}
 
 	@Test

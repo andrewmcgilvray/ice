@@ -123,7 +123,7 @@ public class IceOptions {
     /**
      * Boolean Flag whether to include usage with zero cost.  Default is Include(false)
      */
-    public static final String INCLUDE_ZERO_COST_USAGE = "ice.includeZeroCostUsage";
+    public static final String INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS = "ice.includeZeroCostUsageForProducts";
 
     /**
      * s3 bucket name where output files are to be store. Both read and write permissions are needed. It must be specified in Config.

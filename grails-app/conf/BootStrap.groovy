@@ -168,7 +168,7 @@ class BootStrap {
                 properties.setProperty(IceOptions.CUSTOM_TAGS, prop.getProperty(IceOptions.CUSTOM_TAGS, ""));
                 properties.setProperty(IceOptions.RESERVATION_ID_TAGS, prop.getProperty(IceOptions.RESERVATION_ID_TAGS, "false"));
                 properties.setProperty(IceOptions.USE_BLENDED, prop.getProperty(IceOptions.USE_BLENDED, "false"));
-                properties.setProperty(IceOptions.INCLUDE_ZERO_COST_USAGE, prop.getProperty(IceOptions.INCLUDE_ZERO_COST_USAGE, "false"));
+                properties.setProperty(IceOptions.INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS, prop.getProperty(IceOptions.INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS, ""));
 
                 properties.setProperty(IceOptions.RESOURCE_GROUP_COST, prop.getProperty(IceOptions.RESOURCE_GROUP_COST, "modeled"));
 				properties.setProperty(IceOptions.WRITE_JSON_FILES, prop.getProperty(IceOptions.WRITE_JSON_FILES, ""));
