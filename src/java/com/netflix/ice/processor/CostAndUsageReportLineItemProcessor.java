@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
+import org.bouncycastle.util.Strings;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
@@ -74,20 +75,32 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
     protected ResourceService resourceService;
     protected final int numUserTags;
 
-    protected final boolean includeZeroCostUsage;
+    protected final List<Product> includeZeroCostUsageForProducts;
+    protected final boolean includeZeroCostUsageAll;
 	
 	public CostAndUsageReportLineItemProcessor(
 			AccountService accountService,
 			ProductService productService,
 			ReservationService reservationService,
 			ResourceService resourceService,
-			boolean includeZeroCostUsage) {
+			String[] includeZeroCostUsageForProducts) {
     	this.accountService = accountService;
     	this.productService = productService;
     	this.reservationService = reservationService;
     	this.resourceService = resourceService;
     	this.numUserTags = resourceService == null ? 0 : resourceService.getCustomTags().size();
-    	this.includeZeroCostUsage = includeZeroCostUsage;
+		boolean includeZeroAll = false;
+		this.includeZeroCostUsageForProducts = Lists.newArrayList();
+		if (includeZeroCostUsageForProducts != null) {
+			for (String p : includeZeroCostUsageForProducts) {
+				if (Strings.toLowerCase(p).equals("all")) {
+					includeZeroAll = true;
+					break;
+				}
+				this.includeZeroCostUsageForProducts.add(productService.getProductByServiceCode(p));
+			}
+		}
+		includeZeroCostUsageAll = includeZeroAll;
 	}
    
     protected boolean ignore(String fileName, DateTime reportStart, DateTime reportModTime, String root, Interval usageInterval, LineItem lineItem) {        
@@ -713,8 +726,9 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
                 
         }
 
-        if (!includeZeroCostUsage && costValue == 0.0) {
-			return Result.ignore;
+        if (!includeZeroCostUsageAll && costValue == 0.0) {
+        	if (!includeZeroCostUsageForProducts.contains(tg.product))
+				return Result.ignore;
 		}
         
         Result result = Result.hourly;

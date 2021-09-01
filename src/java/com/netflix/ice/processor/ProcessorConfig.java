@@ -78,7 +78,7 @@ public class ProcessorConfig extends Config {
     public final ReservationCapacityPoller reservationCapacityPoller;
     public final PriceListService priceListService;
     public final boolean useBlended;
-    public final boolean includeZeroCostUsage;
+    public final String[] includeZeroCostUsageForProducts;
     public final boolean processOnce;
     public final String processorRegion;
     public final String processorInstanceId;
@@ -154,7 +154,7 @@ public class ProcessorConfig extends Config {
         }
 
         useBlended = Boolean.parseBoolean(properties.getProperty(IceOptions.USE_BLENDED));
-        includeZeroCostUsage = Boolean.parseBoolean(properties.getProperty(IceOptions.INCLUDE_ZERO_COST_USAGE));
+        includeZeroCostUsageForProducts = properties.getProperty(IceOptions.INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS).split(",");
 
         //useCostForResourceGroup = properties.getProperty(IceOptions.RESOURCE_GROUP_COST, "modeled");
         useCostForResourceGroup = properties.getProperty(IceOptions.RESOURCE_GROUP_COST, "");
@@ -487,21 +487,21 @@ public class ProcessorConfig extends Config {
     	        			continue;
     	        		}
     	        		
-                                if (account.getUnlinkedDate() == null)
-                                    account.setUnlinkedDate("2000-01-01"); // Initialize to an arbitrary early date.
+    	        		if (account.getUnlinkedDate() == null)
+    	        		    account.setUnlinkedDate("2000-01-01"); // Initialize to an arbitrary early date.
     	        		
     	        		if (accountConfigs.containsKey(account.id)) {
     	        		    String existingUnlinkedDate = accountConfigs.get(account.id).getUnlinkedDate();
     	        		    if (existingUnlinkedDate == null) {
-                                        logger.warn("Ignoring billing data config for account " + account.id + ": " + account.name + ". Config already defined in Organizations service or ice.properties.");
-                                        continue;
+    	        		        logger.warn("Ignoring billing data config for account " + account.id + ": " + account.name + ". Config already defined in Organizations service or ice.properties.");
+    	        		        continue;
     	        		    }
-                                    if (account.getUnlinkedDate().compareTo(existingUnlinkedDate) > 0)
-                                        accountConfigs.put(account.id, account);
+    	        		    if (account.getUnlinkedDate().compareTo(existingUnlinkedDate) > 0)
+    	        		        accountConfigs.put(account.id, account);
     	        		}
-                                else {
-                                    accountConfigs.put(account.id, account);
-                                }
+    	        		else {
+    	        		    accountConfigs.put(account.id, account);
+    	        		}
     	        		logger.debug("Adding billing data config account: " + account.toString());
     	        	}
             	}
@@ -532,7 +532,7 @@ public class ProcessorConfig extends Config {
     	// Make sure prefix ends with /
     	String prefix = bb.getPrefix();
     	if (!prefix.endsWith("/"))
-    			prefix += "/";
+    	    prefix += "/";
     	logger.info("Look for data config: " + bb.getName() + ", " + bb.getRegion() + ", " + prefix + basename + ", " + bb.getAccountId());
     	List<S3ObjectSummary> configFiles = AwsUtils.listAllObjects(bb.getName(), bb.getRegion(), prefix + basename + ".", bb.getAccountId(), bb.getAccessRole(), bb.getExternalId());
     	if (configFiles.isEmpty()) {

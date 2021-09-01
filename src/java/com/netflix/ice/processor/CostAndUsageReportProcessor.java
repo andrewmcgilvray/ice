@@ -82,7 +82,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 					config.priceListService);
 	        reservationProcessor.setDebugProperties(config.debugProperties);
 	        lineItemProcessor = new CostAndUsageReportLineItemProcessor(config.accountService, config.productService,
-					config.reservationService, config.resourceService, config.includeZeroCostUsage);
+					config.reservationService, config.resourceService, config.includeZeroCostUsageForProducts);
 		}
 	}
 	
