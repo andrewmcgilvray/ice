@@ -145,7 +145,7 @@ public class CostAndUsageLineItemProcessorTest {
 			reservationService.injectReservation(reservation);
     	
     	resourceService.initHeader(lineItem.getResourceTagsHeader(), account1);
-    	return new CostAndUsageReportLineItemProcessor(accountService, productService, reservationService, resourceService, null);
+    	return new CostAndUsageReportLineItemProcessor(accountService, productService, reservationService, resourceService, new String[]{"AmazonCloudFront"});
     }
     
     private ReformedMetaData testReform(Line line, PurchaseOption purchaseOption) throws IOException {
@@ -156,7 +156,7 @@ public class CostAndUsageLineItemProcessorTest {
     
     @Test
     public void testGetRegion() throws IOException {
-    	CostAndUsageReportLineItemProcessor lineItemProcessor = new CostAndUsageReportLineItemProcessor(accountService, productService, null, resourceService, null);
+    	CostAndUsageReportLineItemProcessor lineItemProcessor = new CostAndUsageReportLineItemProcessor(accountService, productService, null, resourceService, new String[]{"AmazonCloudFront"});
     	LineItem lineItem = newCurLineItem(manifest2017, null);
     	
     	// Test case where region is in usage-type prefix
@@ -1266,5 +1266,15 @@ public class CostAndUsageLineItemProcessorTest {
 				new Datum(a2, Region.GLOBAL, null, ec2Product, Operation.getOperation("Tax - VAT"), "Tax - AWS EMEA SARL", 1.0, 0.001344),
 			};
 		test.run("2020-01-01T00:00:00Z", expected);				
+	}
+
+	@Test
+	public void testZeroCostCloudFront() throws Exception {
+    	Line line = new Line(LineItemType.Usage, "us-east-1", "", "Amazon CloudFront", "US-Requests-Tier1", "GET", "CloudFront Requests", PricingTerm.none, "2021-08-01T00:00:00Z", "2021-08-01T01:00:00Z", "1000000", "0", "");
+    	ProcessTest test = new ProcessTest(line, Result.hourly, 31);
+    	Datum[] expected = {
+    			new Datum(a2, Region.US_EAST_1, null, productService.getProduct(Product.Code.CloudFront), Operation.getOperation("GET"), "US-Requests-Tier1", 0.0, 1000000),
+		};
+    	test.run("2021-08-01T00:00:00Z", expected);
 	}
 }
