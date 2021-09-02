@@ -223,9 +223,9 @@ class BootStrap {
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("Startup failed", e);
-			if (processOnce && credentialsProvider != null) {
+			if (processOnce) {
 				// Stop this EC2 instance
-				stopInstance(credentialsProvider);
+				stopInstance();
 			}
             System.exit(0);
         }
@@ -273,31 +273,39 @@ class BootStrap {
 		return resp;
 	}
 	
-	private void stopInstance(AWSCredentialsProvider credentialsProvider) {
-		ClientConfiguration clientConfig = new ClientConfiguration();
-		String proxyHost = System.getProperty("https.proxyHost");
-		String proxyPort = System.getProperty("https.proxyPort");
-		if (proxyHost != null && proxyPort != null) {
-			clientConfig.setProxyHost(proxyHost);
-			clientConfig.setProxyPort(Integer.parseInt(proxyPort));
-		}
+	private void stopInstance() {
+        // Have seen cases where getting a valid credentialsProvider has failed,
+        // so keep retrying if we get any failures trying to stop the instance
+        boolean stopped = false;
+        String region = getInstanceRegion();
+        String[] instanceIds = {getInstanceId()};
 
-		AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
-						.withRegion(getInstanceRegion())
-						.withCredentials(credentialsProvider)
-						.withClientConfiguration(clientConfig)
-						.build();
-		
-		try {
-			String[] instanceIds = new String[1];
-			instanceIds[0] = getInstanceId();
-			StopInstancesRequest request = new StopInstancesRequest().withInstanceIds(instanceIds);
-			ec2.stopInstances(request);
-		}
-		catch (Exception e) {
-			logger.error("error in stopInstances", e);
-		}
-		ec2.shutdown();
+        while (!stopped) {
+            AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
+            ClientConfiguration clientConfig = new ClientConfiguration();
+            String proxyHost = System.getProperty("https.proxyHost");
+            String proxyPort = System.getProperty("https.proxyPort");
+            if (proxyHost != null && proxyPort != null) {
+                clientConfig.setProxyHost(proxyHost);
+                clientConfig.setProxyPort(Integer.parseInt(proxyPort));
+            }
+
+            AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard()
+                    .withRegion(region)
+                    .withCredentials(credentialsProvider)
+                    .withClientConfiguration(clientConfig)
+                    .build();
+            try {
+                StopInstancesRequest request = new StopInstancesRequest().withInstanceIds(instanceIds);
+                ec2.stopInstances(request);
+                stopped = true;
+            }
+            catch (Exception e) {
+                logger.error("error in stopInstances", e);
+                // wait for 1 minute before retrying
+                sleep(60*1000);
+            }
+        }
 	}
 	
 	private Properties getProperties(String key, String defaultValue) {
