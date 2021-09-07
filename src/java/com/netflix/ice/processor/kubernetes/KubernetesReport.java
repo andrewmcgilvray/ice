@@ -264,24 +264,26 @@ public class KubernetesReport extends Report {
     		String[] row;
     		            
             // load the header
-            initIndecies(parser.parseNext());
-            lineNumber++;
+			String[] header = parser.parseNext();
+			if (header != null) {
+				initIndecies(header);
+				lineNumber++;
 
-            while ((row = parser.parseNext()) != null) {
-                lineNumber++;
-                try {
-                    long end = processOneLine(row);
-                    if (end > endMilli)
-                    	endMilli = end;
-                }
-                catch (Exception e) {
-                    logger.error(StringUtils.join(row, ","), e);
-                }
+				while ((row = parser.parseNext()) != null) {
+					lineNumber++;
+					try {
+						long end = processOneLine(row);
+						if (end > endMilli)
+							endMilli = end;
+					} catch (Exception e) {
+						logger.error(StringUtils.join(row, ","), e);
+					}
 
-                if (lineNumber % 500000 == 0) {
-                    logger.info("processed " + lineNumber + " lines...");
-                }
-            }
+					if (lineNumber % 500000 == 0) {
+						logger.info("processed " + lineNumber + " lines...");
+					}
+				}
+			}
 			parser.stopParsing();
         }
         catch (Exception e ) {
