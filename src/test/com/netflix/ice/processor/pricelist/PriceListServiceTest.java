@@ -201,8 +201,8 @@ public class PriceListServiceTest {
 		assertFalse("Errors processing ES pricelist", prices.hasErrors());
 		
 		// Verify that we have a couple products
-		assertNotNull("no ES product in US_EAST_1", prices.getProduct(Region.US_EAST_1, UsageType.getUsageType("m5.large.elasticsearch", "hours")));
-		assertNotNull("no ES product in EU_WEST_1", prices.getProduct(Region.EU_WEST_1, UsageType.getUsageType("c5.4xlarge.elasticsearch", "hours")));
+		assertNotNull("no ES product in US_EAST_1", prices.getProduct(Region.US_EAST_1, UsageType.getUsageType("m5.large.search", "hours")));
+		assertNotNull("no ES product in EU_WEST_1", prices.getProduct(Region.EU_WEST_1, UsageType.getUsageType("c5.4xlarge.search", "hours")));
 	}
 	
 	@Test
