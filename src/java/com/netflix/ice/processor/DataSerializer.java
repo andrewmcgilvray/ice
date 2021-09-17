@@ -69,6 +69,10 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     		
     		return new CostAndUsage(cost - value.cost, usage - value.usage);
     	}
+
+    	public boolean equals(CostAndUsage o) {
+    		return cost == o.cost && usage == o.usage;
+		}
     	
     }
     
@@ -306,8 +310,8 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
      * 4. TagGroup Array<br/>
      * 5. Number of hours/days/weeks/months of data (int)<br/>
      * 6. Data matrix:<br/>
-     * 		6a. Data present for TagGroup flag (boolean)<br/>
-     * 		6b. Data array for TagGroup consisting of a pair of cost and usage doubles (if flag is true)<br/>
+     * 		6a. Data present for time interval flag (boolean)<br/>
+     * 		6b. Data array for time interval consisting of a pair of cost and usage doubles for each TagGroup (if flag is true)<br/>
      */
 	@Override
 	public void serialize(DataOutput out, TagGroupFilter filter)

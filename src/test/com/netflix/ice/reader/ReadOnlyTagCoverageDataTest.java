@@ -77,14 +77,19 @@ public class ReadOnlyTagCoverageDataTest {
 		
 		assertEquals("wrong data size", 1, readOnlyData.getNum());
 		
-		Collection<TagGroup> tgs = readOnlyData.getTagGroups();		
+		Collection<TagGroup> tgs = readOnlyData.getTagGroups(null, null, 0);
 		assertEquals("wrong number of tag groups", 1, tgs.size());
-		
-		TagCoverageMetrics[] m = readOnlyData.getData(0);
-		
-		assertEquals("total is wrong", 4, m[0].getTotal());
-		for (int i = 0; i < numTags; i++)
-			assertEquals("count is wrong for index " + i, i, metrics.getCount(i));
+
+		for (TagGroup tg: tgs) {
+			TimeSeriesTagCoverageMetrics ts = readOnlyData.getData(tg);
+			TagCoverageMetrics[] m = new TagCoverageMetrics[1];
+			ts.get(0, 1, m);
+
+			assertEquals("total is wrong", 4, m[0].getTotal());
+			for (int i = 0; i < numTags; i++)
+				assertEquals("count is wrong for index " + i, i, metrics.getCount(i));
+		}
+
 	}
 
 }

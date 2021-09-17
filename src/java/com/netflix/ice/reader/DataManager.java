@@ -27,6 +27,7 @@ import org.joda.time.Interval;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Interface to feed data to UI.
@@ -63,4 +64,7 @@ public interface DataManager {
      * @return
      */
     int getDataLength(DateTime start);
+
+    int size(DateTime start) throws ExecutionException;
+
 }

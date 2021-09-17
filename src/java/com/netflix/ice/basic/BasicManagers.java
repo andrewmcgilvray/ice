@@ -479,7 +479,7 @@ public class BasicManagers extends Poller implements Managers {
     		TagGroupManager tgm = tagGroupManagers.get(p);
     		TreeMap<Long, Integer> sizes = tgm.getSizes();
     		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTagKeys.size());
-    		BasicDataManager bdm = dataManagers.get(new Key(p, ConsolidateType.daily));
+    		DataManager bdm = dataManagers.get(new Key(p, ConsolidateType.daily));
     		
     		if (csv) {
     			sb.append(p + "," + sizes.lastEntry().getValue() + "," + bdm.size(year));

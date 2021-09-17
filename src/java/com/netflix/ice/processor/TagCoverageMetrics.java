@@ -37,6 +37,18 @@ public class TagCoverageMetrics {
 		this.total = total;
 		this.counts = counts;
 	}
+
+	public boolean equals(TagCoverageMetrics other) {
+		if (this == other)
+			return true;
+		if (total != other.total)
+			return false;
+		for (int i = 0; i < counts.length; i++) {
+			if (counts[i] != other.counts[i])
+				return false;
+		}
+		return true;
+	}
 	
 	public String toString() {
 		StringBuilder sb = new StringBuilder(64);
