@@ -8,6 +8,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
+import com.netflix.ice.processor.TagMappers;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.joda.time.DateTime;
@@ -258,6 +259,57 @@ public class AllocationReportTest {
             TagGroup got = ar.getOutputTagGroup(outputKeys[i], tgs.getTagGroup(as, ps));
             assertEquals("resource group doesn't match", expected[i], got.resourceGroup);
         }
+	}
+
+	@Test
+	public void testGetOutputTagGroupWithForce() throws Exception {
+		/*
+		 * Test case where we set Key2 based on Key1 and then change the value of Key1 to something else
+		 */
+		BasicProductService ps = new BasicProductService();
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1", "Key2"}, false);
+		BasicAccountService as = new BasicAccountService();
+
+		// config with same key in both in and out, but different column names
+		String arConfigYaml = "" +
+				"s3Bucket:\n" +
+				"  name: reports\n" +
+				"in:\n" +
+				"  _product: _Product\n" +
+				"out:\n" +
+				"  Key2: Key2\n" +
+				"tagMaps:\n" +
+				"  Key2:\n" +
+				"  - maps:\n" +
+				"      ChangeMe:\n" + // Set ChangeMe if Key1 value is ChangeMe
+				"        key: Key1\n" +
+				"        operator: isOneOf\n" +
+				"        values: [ChangeMe]\n" +
+				"  Key1:\n" +
+				"  - force: true\n" +
+				"    maps:\n" +
+				"      Value1:\n" + // Set value to Value1
+				"        key: Key1\n" +
+				"        operator: isOneOf\n" +
+				"        values: [ChangeMe]\n" +
+				"";
+		AllocationReport ar = new AllocationReport(getAllocationConfig(arConfigYaml), 0, false, rs.getCustomTags(), rs);
+
+		TagGroupSpec tgs = new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"ChangeMe", ""}, 50.0, 0);
+		Key outputKey = new Key(Lists.newArrayList(new String[]{""}));
+		ResourceGroup expected = ResourceGroup.getResourceGroup(new String[]{"Value1", "ChangeMe"});
+
+		TagGroup got = ar.getOutputTagGroup(outputKey, tgs.getTagGroup(as, ps));
+		assertEquals("resource group doesn't match with first tagger order", expected, got.resourceGroup);
+
+		// Flip the order of the taggers and retest to make sure order doesn't matter
+		TagMappers tm = ar.taggers.get(0);
+		ar.taggers.set(0, ar.taggers.get(1));
+		ar.taggers.set(1, tm);
+
+		got = ar.getOutputTagGroup(outputKey, tgs.getTagGroup(as, ps));
+		assertEquals("resource group doesn't match with second tagger order", expected, got.resourceGroup);
+
 	}
 	
 	@Test

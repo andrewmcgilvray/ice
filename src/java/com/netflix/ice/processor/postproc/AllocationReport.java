@@ -81,7 +81,7 @@ public class AllocationReport extends Report {
 	private List<Set<String>> inTagValues; // Values used in the allocation report for each input tag key. Used to resolve empty strings for values in the report.
 	private List<HourData> data;	
 	private List<String> header;
-	private List<TagMappers> taggers;
+	protected List<TagMappers> taggers;
 	private List<String> newTagKeys;
 	private boolean parsingError = false;
 	
@@ -558,11 +558,16 @@ public class AllocationReport extends Report {
 			if (!tag.isEmpty()) // Only overwrite the existing value if we have something.
 				tags[outTagIndeces.get(i)] = tag;
 		}
-		
+
+		// Make a copy of the tags so mapper rules don't influence each other
+		String[] srcTags = new String[tags.length];
+		for (int i = 0; i < tags.length; i++)
+			srcTags[i] = tags[i];
+
 		// Apply any mapping rules
 		for (TagMappers tm: taggers) {
 			int index = tm.getTagIndex();
-			String tag = tm.getMappedUserTagValue(startMillis, tg.account.getId(), tags, tags[index]);
+			String tag = tm.getMappedUserTagValue(startMillis, tg.account.getId(), srcTags, srcTags[index]);
 			tags[index] = tag;
 		}
 		try {
