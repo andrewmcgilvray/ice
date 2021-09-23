@@ -21,9 +21,9 @@ import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.common.TimeSeriesData;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Zone;
-import com.netflix.ice.tag.Zone.BadZone;
 
 import java.io.DataInput;
 import java.io.IOException;
@@ -54,20 +54,6 @@ public class ReadOnlyData extends ReadOnlyGenericData<TimeSeriesData> {
 	protected void deserializeTimeSeriesData(List<TagGroup> keys, DataInput in) throws IOException {
         // Read the data into cost and usage arrays indexed by time interval and TagGroup
         int numKeys = keys.size();
-        double cost[][] = new double[numIntervals][numKeys];
-        double usage[][] = new double[numIntervals][numKeys];
-        for (int i = 0; i < numIntervals; i++)  {
-            boolean hasData = in.readBoolean();
-            for (int j = 0; j < numKeys; j++) {
-                if (hasData) {
-                    cost[i][j] = in.readDouble();
-                    usage[i][j] = in.readDouble();
-                } else {
-                    cost[i][j] = 0;
-                    usage[i][j] = 0;
-                }
-            }
-        }
 
         // Load the map with a time series for each tag group
         this.data = Maps.newHashMap();
@@ -78,16 +64,7 @@ public class ReadOnlyData extends ReadOnlyGenericData<TimeSeriesData> {
             if (forReservations && !(tg.operation instanceof Operation.ReservationOperation || tg.operation instanceof Operation.SavingsPlanOperation))
                 continue;
 
-            double costSeries[] = new double[numIntervals];
-            double usageSeries[] = new double[numIntervals];
-
-            for (int j = 0; j < numIntervals; j++) {
-                costSeries[j] = cost[j][i];
-                usageSeries[j] = usage[j][i];
-            }
-
-            this.data.put(tg, new TimeSeriesData(costSeries, usageSeries));
+            this.data.put(tg, TimeSeriesData.deserialize(in));
         }
-
     }
 }

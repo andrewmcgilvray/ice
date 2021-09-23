@@ -23,18 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import com.netflix.ice.common.*;
 import com.netflix.ice.reader.*;
 import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.WorkBucketConfig;
-import com.netflix.ice.common.ConsolidateType;
-import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;

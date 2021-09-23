@@ -28,6 +28,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Collection;
 
+import com.netflix.ice.common.TimeSeriesTagCoverageMetrics;
 import org.junit.Test;
 
 import com.netflix.ice.basic.BasicAccountService;

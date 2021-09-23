@@ -278,18 +278,11 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
         }
 
         out.writeInt(data.size());
-        for (int i = 0; i < data.size(); i++) {
-            Map<TagGroup, T> map = getData(i);
-            out.writeBoolean(map.size() > 0);
-            if (map.size() > 0) {
-                for (TagGroup tagGroup: keys) {
-                    writeValue(out, map.get(tagGroup));
-                }
-            }
-        }
+
+        serializeTimeSeriesData(keys, out);
     }
 
-    abstract protected void writeValue(DataOutput out, T value) throws IOException;
+    abstract protected void serializeTimeSeriesData(Collection<TagGroup> keys, DataOutput out) throws IOException;
 
     public void deserialize(AccountService accountService, ProductService productService, DataInput in) throws IOException, BadZone {
     	int version = in.readInt();
@@ -307,24 +300,8 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
         		tagGroups.add(tg);
         }
 
-        List<Map<TagGroup, T>> data = Lists.newArrayList();
-        int num = in.readInt();
-        for (int i = 0; i < num; i++)  {
-            Map<TagGroup, T> map = Maps.newHashMap();
-            boolean hasData = in.readBoolean();
-            if (hasData) {
-                for (int j = 0; j < keys.size(); j++) {
-                    T v = readValue(in);
-                    if (v != null) {
-                        map.put(keys.get(j), v);
-                    }
-                }
-            }
-            data.add(map);
-        }
-
-        this.data = data;
+        this.data = deserializeTimeSeriesData(keys, in);
     }
 
-    abstract protected T readValue(DataInput in) throws IOException;
+    abstract protected List<Map<TagGroup, T>> deserializeTimeSeriesData(Collection<TagGroup> keys, DataInput in) throws IOException;
 }

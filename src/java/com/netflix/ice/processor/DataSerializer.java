@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.netflix.ice.common.TimeSeriesData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -334,18 +335,27 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
             TagGroup.Serializer.serialize(out, tagGroup);
         }
 
-        out.writeInt(data.size());
-        for (int i = 0; i < data.size(); i++) {
-            Map<TagGroup, CostAndUsage> map = getData(i);
-            out.writeBoolean(!map.isEmpty());
-            if (!map.isEmpty()) {
-                for (TagGroup tagGroup: keys) {
-                	CostAndUsage v = map.get(tagGroup);
-                    out.writeDouble(v == null ? 0 : v.cost);			
-                    out.writeDouble(v == null ? 0 : v.usage);			
-                }
-            }
-        }
+		out.writeInt(data.size());
+
+		double cost[] = new double[data.size()];
+		double usage[] = new double[data.size()];
+
+		for (TagGroup tagGroup: keys) {
+			for (int i = 0; i < data.size(); i++) {
+				Map<TagGroup, CostAndUsage> map = getData(i);
+				if (map.isEmpty()) {
+					cost[i] = 0;
+					usage[i] = 0;
+				}
+				else {
+					CostAndUsage v = map.get(tagGroup);
+					cost[i] = v == null ? 0 : v.cost;
+					usage[i] = v == null ? 0 : v.usage;
+				}
+			}
+			TimeSeriesData tsd = new TimeSeriesData(cost, usage);
+			tsd.serialize(out);
+		}
 	}
 
 	@Override
@@ -369,19 +379,23 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
 
         List<Map<TagGroup, CostAndUsage>> data = Lists.newArrayList();
         int num = in.readInt();
-        for (int i = 0; i < num; i++)  {
-            Map<TagGroup, CostAndUsage> map = Maps.newHashMap();
-            boolean hasData = in.readBoolean();
-            if (hasData) {
-                for (int j = 0; j < keys.size(); j++) {
-                    double cost = in.readDouble();
-                    double usage = in.readDouble();
-                    if (cost != 0 || usage != 0)
-                    	map.put(keys.get(j), new CostAndUsage(cost, usage));
-                }
-            }
-            data.add(map);
-        }
+        for (int i = 0; i < num; i++)
+        	data.add(Maps.<TagGroup, CostAndUsage>newHashMap());
+
+		boolean timeSeries = true;
+		double cost[] = new double[num];
+		double usage[] = new double[num];
+		for (TagGroup tagGroup: keys) {
+			TimeSeriesData tsd = TimeSeriesData.deserialize(in);
+			tsd.get(TimeSeriesData.Type.COST, 0, num, cost);
+			tsd.get(TimeSeriesData.Type.USAGE, 0, num, usage);
+			for (int i = 0; i < num; i++) {
+				if (cost[i] != 0 || usage[i] != 0) {
+					CostAndUsage cau = new CostAndUsage(cost[i], usage[i]);
+					data.get(i).put(tagGroup, cau);
+				}
+			}
+		}
 
         this.data = data;		
 	}

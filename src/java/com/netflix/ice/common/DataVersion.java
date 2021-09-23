@@ -18,5 +18,5 @@
 package com.netflix.ice.common;
 
 public interface DataVersion {
-	int CUR_WORK_BUCKET_VERSION = 2;
+	int CUR_WORK_BUCKET_VERSION = 3;
 }

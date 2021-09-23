@@ -1,8 +1,12 @@
-package com.netflix.ice.reader;
+package com.netflix.ice.common;
 
 import com.netflix.ice.processor.TagCoverageMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 public class TimeSeriesTagCoverageMetrics {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -10,6 +14,12 @@ public class TimeSeriesTagCoverageMetrics {
     private int size;
     private short[] len;
     private TagCoverageMetrics[] metrics;
+
+    private TimeSeriesTagCoverageMetrics(int size, short[] len, TagCoverageMetrics[] metrics) {
+        this.size = size;
+        this.len = len;
+        this.metrics = metrics;
+    }
 
     public TimeSeriesTagCoverageMetrics(TagCoverageMetrics[] data) {
         size = data.length;
@@ -82,5 +92,34 @@ public class TimeSeriesTagCoverageMetrics {
                 }
             }
         }
+    }
+    /**
+     * Serialize data using standard Java serialization DataOutput methods in the following order:<br/>
+     *
+     * 1. size - number of data intervals (int)<br/>
+     * 2. num - number of RLE chunks (int)<br/>
+     * 3. chunks - array of chunk data
+     *      3a. len (int)<br/>
+     *      3b. metrics <br/>
+     */
+    public void serialize(DataOutput out) throws IOException {
+        out.writeInt(size);
+        out.writeInt(len.length);
+        for (int i = 0; i < len.length; i++) {
+            out.writeShort(len[i]);
+            metrics[i].serialize(out);
+        }
+    }
+
+    public static TimeSeriesTagCoverageMetrics deserialize(DataInput in, int numUserTags) throws IOException {
+        int size = in.readInt();
+        int numChunks = in.readInt();
+        short[] len = new short[numChunks];
+        TagCoverageMetrics[] metrics = new TagCoverageMetrics[numChunks];
+        for (int i = 0; i < numChunks; i++) {
+            len[i] = in.readShort();
+            metrics[i] = TagCoverageMetrics.deserialize(in, numUserTags);
+        }
+        return new TimeSeriesTagCoverageMetrics(size, len, metrics);
     }
 }

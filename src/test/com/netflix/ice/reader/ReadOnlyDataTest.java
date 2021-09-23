@@ -3,15 +3,14 @@ package com.netflix.ice.reader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import com.netflix.ice.common.TimeSeriesData;
 import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UserTag;

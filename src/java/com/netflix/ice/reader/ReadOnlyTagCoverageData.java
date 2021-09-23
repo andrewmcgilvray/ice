@@ -21,11 +21,9 @@ import java.io.DataInput;
 import java.io.IOException;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.processor.TagCoverageMetrics;
-import com.netflix.ice.tag.Operation;
+import com.netflix.ice.common.TimeSeriesTagCoverageMetrics;
 
 public class ReadOnlyTagCoverageData extends ReadOnlyGenericData<TimeSeriesTagCoverageMetrics> {
 
@@ -35,35 +33,12 @@ public class ReadOnlyTagCoverageData extends ReadOnlyGenericData<TimeSeriesTagCo
 
  	@Override
 	protected void deserializeTimeSeriesData(List<TagGroup> keys, DataInput in) throws IOException {
-		// Read the data into arrays indexed by time interval and TagGroup
-		int numKeys = keys.size();
-		TagCoverageMetrics metrics[][] = new TagCoverageMetrics[numIntervals][numKeys];
-		for (int i = 0; i < numIntervals; i++)  {
-			boolean hasMap = in.readBoolean();
-			if (hasMap) {
-				boolean hasValue = in.readBoolean();
-				for (int j = 0; j < numKeys; j++) {
-					if (hasValue) {
-						metrics[i][j] = TagCoverageMetrics.deserialize(in, numUserTags);
-					} else {
-						metrics[i][j] = null;
-					}
-				}
-			}
-		}
-
 		// Load the map with a time series for each tag group
-		this.data = Maps.newHashMap();
+		data = Maps.newHashMap();
 		for (int i = 0; i < keys.size(); i++) {
 			TagGroup tg = keys.get(i);
 
-			TagCoverageMetrics metricSeries[] = new TagCoverageMetrics[numIntervals];
-
-			for (int j = 0; j < numIntervals; j++) {
-				metricSeries[j] = metrics[j][i];
-			}
-
-			this.data.put(tg, new TimeSeriesTagCoverageMetrics(metricSeries));
+			data.put(tg, TimeSeriesTagCoverageMetrics.deserialize(in, numUserTags));
 		}
 	}
 }

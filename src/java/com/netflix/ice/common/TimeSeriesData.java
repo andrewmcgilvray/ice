@@ -1,7 +1,11 @@
-package com.netflix.ice.reader;
+package com.netflix.ice.common;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 public class TimeSeriesData {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -14,6 +18,13 @@ public class TimeSeriesData {
     public enum Type {
         COST,
         USAGE;
+    }
+
+    private TimeSeriesData(int size, short[] len, double[] cost, double[] usage) {
+        this.size = size;
+        this.len = len;
+        this.cost = cost;
+        this.usage = usage;
     }
 
     public TimeSeriesData(double[] cost, double[] usage) {
@@ -92,5 +103,39 @@ public class TimeSeriesData {
                 }
             }
         }
+    }
+
+    /**
+     * Serialize data using standard Java serialization DataOutput methods in the following order:<br/>
+     *
+     * 1. size - number of data intervals (int)<br/>
+     * 2. num - number of RLE chunks (int)<br/>
+     * 3. chunks - array of chunk data
+     *      3a. len (int)<br/>
+     *      3b. cost (double)<br/>
+     *      3c. usage (double)<br/>
+     */
+    public void serialize(DataOutput out) throws IOException {
+        out.writeInt(size);
+        out.writeInt(len.length);
+        for (int i = 0; i < len.length; i++) {
+            out.writeShort(len[i]);
+            out.writeDouble(cost[i]);
+            out.writeDouble(usage[i]);
+        }
+    }
+
+    public static TimeSeriesData deserialize(DataInput in) throws IOException {
+        int size = in.readInt();
+        int numChunks = in.readInt();
+        short[] len = new short[numChunks];
+        double[] cost = new double[numChunks];
+        double[] usage = new double[numChunks];
+        for (int i = 0; i < numChunks; i++) {
+            len[i] = in.readShort();
+            cost[i] = in.readDouble();
+            usage[i] = in.readDouble();
+        }
+        return new TimeSeriesData(size, len, cost, usage);
     }
 }
