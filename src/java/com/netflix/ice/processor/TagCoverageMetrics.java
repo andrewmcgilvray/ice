@@ -21,7 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-public class TagCoverageMetrics {
+public class TagCoverageMetrics implements ReadWriteDataSerializer.Summable<TagCoverageMetrics> {
 	int total;
 	int[] counts;
 
@@ -75,9 +75,9 @@ public class TagCoverageMetrics {
 		return (double) counts[index] / (double) total * 100.0;
 	}
 	
-	public void add(TagCoverageMetrics other) throws ArithmeticException {
+	public TagCoverageMetrics add(TagCoverageMetrics other) throws ArithmeticException {
 		if (other.total == 0)
-			return;
+			return this;
 		
 		total += other.total;
 		for (int i = 0; i < counts.length; i++) {
@@ -85,6 +85,7 @@ public class TagCoverageMetrics {
 			if (counts[i] > total)
 				throw new ArithmeticException("Count exceeds total");
 		}
+		return this;
 	}
 	
 	public void serialize(DataOutput out) throws IOException {

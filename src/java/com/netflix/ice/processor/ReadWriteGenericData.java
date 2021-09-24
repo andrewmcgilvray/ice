@@ -38,7 +38,7 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Zone.BadZone;
 
-public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer, DataVersion {
+public abstract class ReadWriteGenericData<T extends ReadWriteDataSerializer.Summable<T>> implements ReadWriteDataSerializer, DataVersion {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
     protected List<Map<TagGroup, T>> data;
@@ -48,22 +48,16 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     // This set is only maintained for the master CostAndUsageData container since it's only needed by
     // the post-processing steps. Individual CoatAndUsageData objects created for each separate CUR report
     // don't require it and run much faster if we don't have to maintain this master set.
-    protected Set<TagGroup> tagGroups;
+    protected Collection<TagGroup> tagGroups;
 
     // number of user tags in the resourceGroups. Set to -1 when constructed for deserialization.
     // will be initialized when read in.
     protected int numUserTags;
 
-	public ReadWriteGenericData() {
-        data = Lists.newArrayList();
-        tagGroups = null;
-		this.numUserTags = -1;
-	}
-
 	public ReadWriteGenericData(int numUserTags) {
+        this.numUserTags = numUserTags;
+        this.tagGroups = ConcurrentHashMap.newKeySet();
         data = Lists.newArrayList();
-        tagGroups = null;
-		this.numUserTags = numUserTags;
     }
 	
 	public void enableTagGroupCache(boolean enabled) {
@@ -78,14 +72,23 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
 	}
 	
 	public String toString() {
+		final int max = 2560;
 		StringBuffer sb = new StringBuffer();
 		sb.append("[\n");
 		for (Map<TagGroup, T> map: data) {
 			sb.append("  {\n");
 			for (TagGroup tg: map.keySet()) {
 				sb.append("    " + tg.toString() + ": " + map.get(tg).toString() + "\n");
+				if (sb.length() > max) {
+					sb.append("...");
+					break;
+				}
 			}
 			sb.append("  },\n");
+			if (sb.length() > max) {
+				sb.append("...");
+				break;
+			}
 		}
 		sb.append("]\n");
 		return sb.toString();
@@ -117,7 +120,7 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
     public void add(int i, TagGroup tagGroup, T value) {
     	Map<TagGroup, T> map = getCreateData(i);
     	T existing = map.get(tagGroup);
-    	map.put(tagGroup,  existing == null ? value : add(existing, value));
+    	map.put(tagGroup,  existing == null ? value : value.add(existing));
     	if (tagGroups != null)
     		tagGroups.add(tagGroup);
     }
@@ -184,8 +187,6 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
         }
     }
 
-    abstract protected T add(T a, T b);
-
     /**
      * Merge all the data from the source into the existing destination.
      */
@@ -203,7 +204,7 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
                 for (TagGroup tg: newData.get(i).keySet()) {
                 	T existingValue = existed.get(tg);
                 	T value = newData.get(i).get(tg);
-                    existed.put(tg, existingValue == null ? value : add(existingValue, value));
+                    existed.put(tg, existingValue == null ? value : value.add(existingValue));
                 }
             }
         }
@@ -255,11 +256,11 @@ public abstract class ReadWriteGenericData<T> implements ReadWriteDataSerializer
      * 4. TagGroup Array<br/>
      * 5. Number of hours/days/weeks/months of data (int)<br/>
      * 6. Data matrix:<br/>
-     * 		6a. Data present for TagGroup flag (boolean)<br/>
-     * 		6b. Data array for TagGroup (if flag is true)<br/>
+     * 		6a. Data present for time interval flag (boolean)<br/>
+     * 		6b. Data array for time interval (if flag is true)<br/>
      */
     public void serialize(DataOutput out, TagGroupFilter filter) throws IOException {
-        Collection<TagGroup> keys = getTagGroups();
+        Collection<TagGroup> keys = tagGroups;
 
     	if (numUserTags == -1 && keys.size() > 0) {
      		logger.warn("Error attempting to serialize data without setting the number of user tags. Pulling value from one of the tag groups");

@@ -79,11 +79,5 @@ public class ReadWriteTagCoverageData extends ReadWriteGenericData<TagCoverageMe
 		}
 		return data;
 	}
-	
-	@Override
-    protected TagCoverageMetrics add(TagCoverageMetrics a, TagCoverageMetrics b) {
-		a.add(b);
-		return a;
-	}
 
 }
