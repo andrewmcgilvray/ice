@@ -66,6 +66,7 @@ public class Product extends Tag {
 		Cloudhsm("AWS CloudHSM", "CloudHSM", false),
 	    CloudWatch("AmazonCloudWatch", "AmazonCloudWatch", false),
 		DataTransfer("AWS Data Transfer", "AWSDataTransfer", false),
+		DirectConnect("AWS Direct Connect", "AWSDirectConnect", false),
 		DynamoDB("Amazon DynamoDB", "AmazonDynamoDB", true),
 		Ec2("Amazon Elastic Compute Cloud", "AmazonEC2", true),
 		ElastiCache("Amazon ElastiCache", "AmazonElastiCache", true),

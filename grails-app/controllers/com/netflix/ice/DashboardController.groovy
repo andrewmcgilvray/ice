@@ -217,6 +217,7 @@ class DashboardController {
         List<Zone> zones = Zone.getZones(listParams(query, "zone"));
         List<Operation> operations = Operation.getOperations(listParams(query,"operation"));
         List<Product> products = getConfig().productService.getProducts(listParams(query,"product"));
+        boolean forSavingsPlans = query.has("forSavingsPlans") ? query.getBoolean("forSavingsPlans") : false;
         boolean resources = params.getBoolean("resources");
         boolean showZones = params.getBoolean("showZones");
         if (showZones && (zones == null || zones.size() == 0)) {
@@ -238,6 +239,15 @@ class DashboardController {
         else {
             TagGroupManager tagGroupManager = getManagers().getTagGroupManager(null);
             data = tagGroupManager == null ? []: tagGroupManager.getProducts(new TagLists(null, accounts, regions, zones, products, operations));
+        }
+
+        if (forSavingsPlans) {
+            // Need to remove products associated with Lambda
+            // operations that don't benefit from savings plans
+            def ps = getConfig().productService;
+            data.remove(ps.getProduct(Product.Code.CloudFront));
+            data.remove(ps.getProduct(Product.Code.DataTransfer));
+            data.remove(ps.getProduct(Product.Code.DirectConnect));
         }
 
         if (data.size() == 1 && data.iterator().next() == null)
