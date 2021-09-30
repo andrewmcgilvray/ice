@@ -134,8 +134,8 @@ public class VariableRuleProcessorTest {
 			new Key(Lists.newArrayList(new String[]{"noise"})),
 	};
 
-	private void testAllocation(VariableRuleProcessor.Allocation[] allocations, VariableRuleProcessor.Allocation[] expected, String message) {
-		CostAndUsage total = new CostAndUsage(1.0, 1.0);
+	private void testAllocation(double cost, VariableRuleProcessor.Allocation[] allocations, VariableRuleProcessor.Allocation[] expected, String message) {
+		CostAndUsage total = new CostAndUsage(cost, 1.0);
 		Map<AllocationReport.Key, Double> hourData = Maps.newHashMap();
 		for (VariableRuleProcessor.Allocation a: allocations) {
 			hourData.put(a.key, a.allocation.doubleValue());
@@ -144,6 +144,27 @@ public class VariableRuleProcessorTest {
 		List<VariableRuleProcessor.Allocation> expect = Lists.newArrayList(expected);
 		Collections.sort(expect);
 		assertEquals(message, expect, got);
+	}
+
+	// Test at the noise margin
+	@Test
+	public void testGetTinyFullAllocations() {
+		VariableRuleProcessor.Allocation[] fullyAllocated = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.1),
+				new VariableRuleProcessor.Allocation(keys[1], 0.9),
+		};
+		VariableRuleProcessor.Allocation[] fullyAllocatedExpected = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.1),
+				new VariableRuleProcessor.Allocation(keys[1], 0.9),
+		};
+
+		testAllocation(0.000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
+
+		fullyAllocatedExpected = new VariableRuleProcessor.Allocation[]{
+				new VariableRuleProcessor.Allocation(keys[0], 1.0),
+		};
+		// Should return one allocation even though the total is below the noise.
+		testAllocation(0.00000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
 	}
 
 	@Test
@@ -162,7 +183,7 @@ public class VariableRuleProcessorTest {
 				new VariableRuleProcessor.Allocation(keys[2], 0.3),
 		};
 
-		testAllocation(underAllocated, underAllocatedExpected, "under allocation wrong");
+		testAllocation(1.0, underAllocated, underAllocatedExpected, "under allocation wrong");
 	}
 
 	@Test
@@ -182,7 +203,7 @@ public class VariableRuleProcessorTest {
 				new VariableRuleProcessor.Allocation(keys[3], 0.4),
 		};
 
-		testAllocation(fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
+		testAllocation(1.0, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
 	}
 
 	@Test
@@ -204,7 +225,7 @@ public class VariableRuleProcessorTest {
 				new VariableRuleProcessor.Allocation(keys[4], 0.33333),
 		};
 
-		testAllocation(overAllocated, overAllocatedExpected, "over allocation wrong");
+		testAllocation(1.0, overAllocated, overAllocatedExpected, "over allocation wrong");
 	}
 
 	@Test
@@ -216,7 +237,60 @@ public class VariableRuleProcessorTest {
 
 		VariableRuleProcessor.Allocation[] noiseAllocatedExpected = {
 		};
-		testAllocation(noiseAllocated, noiseAllocatedExpected, "wrong noise allocation");
+		testAllocation(1.0, noiseAllocated, noiseAllocatedExpected, "wrong noise allocation");
+	}
+
+	@Test
+	public void testProcessHourData() throws Exception {
+		String[] tagKeys = {"Key1","Key2"};
+		BasicResourceService rs = new BasicResourceService(ps, tagKeys, false);
+		String allocationYaml = "" +
+				"name: allocation-report-test\n" +
+				"start: 2019-11\n" +
+				"end: 2022-11\n" +
+				"in:\n" +
+				"  filter:\n" +
+				"    userTags:\n" +
+				"      Key2: [compute]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  in:\n" +
+				"    _product: _Product\n" +
+				"    Key1: Key1\n" +
+				"  out:\n" +
+				"    Key2: Key2\n" +
+				"";
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+
+		// Process with a report
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.9,EC2Instance,clusterA,ninety\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.1,EC2Instance,clusterA,ten\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+
+		DataSerializer data = new DataSerializer(tagKeys.length);
+		TagGroupSpec tgs = new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "compute"}, 2.9E-4, 1);
+		TagGroup tagGroup = tgs.getTagGroup(as, ps);
+		data.put(0, tagGroup, tgs.value);
+
+
+		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
+
+		VariableRuleProcessor.processHourData(ar, data, 0, tagGroup, tgs.value, allocatedTagGroups);
+		Map<TagGroup, CostAndUsage> hourData = data.getData(0);
+		TagGroupSpec[] expected = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "ninety"}, 2.6E-4, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "ten"}, 3.0E-5, 0),
+		};
+
+		for (TagGroupSpec spec: expected) {
+			TagGroup tg = spec.getTagGroup(as, ps);
+			assertEquals("wrong data for spec " + spec.toString(), spec.value.cost, hourData.get(tg).cost, 0.0000001);
+		}
 	}
 
 	@Test

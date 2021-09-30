@@ -9,7 +9,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import com.amazonaws.services.dynamodbv2.xspec.M;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.StopWatch;
 
@@ -35,7 +34,6 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
-import org.aspectj.lang.annotation.Around;
 
 public class VariableRuleProcessor extends RuleProcessor {
 	private CostAndUsageData outCauData;
@@ -353,6 +351,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 
 		// Add up the allocations that produce tiny values so we can skip them
 		// and apply the amount to the greatest allocated tag group
+		List<Allocation> skippedAllocations = Lists.newArrayList();
 		BigDecimal totalSkipAllocated = BigDecimal.ZERO;
 
 		List<Allocation> adjustedAllocations = Lists.newArrayList();
@@ -364,11 +363,24 @@ public class VariableRuleProcessor extends RuleProcessor {
 			totalAllocated = totalAllocated.add(bd);
 			BigDecimal rounded = totalCost.multiply(bd).setScale(Allocation.scale, RoundingMode.HALF_EVEN);
 			if (rounded.compareTo(BigDecimal.ZERO) == 0) {
+				skippedAllocations.add(new Allocation(e.getKey(), bd));
 				totalSkipAllocated = totalSkipAllocated.add(bd);
 			}
 			else {
 				adjustedAllocations.add(new Allocation(e.getKey(), bd));
 			}
+		}
+
+		if (adjustedAllocations.isEmpty()) {
+			// All the allocations produced very small values.
+			// If allocations total 100%, put everything on
+			// the biggest allocation.
+			if (totalSkipAllocated.compareTo(BigDecimal.ONE) == 0) {
+				Collections.sort(skippedAllocations);
+				Allocation biggest = skippedAllocations.get(skippedAllocations.size()-1);
+				adjustedAllocations.add(new Allocation(biggest.key, BigDecimal.ONE));
+			}
+			return adjustedAllocations;
 		}
 
 		// Sort the list
@@ -377,12 +389,9 @@ public class VariableRuleProcessor extends RuleProcessor {
 		// Add the skipped allocations to the greatest allocation
 		// or the unallocated portion if it's bigger.
 		BigDecimal unAllocated = BigDecimal.ONE.subtract(totalAllocated).max(BigDecimal.ZERO);
-
-		if (adjustedAllocations.size() > 0) {
-			Allocation biggest = adjustedAllocations.get(adjustedAllocations.size()-1);
-			if (unAllocated.compareTo(biggest.allocation) < 0)
-				biggest.allocation = biggest.allocation.add(totalSkipAllocated);
-		}
+		Allocation biggest = adjustedAllocations.get(adjustedAllocations.size()-1);
+		if (unAllocated.compareTo(biggest.allocation) < 0)
+			biggest.allocation = biggest.allocation.add(totalSkipAllocated);
 
 		// If we have an over-allocation, scale each allocation back
 		if (totalAllocated.compareTo(BigDecimal.ONE) > 0) {
@@ -394,21 +403,24 @@ public class VariableRuleProcessor extends RuleProcessor {
 		return adjustedAllocations;
 	}
 
-	protected void processHourData(AllocationReport report, DataSerializer data, int hour, TagGroup tg, CostAndUsage total, Set<TagGroup> allocatedTagGroups) throws Exception {
+	protected static void processHourData(AllocationReport report, DataSerializer data, int hour, TagGroup tg, CostAndUsage total, Set<TagGroup> allocatedTagGroups) throws Exception {
 		Map<AllocationReport.Key, Double> hourData = report.getData(hour, tg);
 		if (hourData == null || hourData.isEmpty()) {
 			return;
 		}
 		
-		// Remove the source value - we'll add any unallocated back at the end
-		data.remove(hour, tg);
-
 		// Use BigDecimal to control rounding errors
 		BigDecimal totalCost = BigDecimal.valueOf(total.cost);
 		BigDecimal totalUsage = BigDecimal.valueOf(total.usage);
 		BigDecimal allocationRemainder = BigDecimal.ONE;
 
 		List<Allocation> allocations = getCleanedAllocations(hourData, total);
+		if (allocations.isEmpty())
+			return;
+
+		// Remove the source value - we'll add any unallocated back at the end
+		data.remove(hour, tg);
+
 		for (Allocation a: allocations) {
 			BigDecimal costAllocation = totalCost.multiply(a.allocation, MathContext.DECIMAL64);
 			BigDecimal usageAllocation = totalUsage.multiply(a.allocation, MathContext.DECIMAL64);
