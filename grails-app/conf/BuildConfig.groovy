@@ -107,7 +107,11 @@ grails.project.dependency.resolution = {
                 'jfree:jfreechart:1.0.13',
                 'org.json:json:20090211',
                 'org.mapdb:mapdb:0.9.1',
-				'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.6.7'
+				'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.6.7',
+
+                // Parquet support
+                'org.apache.parquet:parquet-hadoop:1.12.0',
+                'org.apache.hadoop:hadoop-core:1.2.1'
 
         ) { // Exclude superfluous and dangerous transitive dependencies
             excludes(

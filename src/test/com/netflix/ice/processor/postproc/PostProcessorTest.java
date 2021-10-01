@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import com.netflix.ice.processor.ProcessorConfig;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -40,6 +41,7 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 
@@ -85,26 +87,25 @@ public class PostProcessorTest {
 				"end: 2022-11\n" + 
 				"report:\n" + 
 				"  aggregate: [monthly]\n" + 
-				"  includeCostType: true\n" + 
 				"in:\n" + 
 				"  filter:\n" + 
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
-				"  groupBy: [account]\n" +
+				"  groupBy: [costType,account]\n" +
 				"";
 		List<RuleConfig> rules = Lists.newArrayList(getConfig(reportYaml));
     	Account a = as.getAccountById("111111111111");
         Datum[] data = new Datum[]{
-        		new Datum(0,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(0, 25.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),
-        		new Datum(0, 30.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"}))),
-        		new Datum(0, 40.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"}))),
-        		new Datum(1,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(2,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(24,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(25,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(742,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
-        		new Datum(743,  5.0, 0, TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(0,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(0, 25.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),
+        		new Datum(0, 30.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"}))),
+        		new Datum(0, 40.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"}))),
+        		new Datum(1,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(2,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(24,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(25,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(742,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
+        		new Datum(743,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
         };
 
 		DataSerializer ds = new DataSerializer(userTagKeys.length);
@@ -116,8 +117,9 @@ public class PostProcessorTest {
 		
         List<Map<TagGroup, DataSerializer.CostAndUsage>> daily = Lists.newArrayList();
         List<Map<TagGroup, DataSerializer.CostAndUsage>> monthly = Lists.newArrayList();
-        
-        PostProcessor pp = new PostProcessor(rules, "", as, ps, rs, null, 0);
+
+        List<ProcessorConfig.JsonFileType> jsonFiles = Lists.newArrayList();
+        PostProcessor pp = new PostProcessor(null, rules, "", as, ps, rs, null, jsonFiles, false,0);
         pp.aggregateSummaryData(ds, daily, monthly);
         
         assertEquals("wrong number of monthly entries", 1, monthly.size());

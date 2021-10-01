@@ -42,6 +42,7 @@ import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.Datum;
 import com.netflix.ice.processor.config.AccountConfig;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -93,7 +94,7 @@ public class SavingsPlanProcessorTest {
 	}
 	
 	private void runTest(SavingsPlan sp, Datum[] data, Datum[] expected, Product product) {
-		CostAndUsageData caud = new CostAndUsageData(new DateTime("2019-12", DateTimeZone.UTC).getMillis(), null, null, null, null, null);
+		CostAndUsageData caud = new CostAndUsageData(null, new DateTime("2019-12", DateTimeZone.UTC).getMillis(), null, null, null, null, null);
 		if (product != null) {
 			caud.put(product, new DataSerializer(1));
 		}
@@ -117,7 +118,7 @@ public class SavingsPlanProcessorTest {
 	}
 	
 	private SavingsPlan newSavingsPlan(String usageType, PurchaseOption po, double recurring, double amort) {
-		TagGroupSP tg = TagGroupSP.get(a1, Region.GLOBAL, null, productService.getProduct("Savings Plans for AWS Compute usage", "ComputeSavingsPlans"), Operation.getOperation("None"), UsageType.getUsageType(usageType, "hours"), null, arn);
+		TagGroupSP tg = TagGroupSP.get(CostType.subscription, a1, Region.GLOBAL, null, productService.getProduct("Savings Plans for AWS Compute usage", "ComputeSavingsPlans"), Operation.getOperation("None"), UsageType.getUsageType(usageType, "hours"), null, arn);
 		String term = "1yr";
 		String offeringType = "ComputeSavingsPlans";
 		DateTime start = new DateTime("2020-02", DateTimeZone.UTC);
@@ -129,10 +130,10 @@ public class SavingsPlanProcessorTest {
 	public void testCoveredUsageNoUpfront() throws ResourceException {
 		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrNoUpfront", PurchaseOption.NoUpfront, 0.10, 0);
 		Datum[] data = new Datum[]{
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusNoUpfront, "t3.micro", null, arn, 0.012, 1),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusNoUpfront, "t3.micro", null, arn, 0.012, 1),
 			};
 		Datum[] expected = new Datum[]{
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedNoUpfront, "t3.micro", null, 0.012, 1),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedNoUpfront, "t3.micro", null, 0.012, 1),
 			};
 		runTest(sp, data, expected, null);
 	}
@@ -141,20 +142,20 @@ public class SavingsPlanProcessorTest {
 	public void testCoveredUsageNoUpfrontLambda() throws ResourceException {
 		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrNoUpfront", PurchaseOption.NoUpfront, 0.10, 0);
 		Datum[] data = new Datum[]{
-				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", null, arn, 0.000036, 2.4),
+				new Datum(CostType.recurring, a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", null, arn, 0.000036, 2.4),
 			};
 		Datum[] expected = new Datum[]{
-				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", null, 0.000036, 2.4),
+				new Datum(CostType.recurring, a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", null, 0.000036, 2.4),
 			};
 		runTest(sp, data, expected, null);
 		
 		// Test with resources
 		String rg = "TagA";
 		data = new Datum[]{
-				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", rg, arn, 0.000036, 2.4),
+				new Datum(CostType.recurring, a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanBonusNoUpfront, "Lambda-GB-Second", rg, arn, 0.000036, 2.4),
 			};
 		expected = new Datum[]{
-				new Datum(a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", rg, 0.000036, 2.4),
+				new Datum(CostType.recurring, a1, Region.AP_NORTHEAST_1, null, lambda, Operation.savingsPlanUsedNoUpfront, "Lambda-GB-Second", rg, 0.000036, 2.4),
 			};
 		runTest(sp, data, expected, lambda);
 	}
@@ -163,11 +164,11 @@ public class SavingsPlanProcessorTest {
 	public void testCoveredUsagePartialUpfront() throws ResourceException {
 		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrPartialUpfront", PurchaseOption.PartialUpfront, 0.055, 0.045);
 		Datum[] data = new Datum[]{
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t3.micro", null, arn, 0.01, 1),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t3.micro", null, arn, 0.01, 1),
 			};
 		Datum[] expected = new Datum[]{
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedPartialUpfront, "t3.micro", null, 0.0055, 1),
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanAmortizedPartialUpfront, "t3.micro", null, 0.0045, 0),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedPartialUpfront, "t3.micro", null, 0.0055, 1),
+				new Datum(CostType.amortization, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanAmortizedPartialUpfront, "t3.micro", null, 0.0045, 0),
 			};
 		runTest(sp, data, expected, null);
 	}
@@ -176,11 +177,11 @@ public class SavingsPlanProcessorTest {
 	public void testCoveredUsageAllUpfront() throws ResourceException {
 		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrAllUpfront", PurchaseOption.AllUpfront, 0.0, 0.10);
 		Datum[] data = new Datum[]{
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusAllUpfront, "t3.micro", null, arn, 0.012, 1),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusAllUpfront, "t3.micro", null, arn, 0.012, 1),
 			};
 		Datum[] expected = new Datum[]{
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedAllUpfront, "t3.micro", null, 0, 1),
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanAmortizedAllUpfront, "t3.micro", null, 0.012, 0),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanUsedAllUpfront, "t3.micro", null, 0, 1),
+				new Datum(CostType.amortization, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanAmortizedAllUpfront, "t3.micro", null, 0.012, 0),
 			};
 		runTest(sp, data, expected, null);
 	}
@@ -189,13 +190,13 @@ public class SavingsPlanProcessorTest {
 	public void testCoveredUsagePartialUpfrontBorrowed() throws ResourceException {
 		SavingsPlan sp = newSavingsPlan("ComputeSP:1yrPartialUpfront", PurchaseOption.PartialUpfront, 0.055, 0.045);
 		Datum[] data = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t3.micro", null, arn, 0.01, 1),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBonusPartialUpfront, "t3.micro", null, arn, 0.01, 1),
 			};
 		Datum[] expected = new Datum[]{
-				new Datum(a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBorrowedPartialUpfront, "t3.micro", null, 0.0055, 1),
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanLentPartialUpfront, "t3.micro", null, 0.0055, 1),
-				new Datum(a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBorrowedAmortizedPartialUpfront, "t3.micro", null, 0.0045, 0),
-				new Datum(a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanLentAmortizedPartialUpfront, "t3.micro", null, 0.0045, 0),
+				new Datum(CostType.recurring, a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBorrowedPartialUpfront, "t3.micro", null, 0.0055, 1),
+				new Datum(CostType.recurring, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanLentPartialUpfront, "t3.micro", null, 0.0055, 1),
+				new Datum(CostType.amortization, a2, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanBorrowedAmortizedPartialUpfront, "t3.micro", null, 0.0045, 0),
+				new Datum(CostType.amortization, a1, Region.US_EAST_1, null, ec2Instance, Operation.savingsPlanLentAmortizedPartialUpfront, "t3.micro", null, 0.0045, 0),
 			};
 		runTest(sp, data, expected, null);
 	}

@@ -39,6 +39,7 @@ import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.Config.TagCoverage;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -61,14 +62,14 @@ public class CostAndUsageDataTest {
 		userTagKeys = Lists.newArrayList();
 		userTagKeys.add(UserTagKey.get("Email"));
 		userTagKeys.add(UserTagKey.get("Environment"));
-        tg = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
-        staleDataTagGroup = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_1, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
+        tg = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
+        staleDataTagGroup = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("123", ""), Region.US_WEST_1, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
 	}
 	
 
 	@Test
 	public void testAddTagCoverage() {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(null, 0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		
 		cau.addTagCoverage(null, 0, tg, new boolean[]{true, false});
 		
@@ -83,7 +84,7 @@ public class CostAndUsageDataTest {
 	
 	@Test
 	public void testAggregateSummaryData() {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(null, 0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		cau.enableTagGroupCache(true);
 		DataSerializer data = new DataSerializer(userTagKeys.size());
 		cau.put(null, data);
@@ -146,7 +147,7 @@ public class CostAndUsageDataTest {
 	
 	@Test
 	public void testGetPartialWeekFromLastMonth() throws Exception {
-		CostAndUsageData cau = new CostAndUsageData(0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
+		CostAndUsageData cau = new CostAndUsageData(null, 0, null, userTagKeys, TagCoverage.withUserTags, as, ps);
 		cau.enableTagGroupCache(true);
 		DataSerializer data = new DataSerializer(userTagKeys.size());
 		cau.put(null, data);
@@ -198,7 +199,7 @@ public class CostAndUsageDataTest {
 		public DateTime endMonth;
 
 		public TestCostAndUsageData(DateTime startMonth, DateTime currentMonth, DateTime endMonth) {
-			super(startMonth.getMillis(), null, userTagKeys, TagCoverage.withUserTags, as, ps);
+			super(null, startMonth.getMillis(), null, userTagKeys, TagCoverage.withUserTags, as, ps);
 			this.startMonth = startMonth;
 			this.currentMonth = currentMonth;
 			this.endMonth = endMonth;

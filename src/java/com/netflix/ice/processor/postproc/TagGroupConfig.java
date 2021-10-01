@@ -20,6 +20,7 @@ package com.netflix.ice.processor.postproc;
 import java.util.Map;
 
 public class TagGroupConfig {
+	private String costType;
 	private String account;
 	private String region;
 	private String zone;
@@ -28,6 +29,14 @@ public class TagGroupConfig {
 	private String usageType;
 	
 	protected Map<String, String> userTags;
+
+	public String getCostType() {
+		return costType;
+	}
+
+	public void setCostType(String costType) {
+		this.costType = costType;
+	}
 
 	public String getAccount() {
 		return account;

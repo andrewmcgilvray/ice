@@ -62,8 +62,9 @@ public class ReaderConfig extends Config {
     public final ThroughputMetricService throughputMetricService;
     public final Managers managers;
     public final int monthlyCacheSize;
-    public final List<UserTagKey> userTagKeys;
+    public List<UserTagKey> userTagKeys;
     public final String dashboardNotice;
+    public final String dashboardLinks;
     public Map<String, Map<String, TagConfig>> tagConfigs;
     public String processorRegion;
     public String processorInstanceId;
@@ -74,7 +75,6 @@ public class ReaderConfig extends Config {
      * @param properties (required)
      * @param managers (required)
      * @param productService (required)
-     * @param applicationGroupService (optional)
      * @param throughputMetricService (optional)
      * @throws IOException 
      * @throws InterruptedException 
@@ -116,6 +116,7 @@ public class ReaderConfig extends Config {
 
         companyName = properties.getProperty(IceOptions.COMPANY_NAME, "");
         dashboardNotice = properties.getProperty(IceOptions.DASHBOARD_NOTICE, "");
+        dashboardLinks = properties.getProperty(IceOptions.DASHBOARD_LINKS, "");
         enableReprocessRequests = Boolean.parseBoolean(properties.getProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, "false"));
         currencySign = properties.getProperty(IceOptions.CURRENCY_SIGN, "$");
         currencyRate = Double.parseDouble(properties.getProperty(IceOptions.CURRENCY_RATE, "1"));
@@ -233,6 +234,7 @@ public class ReaderConfig extends Config {
     	
     	accountService.updateAccounts(config.getAccounts());
     	updateZones(config.getZones());
+        userTagKeys = config.getUserTagKeys();
         tagConfigs = config.getTagConfigs();
         processorRegion = config.getProcessorRegion();
         processorInstanceId = config.getProcessorInstanceId();

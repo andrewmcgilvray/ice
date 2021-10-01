@@ -43,6 +43,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
 	private static final long serialVersionUID = 3L;
     //private final Logger logger = LoggerFactory.getLogger(getClass());
 	
+	public final CostType costType;
 	public final Account account;
     public final Product product;
     public final Operation operation;
@@ -53,7 +54,8 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
     
     private final int hashcode;
     
-    protected TagGroup(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup) {
+    protected TagGroup(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup) {
+    	this.costType = costType;
         this.account = account;
         this.region = region;
         this.zone = zone;
@@ -67,13 +69,16 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
 
     @Override
     public String toString() {
-        return "\"" + account + "\",\"" + region + "\",\"" + zone + "\",\"" + product + "\",\"" + operation + "\",\"" + usageType + "\",\"" + resourceGroup + "\"";
+        return "\"" + costType + "\",\"" + account + "\",\"" + region + "\",\"" + zone + "\",\"" + product + "\",\"" + operation + "\",\"" + usageType + "\",\"" + resourceGroup + "\"";
     }
 
     public int compareTo(TagGroup t) {
     	if (this == t)
     		return 0;
-        int result = this.account == t.account ? 0 : (this.account == null ? 1 : (t.account == null ? -1 : this.account.compareTo(t.account)));
+        int result = this.costType == t.costType ? 0 : (this.costType == null ? 1 : (t.costType == null ? -1 : this.costType.compareTo(t.costType)));
+        if (result != 0)
+            return result;
+        result = this.account == t.account ? 0 : (this.account == null ? 1 : (t.account == null ? -1 : this.account.compareTo(t.account)));
         if (result != 0)
             return result;
         result = this.region == t.region ? 0 : (this.region == null ? 1 : (t.region == null ? -1 : this.region.compareTo(t.region)));
@@ -112,6 +117,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
 
         boolean match = 
                 this.zone == other.zone &&
+                this.costType == other.costType &&
                 this.account == other.account &&
                 this.region == other.region &&
                 this.product == other.product &&
@@ -130,6 +136,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         final int prime = 31;
         int result = 1;
         result = prime * result + (zone != null ? zone.hashCode() : 0);
+        result = prime * result + (costType != null ? costType.hashCode() : 0);
         result = prime * result + (account != null ? account.hashCode() : 0);
         result = prime * result + (region != null ? region.hashCode() : 0);
         result = prime * result + (product != null ? product.hashCode() : 0);
@@ -143,10 +150,12 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
     private static Map<TagGroup, TagGroup> tagGroups = Maps.newConcurrentMap();
 
     public static TagGroup getTagGroup(
+    		String costType,
     		String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit,
     		String[] resourceGroup, AccountService accountService, ProductService productService) throws BadZone, ResourceException {
         Region r = Region.getRegionByName(region);
     	return getTagGroup(
+    		CostType.get(costType),
     		accountService.getAccountByName(account),
         	r, StringUtils.isEmpty(zone) ? null : r.getZone(zone),
         	productService.getProductByServiceCode(product),
@@ -155,8 +164,8 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
             ResourceGroup.getResourceGroup(resourceGroup));   	
     }
     
-    public static TagGroup getTagGroup(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup) {
-        TagGroup newOne = new TagGroup(account, region, zone, product, operation, usageType, resourceGroup);
+    public static TagGroup getTagGroup(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup) {
+        TagGroup newOne = new TagGroup(costType, account, region, zone, product, operation, usageType, resourceGroup);
         TagGroup oldOne = tagGroups.get(newOne);
         if (oldOne != null) {
             return oldOne;
@@ -167,14 +176,22 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         }
     }
     
+    public TagGroup withCostType(CostType ct) {
+    	return getTagGroup(ct, account, region, zone, product, operation, usageType, resourceGroup);
+    }
+    
     public TagGroup withOperation(Operation op) {
-    	return getTagGroup(account, region, zone, product, op, usageType, resourceGroup);
+    	return getTagGroup(costType, account, region, zone, product, op, usageType, resourceGroup);
     }
     
     public TagGroup withResourceGroup(ResourceGroup rg) {
-    	return getTagGroup(account, region, zone, product, operation, usageType, rg);
+    	return getTagGroup(costType, account, region, zone, product, operation, usageType, rg);
     }
 
+    public TagGroup withoutResourceGroup() {
+    	return getTagGroup(costType, account, region, zone, product, operation, usageType, null);
+    }
+    
     public static class Serializer {
 
         public static void serializeTagGroups(DataOutput out, TreeMap<Long, Collection<TagGroup>> tagGroups) throws IOException {
@@ -190,6 +207,7 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         }
 
         public static void serialize(DataOutput out, TagGroup tagGroup) throws IOException {
+            out.writeUTF(tagGroup.costType == null ? "" : tagGroup.costType.toString());
             out.writeUTF(tagGroup.account == null ? "" : tagGroup.account.getId());
             out.writeUTF(tagGroup.region == null ? "" : tagGroup.region.toString());
             out.writeUTF(tagGroup.zone == null ? "" : tagGroup.zone.toString());
@@ -200,13 +218,14 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
         }
         
         public static void serializeCsvHeader(OutputStreamWriter out, String resourceGroupHeader) throws IOException {
-        	out.write("account,region,zone,product,operation,");
+        	out.write("costType,account,region,zone,product,operation,");
         	UsageType.serializeCsvHeader(out);
         	if (!StringUtils.isEmpty(resourceGroupHeader))
         		out.write(resourceGroupHeader);
         }
 
         public static void serializeCsv(Writer out, TagGroup tagGroup) throws IOException {
+            out.write((tagGroup.costType == null ? "" : tagGroup.costType.toString()) + ",");
             out.write((tagGroup.account == null ? "" : tagGroup.account.getId()) + ",");
             out.write((tagGroup.region == null ? "" : tagGroup.region.toString()) + ",");
             out.write((tagGroup.zone == null ? "" : tagGroup.zone.toString()) + ",");
@@ -237,6 +256,9 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
 
         public static TagGroup deserialize(AccountService accountService, ProductService productService, int numUserTags, DataInput in) throws IOException, BadZone {
         	String v = in.readUTF();
+            CostType costType = v.isEmpty() ? null : CostType.get(v);
+            
+        	v = in.readUTF();
             Account account = v.isEmpty() ? null : accountService.getAccountById(v);
             
             v = in.readUTF();
@@ -254,12 +276,12 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
             UsageType usageType = UsageType.deserialize(in);
             ResourceGroup resourceGroup = ResourceGroup.deserialize(in, numUserTags);
 
-            return TagGroup.getTagGroup(account, region, zone, product, operation, usageType, resourceGroup);
+            return TagGroup.getTagGroup(costType, account, region, zone, product, operation, usageType, resourceGroup);
         }
                 
         // Serialize to CSV for general debugging
         public static void serializeTagGroupsCsv(DataOutput out, TreeMap<Long, Collection<TagGroup>> tagGroups) throws IOException {
-            out.writeChars("Month,Account,Region,Zone,Product,Operation,UsageType,UsageTypeUnit,ResourceGroup\n");
+            out.writeChars("Month,CostType,Account,Region,Zone,Product,Operation,UsageType,UsageTypeUnit,ResourceGroup\n");
             DateTimeFormatter dateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(DateTimeZone.UTC);
 
             for (Long monthMilli: tagGroups.keySet()) {
@@ -267,6 +289,8 @@ public class TagGroup implements Comparable<TagGroup>, Serializable {
                 for (TagGroup tagGroup: keys) {
                 	StringBuilder sb = new StringBuilder(256);
                 	sb.append(dateFormatter.print(monthMilli));
+                	sb.append(",");
+                	sb.append(tagGroup.costType == null ? "" : tagGroup.costType.toString());
                 	sb.append(",");
                 	sb.append(tagGroup.account == null ? "" : tagGroup.account.toString());
                 	sb.append(",");

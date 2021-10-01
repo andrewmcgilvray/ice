@@ -30,16 +30,19 @@
 </head>
 <body class="nactest" ng-controller="mainCtrl">
   <div class="titlebar" ng-show="!graphOnly()">
-    <div class="header">
+    <span class="header">
       <a href="${resource(dir: '/')}">
         <span class="mainHeader">
           ${ReaderConfig.getInstance().companyName} AWS Usage Dashboard
         </span>
       </a>
-    </div>
-    <div class="notice" ng-show="${!ReaderConfig.getInstance().dashboardNotice.isEmpty()}">
+    </span>
+    <span class="notice" ng-show="${!ReaderConfig.getInstance().dashboardNotice.isEmpty()}">
     	${ReaderConfig.getInstance().dashboardNotice}
-    </div>
+    </span>
+    <span class="links">
+      ${ReaderConfig.getInstance().dashboardLinks}
+    </span>
   </div>
   <ul class="nav" ng-show="!graphOnly()">
     <li class="menuButton">
@@ -79,7 +82,7 @@
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'resourceinfo')}" ng-click="reload()">Resource Info</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'accounts')}" ng-click="reload()">Accounts</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'tagconfigs')}" ng-click="reload()">Tag Settings</a></li>
-        <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'statistics')}" ng-click="reload()">Tag Statistics</a></li>
+        <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'statistics')}" ng-click="reload()">Statistics</a></li>
         <li class="menuButton"><a class="" href="${resource(dir: 'dashboard', file: 'processorstatus')}" ng-click="reload()">Processor Status</a></li>
       </ul>
     </li>

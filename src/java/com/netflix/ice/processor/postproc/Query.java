@@ -34,6 +34,7 @@ import com.netflix.ice.common.AggregationTagGroup;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -57,13 +58,12 @@ public class Query {
 	private final List<String> groupByTags;
 	protected final Aggregation aggregation;
 	private final boolean aggregates;
-	private final boolean addedOperationForCostType;
 
 	private final String[] emptyUserTags;
 	
 	private String string = null;
 
-	public Query(QueryConfig queryConfig, List<String> userTagKeys, boolean needCostType) throws Exception {		
+	public Query(QueryConfig queryConfig, List<String> userTagKeys) throws Exception {		
 		TagGroupFilterConfig tgfc = queryConfig.getFilter();
 		tagFilters = Maps.newHashMap();
 		
@@ -79,10 +79,6 @@ public class Query {
 		// Get tags we're not aggregating. If null, we're grouping by everything, else use
 		// the tags specified.
 		groupBy = queryConfig.getGroupBy() == null ? Lists.<Rule.TagKey>newArrayList(Rule.TagKey.values()) : queryConfig.getGroupBy();
-		// If we're generating a report that needs costType, make sure we group by operation
-		this.addedOperationForCostType = needCostType && !groupBy.contains(Rule.TagKey.operation);
-		if (this.addedOperationForCostType)
-			groupBy.add(Rule.TagKey.operation);
 
 		if (tgfc != null && tgfc.getTags() != null) {
 			for (Rule.TagKey key: tgfc.getTags().keySet()) {
@@ -115,7 +111,7 @@ public class Query {
 				// Unspecified values will automatically be set to empty strings when processed.
 				// Check for ones that are required.
 				Set<Rule.TagKey> keys = tgfc.getTags().keySet();
-				if (!singleTagGroup || !keys.contains(Rule.TagKey.account) || !keys.contains(Rule.TagKey.region) || !keys.contains(Rule.TagKey.product))
+				if (!singleTagGroup || !keys.contains(Rule.TagKey.costType) || !keys.contains(Rule.TagKey.account) || !keys.contains(Rule.TagKey.region) || !keys.contains(Rule.TagKey.product))
 					throw new Exception("Query filter marked as single, but resolves to more than one tag group.");
 			}
 			else {
@@ -216,10 +212,6 @@ public class Query {
 		return groupByTags.size() > 0;
 	}
 	
-	public boolean addedOperationForCostType() {
-		return addedOperationForCostType;
-	}
-	
 	public String toString() {
 		if (string == null) {
 			List<String> tags = Lists.newArrayList();
@@ -257,6 +249,7 @@ public class Query {
 	 * There should only be one entry in each dimension list, so the first is always chosen.
 	 */
 	public TagGroup getSingleTagGroup(AccountService accountService, ProductService productService, boolean isNonResource) throws Exception {
+		CostType costType = CostType.get(tagFilters.get(Rule.TagKey.costType).getFirst());
 		Account account = accountService.getAccountById(tagFilters.get(Rule.TagKey.account).getFirst());
 		Region region = Region.getRegionByName(tagFilters.get(Rule.TagKey.region).getFirst());
 		Zone zone = tagFilters.containsKey(Rule.TagKey.zone) ? region.getZone(tagFilters.get(Rule.TagKey.zone).getFirst()) : null;
@@ -284,7 +277,7 @@ public class Query {
 			}
 		}
 
-		return TagGroup.getTagGroup(account, region, zone, product, operation, usageType, resourceGroup);
+		return TagGroup.getTagGroup(costType, account, region, zone, product, operation, usageType, resourceGroup);
 	}
 
 
@@ -297,6 +290,7 @@ public class Query {
 			TagFilters tf = tagFilters.get(tk);
 			String value = null;
 			switch (tk) {
+			case costType:  value = tg.costType.name;				break;
 			case account:	value = tg.account.getId();				break;				
 			case region:	value = tg.region.name;					break;
 			case zone:		value = tg.zone == null ? null : tg.zone.name;					break;

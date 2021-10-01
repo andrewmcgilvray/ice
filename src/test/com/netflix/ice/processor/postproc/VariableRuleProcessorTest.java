@@ -46,6 +46,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
@@ -57,9 +58,11 @@ import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.DataSerializer.CostAndUsage;
+import com.netflix.ice.processor.ProcessorConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.processor.postproc.AllocationReport.Key;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.UserTagKey;
@@ -237,19 +240,19 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 1000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 1000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0, 0),
 
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0, 0),
 
-        		new TagGroupSpec(a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -275,27 +278,28 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
-		data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		vrp.process(data);
 		hourData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
 		assertEquals("wrong number of output records", 5, hourData.keySet().size());
 
         TagGroupSpec[] expected = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 50.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five"}, 250.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy"}, 700.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 50.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five"}, 250.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy"}, 700.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0, 0),
 
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0, 0),
 
-        		new TagGroupSpec(a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0, 0),
         };
 
         for (TagGroupSpec spec: expected) {
@@ -334,16 +338,17 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterC,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
-		data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		vrp.process(data);
 		hourData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
 		assertEquals("wrong number of output records", 4, hourData.keySet().size());
 
         expected = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "twenty-five"}, 2631.6, 0),
-        		new TagGroupSpec(a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "seventy"}, 7368.4, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "twenty-five"}, 2631.6, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "seventy"}, 7368.4, 0),
         };
 
         for (TagGroupSpec spec: expected) {
@@ -376,37 +381,38 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
-		data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
         vrp.process(data);
 		hourData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0);
 		assertEquals("wrong number of output records", 7, hourData.keySet().size());
 
         expected = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 1000.0 * .05, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five"}, 1000.0 * .25, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy"}, 1000.0 * .7, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0 * .05, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "twenty-five"}, 2000.0 * .25, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "seventy"}, 2000.0 * .7, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0 * .05, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "twenty-five"}, 4000.0 * .25, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "seventy"}, 4000.0 * .7, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 1000.0 * .05, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five"}, 1000.0 * .25, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy"}, 1000.0 * .7, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 2000.0 * .05, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "twenty-five"}, 2000.0 * .25, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "seventy"}, 2000.0 * .7, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 4000.0 * .05, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "twenty-five"}, 4000.0 * .25, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "seventy"}, 4000.0 * .7, 0),
 
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0 * .05, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "twenty-five"}, 8000.0 * .25, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "seventy"}, 8000.0 * .7, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0 * .05, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "twenty-five"}, 16000.0 * .25, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "seventy"}, 16000.0 * .7, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0 * .05, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "twenty-five"}, 32000.0 * .25, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "seventy"}, 32000.0 * .7, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 8000.0 * .05, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "twenty-five"}, 8000.0 * .25, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "seventy"}, 8000.0 * .7, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "compute"}, 16000.0 * .05, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "twenty-five"}, 16000.0 * .25, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterB", "seventy"}, 16000.0 * .7, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "compute"}, 32000.0 * .05, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "twenty-five"}, 32000.0 * .25, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterB", "seventy"}, 32000.0 * .7, 0),
 
-        		new TagGroupSpec(a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "compute"}, 10000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterC", "compute"}, 20000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterC", "compute"}, 40000.0, 0),
         };
 
         for (TagGroupSpec spec: expected) {
@@ -414,6 +420,73 @@ public class VariableRuleProcessorTest {
         	Map<TagGroup, CostAndUsage> costData = data.get(tg.product).getData(0);
         	assertEquals("wrong data for spec " + spec.toString(), spec.value.cost, costData.get(tg).cost, 0.0001);
         }
+	}
+
+	@Test
+	public void testAllocationReportWithEmptyFields() throws Exception {
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2","Key3","Key4"}, false);
+		String allocationYaml = "" +
+				"name: simple\n" +
+				"start: 2019-11\n" +
+				"end: 2022-11\n" +
+				"in:\n" +
+				"  filter:\n" +
+				"    account: [" + a1 + "]\n" +
+				"allocation:\n" +
+				"  s3Bucket:\n" +
+				"    name: reports\n" +
+				"  out:\n" +
+				"    Key1: Key1\n";
+
+		TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "", "", ""}, 100.0, 0),
+		};
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
+		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
+		loadData(dataSpecs, data, 1, rs.getUserTagKeys().size());
+		loadData(dataSpecs, data, 2, rs.getUserTagKeys().size());
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
+
+		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+
+		// Process with a report
+		String reportData = "" +
+				"StartDate,EndDate,Allocation,Key1\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,twenty-five\n" +
+				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,seventy\n" +
+				"2020-08-01T01:00:00Z,2020-08-01T02:00:00Z,,twenty-five\n" +
+				"2020-08-01T01:00:00Z,2020-08-01T02:00:00Z,,seventy\n" +
+				"2020-08-01T02:00:00Z,2020-08-01T03:00:00Z,0.25,twenty-five\n" +
+				"2020-08-01T02:00:00Z,2020-08-01T03:00:00Z,0.70,seventy\n" +
+				"";
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertTrue("report parser should have flagged an error", ar.isParsingError());
+
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
+		vrp.process(data);
+		assertEquals("wrong number of output records", 3, data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
+
+		TagGroupSpec[] expected = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "", "", ""}, 5.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"twenty-five", "", "", ""}, 25.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"seventy", "", "", ""}, 70.0, 0),
+		};
+
+		for (int i = 0; i < 3; i++) {
+			if (i == 1) {
+				TagGroup tg = expected[0].getTagGroup(as, ps);
+
+				Map<TagGroup, CostAndUsage> costData = data.get(tg.product).getData(i);
+				assertEquals("wrong data for unallocated hour " + i, 100, costData.get(tg).cost, 0.001);
+			}
+			else {
+				for (TagGroupSpec spec: expected) {
+					TagGroup tg = spec.getTagGroup(as, ps);
+					Map<TagGroup, CostAndUsage> costData = data.get(tg.product).getData(i);
+					assertEquals("wrong data for spec " + spec.toString() + " in hour " + i, spec.value.cost, costData.get(tg).cost, 0.001);
+				}
+			}
+		}
 	}
 
 	@Test
@@ -448,9 +521,9 @@ public class VariableRuleProcessorTest {
 				"          values: [seventy]\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 1000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 1000.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -463,14 +536,15 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,EC2Instance,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		vrp.process(data);
 		assertEquals("wrong number of output records", 3, data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(0).keySet().size());
 
         TagGroupSpec[] expected = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 50.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five", "V25", ""}, 250.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy", "V70", ""}, 700.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 50.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "twenty-five", "V25", ""}, 250.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "seventy", "V70", ""}, 700.0, 0),
          };
 
         for (TagGroupSpec spec: expected) {
@@ -496,17 +570,18 @@ public class VariableRuleProcessorTest {
 				"  groupBy: [account]\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 200.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 400.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 200.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 400.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
-		PostProcessor pp = new PostProcessor(null, "", as, ps, rs, null, 0);
+		List<ProcessorConfig.JsonFileType> jsonFiles = Lists.newArrayList();
+		PostProcessor pp = new PostProcessor(null, null, "", as, ps, rs, null, jsonFiles, false,0);
 		pp.debug = true;
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
+		CostAndUsageData outData = new CostAndUsageData(data, null, rs.getUserTagKeys());
 		outData.enableTagGroupCache(true);
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, null, rs);
 		vrp.process(data);
@@ -531,7 +606,7 @@ public class VariableRuleProcessorTest {
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
-				"  groupBy: [account]\n" +
+				"  groupBy: [costType,account]\n" +
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
@@ -541,11 +616,11 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 200.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 400.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"clusterA", "compute"}, 200.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"clusterA", "compute"}, 400.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -559,8 +634,9 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.70,clusterA,seventy\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 
-		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
+		CostAndUsageData outData = new CostAndUsageData(data, null, rs.getUserTagKeys());
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
 		vrp.process(data);
 
@@ -572,9 +648,9 @@ public class VariableRuleProcessorTest {
 
     	Account a = as.getAccountById(a1);
         TagGroup[] expectedTg = new TagGroup[]{
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "seventy"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "seventy"})),
          };
         Double[] expectedValues = new Double[]{ 5.0 + 10.0 + 20.0, 25.0 + 50.0 + 100.0, 70.0 + 140.0 + 280.0 };
 
@@ -599,7 +675,7 @@ public class VariableRuleProcessorTest {
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
-				"  groupBy: [account]\n" +
+				"  groupBy: [costType,account]\n" +
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
@@ -610,13 +686,13 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 1000.0, 0),
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 10000.0, 0),
-        		new TagGroupSpec(a2, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 100000.0, 0),
-        		new TagGroupSpec(a3, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 1000000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 1000.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 10000.0, 0),
+        		new TagGroupSpec("Recurring", a2, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterB", "compute"}, 100000.0, 0),
+        		new TagGroupSpec("Recurring", a3, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"",         "compute"}, 1000000.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
@@ -634,8 +710,9 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,1.0,,,one-hundred-no-account\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 
-		CostAndUsageData outData = new CostAndUsageData(data, rs.getUserTagKeys());
+		CostAndUsageData outData = new CostAndUsageData(data, null, rs.getUserTagKeys());
 		outData.enableTagGroupCache(true);
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
 		vrp.process(data);
@@ -644,23 +721,23 @@ public class VariableRuleProcessorTest {
     	Account act2 = as.getAccountById(a2);
     	Account act3 = as.getAccountById(a3);
         TagGroup[] expectedTg = new TagGroup[]{
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "compute"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "seventy"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "compute"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "seventy"})),
-        		TagGroup.getTagGroup(act2, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "one-hundred"})),
-        		TagGroup.getTagGroup(act3, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"", "one-hundred-no-account"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "compute"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterA", "twenty-five"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "compute"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "seventy"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "compute"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"",         "seventy"})),
+        		TagGroup.getTagGroup(CostType.recurring, act2, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"clusterB", "one-hundred"})),
+        		TagGroup.getTagGroup(CostType.recurring, act3, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"", "one-hundred-no-account"})),
          };
         Double[] expectedValues = new Double[]{ 75.0, 25.0, 300.0, 700.0, 3000.0, 7000.0, 100000.0, 1000000.0 };
 
-        assertEquals("wrong number of output records", expectedTg.length, outData.get(null).getData(0).size());
+        Map<TagGroup, CostAndUsage> outMap = outData.get(null).getData(0);
+        assertEquals("wrong number of output records", expectedTg.length, outMap.size());
         for (int i = 0; i < expectedTg.length; i++) {
         	TagGroup tg = expectedTg[i];
-        	Map<TagGroup, CostAndUsage> costData = outData.get(null).getData(0);
-        	assertTrue("Tag group not in output cost data: " + tg, costData.containsKey(tg));
-        	assertEquals("wrong data for spec " + tg, expectedValues[i], costData.get(tg).cost, 0.001);
+        	assertTrue("Tag group not in output cost data: " + tg, outMap.containsKey(tg));
+        	assertEquals("wrong data for spec " + tg, expectedValues[i], outMap.get(tg).cost, 0.001);
         }
 	}
 
@@ -674,12 +751,11 @@ public class VariableRuleProcessorTest {
 				"end: 2022-11\n" +
 				"report:\n" +
 				"  aggregate: [monthly]\n" +
-				"  includeCostType: true\n" +
 				"in:\n" +
 				"  filter:\n" +
 				"    userTags:\n" +
 				"      Key2: [compute]\n" +
-				"  groupBy: [account]\n" +
+				"  groupBy: [costType,account]\n" +
 				"allocation:\n" +
 				"  s3Bucket:\n" +
 				"    name: reports\n" +
@@ -691,13 +767,13 @@ public class VariableRuleProcessorTest {
 				"    Extra2: Extra2\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"CostType","Extra1", "Key1", "Key2", "Extra2"});
+		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"Extra1", "Key1", "Key2", "Extra2"});
 		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), reportUserTagKeys, rs);
 
 		// Process with a report
@@ -708,8 +784,9 @@ public class VariableRuleProcessorTest {
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.40,clusterA,forty,extra1B,extra2B\n" +
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
+		assertFalse("report parser flagged an error", ar.isParsingError());
 
-		CostAndUsageData outData = new CostAndUsageData(data, UserTagKey.getUserTagKeys(reportUserTagKeys));
+		CostAndUsageData outData = new CostAndUsageData(data, null, UserTagKey.getUserTagKeys(reportUserTagKeys));
 		outData.enableTagGroupCache(true);
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, outData, ar, rs);
 		vrp.process(data);
@@ -722,10 +799,10 @@ public class VariableRuleProcessorTest {
 
     	Account a = as.getAccountById(a1);
         TagGroup[] expectedTg = new TagGroup[]{
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "thirty", "extra2A"})),
-        		TagGroup.getTagGroup(a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1B", "clusterA", "forty", "extra2B"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"", "clusterA", "compute", ""})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"extra1A", "clusterA", "twenty-five", "extra2A"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"extra1B", "clusterA", "thirty", "extra2A"})),
+        		TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"extra1B", "clusterA", "forty", "extra2B"})),
          };
         Double[] expectedValues = new Double[]{ 5.0, 25.0, 30.0, 40.0 };
 
@@ -785,9 +862,9 @@ public class VariableRuleProcessorTest {
 
 		// Test the data for cluster "dev-usw2a"
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"dev-usw2a", "compute", "", "Dev", "", "", "", ""}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"dev-usw2a", "compute", "", "Dev", "", "", "", ""}, 40.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 395;
         loadData(dataSpecs, data, testDataHour, rs.getUserTagKeys().size());
 
@@ -863,17 +940,17 @@ public class VariableRuleProcessorTest {
 				"cluster,Pod,cde123xyz,namespace2,p3.2xlarge,2021-01-01T00:00:00Z,2021-01-01T01:00:00Z,50,0,0,100,30,0,0,500,0,0,0,0,2,30,tag1B,tag2B",
 		};
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"cluster", "", "", "", "", "", ""}, 40.0, 0),
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "p3.2xlarge", new String[]{"cluster", "", "", "", "", "", ""}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"cluster", "", "", "", "", "", ""}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "p3.2xlarge", new String[]{"cluster", "", "", "", "", "", ""}, 40.0, 0),
         		
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"cluster", "", "", "", "", "", ""}, 8.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2b", ebs, "CreateVolume-Gp2", "EBS:VolumeUsage.gp2", new String[]{"cluster", "", "", "", "", "", ""}, 8.0, 0),
         		
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"cluster", "", "", "", "", "", ""}, 1.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2b", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"cluster", "", "", "", "", "", ""}, 1.0, 0),
         		
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", dataTransfer, "InterZone-In", "DataTransfer-Regional-Bytes", new String[]{"cluster", "", "", "", "", "", ""}, 1.0, 0),
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", dataTransfer, "InterZone-Out", "DataTransfer-Regional-Bytes", new String[]{"cluster", "", "", "", "", "", ""}, 2.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2b", dataTransfer, "InterZone-In", "DataTransfer-Regional-Bytes", new String[]{"cluster", "", "", "", "", "", ""}, 1.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2b", dataTransfer, "InterZone-Out", "DataTransfer-Regional-Bytes", new String[]{"cluster", "", "", "", "", "", ""}, 2.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 0;
         loadData(dataSpecs, data, testDataHour, rs.getUserTagKeys().size());
 		
@@ -988,11 +1065,11 @@ public class VariableRuleProcessorTest {
 
 		String[] clusterTags = new String[]{ "dev-usw2b", "k8s-prod-usw2a", "k8s-usw2a" };
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[0], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[1], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
-        		new TagGroupSpec(a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[0], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[1], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
+        		new TagGroupSpec("Recurring", a1, "us-west-2", "us-west-2a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{clusterTags[2], "compute", "", "Dev", "", "", "", ""}, 40.0, 3),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 395;
         loadData(dataSpecs, data, testDataHour, rs.getUserTagKeys().size());
 
@@ -1028,7 +1105,7 @@ public class VariableRuleProcessorTest {
 			assertNotNull("No allocated cost for kube-system namespace with cluster tag " + clusterTag, allocatedCau);
 			assertEquals("Incorrect allocated cost with cluster tag " + clusterTag, expectedAllocatedCosts[i], allocatedCau.cost, 0.0001);
 			String[] unusedTags = new String[]{ clusterTag, "compute", "unused", "Dev", "unused", "unused", "", "" };
-			TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
+			TagGroup unusedTg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
 			CostAndUsage unusedCau = hourData.get(unusedTg);
 			assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCosts[i], unusedCau.cost, 0.0001);
 
@@ -1092,9 +1169,9 @@ public class VariableRuleProcessorTest {
 
 		String clusterTag = "npd-blue-us-east-1";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "us-east-1", "us-east-1b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", "us-east-1b", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		final int testDataHour = 264; // 2020-10-12T00:00:00Z
         loadData(dataSpecs, data, testDataHour, rs.getUserTagKeys().size());
 
@@ -1125,7 +1202,7 @@ public class VariableRuleProcessorTest {
 		CostAndUsage allocatedCau = hourCostData.get(atg);
 		assertNull("Got allocated cost for default namespace with cluster tag " + clusterTag + ", should be too small to be allocated", allocatedCau);
 		String[] unusedTags = new String[]{"","","iamUser","","unused","unused","","","","", "compute"};
-		TagGroup unusedTg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
+		TagGroup unusedTg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
 		CostAndUsage unusedCau = hourCostData.get(unusedTg);
 		assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCost, unusedCau.cost, 0.0001);
 
@@ -1179,12 +1256,12 @@ public class VariableRuleProcessorTest {
 				"";
 
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec(a1, "eu-west-1", "eu-west-1a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", "eu-west-1a", ebs, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", "eu-west-1a", dataTransfer, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
-        		new TagGroupSpec(a1, "eu-west-1", "eu-west-1a", cloudWatch, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", "eu-west-1a", ec2Instance, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", "eu-west-1a", ebs, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", "eu-west-1a", dataTransfer, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", "eu-west-1a", cloudWatch, "RunInstances", "r5.4xlarge", new String[]{"","","iamUser","","","","","","","", "compute"}, 40.0, 0),
         };
-		CostAndUsageData data = new CostAndUsageData(0, null, rs.getUserTagKeys(), null, as, ps);
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
 		for (int i = 0; i < 720; i++)
 			loadData(dataSpecs, data, i, rs.getUserTagKeys().size());
 

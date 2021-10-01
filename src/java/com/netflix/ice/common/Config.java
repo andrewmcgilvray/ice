@@ -46,28 +46,12 @@ public abstract class Config {
     	basic,
     	withUserTags   	
     }
-    
-    public class WorkBucketConfig {
-        public final String workS3BucketName;
-        public final String workS3BucketRegion;
-        public final String workS3BucketPrefix;
-        public final String localDir;
-        
-        public WorkBucketConfig(String workS3BucketName, String workS3BucketRegion, String workS3BucketPrefix, String localDir) {
-        	this.workS3BucketName = workS3BucketName;
-        	this.workS3BucketRegion = workS3BucketRegion;
-        	this.workS3BucketPrefix = workS3BucketPrefix;
-        	this.localDir = localDir;
-        }
-    }
-    
-    /**
+
+	/**
      *
      * @param properties (required)
      * @param credentialsProvider (required)
-     * @param accountService (required)
      * @param productService (required)
-     * @param resourceService (optional)
      */
     public Config(
             Properties properties,
@@ -122,7 +106,7 @@ public abstract class Config {
 
 	/**
 	 * Download the work bucket data configuration file.
-	 * @param forceDownload
+	 * @param forceDownload download even if file exists locally
 	 * @return Returns null if the file has not changed or there is no config file in the bucket.
 	 */
 	protected WorkBucketDataConfig downloadWorkBucketDataConfig(boolean forceDownload) {
@@ -134,7 +118,7 @@ public abstract class Config {
     		downloaded = AwsUtils.downloadFileIfChanged(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
     	}
     	catch (Exception e) {
-    		logger.info("No work bucket data config file available");
+    		logger.info("No work bucket data config file available at: " + workBucketConfig.workS3BucketName + "/" + workBucketConfig.workS3BucketPrefix + file.getName());
     	}
 
 		if (downloaded) {

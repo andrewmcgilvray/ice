@@ -9,6 +9,7 @@ import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 
 public class TagGroupSpec {
+	String costType;
 	String account;
 	String region;
 	String zone;
@@ -18,7 +19,8 @@ public class TagGroupSpec {
 	String[] resourceGroup;
 	CostAndUsage value;
 	
-	public TagGroupSpec(String account, String region, String zone, String product, String operation, String usageType, String[] resourceGroup, double cost, double usage) {
+	public TagGroupSpec(String costType, String account, String region, String zone, String product, String operation, String usageType, String[] resourceGroup, double cost, double usage) {
+		this.costType = costType;
 		this.account = account;
 		this.region = region;
 		this.zone = zone;
@@ -29,7 +31,8 @@ public class TagGroupSpec {
 		this.value = new CostAndUsage(cost, usage);
 	}
 
-	public TagGroupSpec(String account, String region, String product, String operation, String usageType, String[] resourceGroup, double cost, double usage) {
+	public TagGroupSpec(String costType, String account, String region, String product, String operation, String usageType, String[] resourceGroup, double cost, double usage) {
+		this.costType = costType;
 		this.account = account;
 		this.region = region;
 		this.productServiceCode = product;
@@ -39,7 +42,8 @@ public class TagGroupSpec {
 		this.resourceGroup = resourceGroup;
 	}
 
-	public TagGroupSpec(String account, String region, String product, String operation, String usageType, String[] resourceGroup) {
+	public TagGroupSpec(String costType, String account, String region, String product, String operation, String usageType, String[] resourceGroup) {
+		this.costType = costType;
 		this.account = account;
 		this.region = region;
 		this.productServiceCode = product;
@@ -49,7 +53,8 @@ public class TagGroupSpec {
 		this.resourceGroup = resourceGroup;
 	}
 
-	public TagGroupSpec(String account, String region, String product, String operation, String usageType, double cost, double usage) {
+	public TagGroupSpec(String costType, String account, String region, String product, String operation, String usageType, double cost, double usage) {
+		this.costType = costType;
 		this.account = account;
 		this.region = region;
 		this.productServiceCode = product;
@@ -60,11 +65,11 @@ public class TagGroupSpec {
 	}
 
 	public TagGroup getTagGroup(AccountService as, ProductService ps) throws Exception {
-		return TagGroup.getTagGroup(account, region, zone, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
+		return TagGroup.getTagGroup(costType, account, region, zone, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
 	}
 	
 	public TagGroup getTagGroup(String account, AccountService as, ProductService ps) throws Exception {
-		return TagGroup.getTagGroup(account, region, zone, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
+		return TagGroup.getTagGroup(costType, account, region, zone, productServiceCode, operation, usageType, "", resourceGroup, as, ps);
 	}
 	
 	public String toString() {

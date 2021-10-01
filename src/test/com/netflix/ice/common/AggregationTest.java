@@ -49,6 +49,7 @@ public class AggregationTest {
 		for (String counts: permutations) {
 			try {
 					data.put(TagGroup.getTagGroup(
+							"Recurring",
 							"acct" + counts.charAt(0), 
 							"us-east-1", 
 							"us-east-1a", 

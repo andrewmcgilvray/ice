@@ -31,7 +31,7 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.google.common.collect.Lists;
 import com.netflix.ice.common.AwsUtils;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.Poller;
 import com.netflix.ice.common.ProcessorStatus;
 

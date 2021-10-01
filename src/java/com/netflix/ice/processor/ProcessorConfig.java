@@ -85,13 +85,15 @@ public class ProcessorConfig extends Config {
 
     public final String useCostForResourceGroup;
     public final List<JsonFileType> jsonFiles;
-    
+
     public enum JsonFileType {
     	hourly, // generate hourly newline delimited JSON records - one record per line
     	hourlyRI, // generate hourly newline delimited JSON records with RI rates for product/operations that offer reserved instances
     	daily;  // generate daily newline delimited JSON records - one record per line
     }
-    
+
+    public final boolean parquetFiles;
+
     // Post=processor configuration rules
     public List<RuleConfig> postProcessorRules;
     public String reportSubPrefix;
@@ -162,6 +164,7 @@ public class ProcessorConfig extends Config {
             	jsonFiles.add(JsonFileType.valueOf(t));
             }
         }
+        parquetFiles = Boolean.parseBoolean(properties.getProperty(IceOptions.WRITE_PARQUET_FILES));
         
         processOnce = properties.getProperty(IceOptions.PROCESS_ONCE) == null ? false : Boolean.parseBoolean(properties.getProperty(IceOptions.PROCESS_ONCE));
         processorRegion = properties.getProperty(IceOptions.PROCESSOR_REGION);

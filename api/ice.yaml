@@ -205,6 +205,9 @@ paths:
           schema:
             type: object
             properties:
+              costType:
+                description: Comma separated list of cost types. Values include Recurring, Amortization, Taxes, Credits, Savings
+                type: string
               account:
                 description: Comma separated list of account names
                 type: string
@@ -233,9 +236,6 @@ paths:
               showLent:
                 description: If true, return Lent operations and remove Borrowed. If false return Borrowed and remove Lent.
                 type: boolean
-              exclude:
-                description: Comma separated list of operation categories to exclude. Values can be amortized, recurring, credit, tax, savings
-                type: string
       responses:
         '200':
           description: collection of operations
@@ -383,6 +383,8 @@ paths:
               tag:
                 description: Comma separated list of tags for tag coverage data
                 type: string
+              costType:
+                description: Comma separated list of costType names for filtering data. Values include Recurring, Amortization, Tax, Credit, Savings, Subscription, SubscriptionTax, Refund, RefundTax
               account:
                 description: Comma separated list of account names for filtering data
                 type: string
@@ -413,9 +415,6 @@ paths:
               showLent:
                 description: If true, return Lent operations and remove Borrowed. If false return Borrowed and remove Lent.
                 type: boolean
-              exclude:
-                description: Comma separated list of operation categories to exclude. Values can be amortized, recurring, credit, tax, savings
-                type: string
             additionalProperties:
                 description: Comma separated list of values for the specified user tag. Parameter name takes the form tag-<name>
                 type: string

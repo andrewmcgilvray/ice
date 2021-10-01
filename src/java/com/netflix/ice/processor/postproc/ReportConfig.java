@@ -2,6 +2,7 @@ package com.netflix.ice.processor.postproc;
 
 import java.util.List;
 
+import com.netflix.ice.common.Config;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.processor.postproc.RuleConfig.Aggregation;
 
@@ -13,6 +14,8 @@ import com.netflix.ice.processor.postproc.RuleConfig.Aggregation;
  * 
  * If includeCostType is set to true, then an additional costType column is added to the report.
  *
+ * If workBucket is specified, the report data will be written to a work bucket for a reader
+ * instance to use the data.
  */
 public class ReportConfig {
 	public enum DataType {
@@ -23,7 +26,7 @@ public class ReportConfig {
 	private S3BucketConfig s3Bucket;
 	private List<Aggregation> aggregate;
 	private List<DataType> types;
-	private boolean includeCostType;
+	private boolean archiveToWorkBucket;
 
 	public S3BucketConfig getS3Bucket() {
 		return s3Bucket;
@@ -37,12 +40,6 @@ public class ReportConfig {
 	public void setAggregate(List<Aggregation> aggregate) {
 		this.aggregate = aggregate;
 	}
-	public boolean includeCostType() {
-		return includeCostType;
-	}
-	public void setIncludeCostType(boolean includeCostType) {
-		this.includeCostType = includeCostType;
-	}
 	public List<DataType> getTypes() {
 		return types;
 	}
@@ -50,4 +47,11 @@ public class ReportConfig {
 		this.types = types;
 	}
 
+	public boolean isArchiveToWorkBucket() {
+		return archiveToWorkBucket;
+	}
+
+	public void setWorkBucket(boolean archiveToWorkBucket) {
+		this.archiveToWorkBucket = archiveToWorkBucket;
+	}
 }

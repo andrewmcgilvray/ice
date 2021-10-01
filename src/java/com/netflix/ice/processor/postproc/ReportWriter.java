@@ -128,7 +128,7 @@ public class ReportWriter {
 				if ((!hasUsage && cau.cost == 0.0) || (!hasCost && cau.usage == 0.0))
 					continue;
     			
-    			List<String> cols = Lists.newArrayList();
+    			List<String> cols = Lists.newArrayListWithCapacity(header.size());
     			cols.add(dateString); // StartDate
     			
     			if (hasCost) {
@@ -143,6 +143,7 @@ public class ReportWriter {
     			    			
     			for (Rule.TagKey tk: tagKeys) {    				
     				switch (tk) {
+    				case costType:  cols.add(tg.costType.name); break;
     				case account:	cols.add(tg.account.getId()); cols.add(tg.account.getName()); break;
     				case region:	cols.add(tg.region.name); break;
     				case zone:		cols.add(tg.zone == null ? "" : tg.zone.name); break;

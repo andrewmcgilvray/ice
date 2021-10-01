@@ -404,8 +404,8 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
     }
     
     public void deserializeCsv(AccountService accountService, ProductService productService, BufferedReader in) throws IOException, BadZone {
-    	final int numNonResourceColumns = 10; // 8 dimensions (index, account, region, zone, product, operation, usageType, units)  plus cost and usage columns
-    	final int resourceStartIndex = 8;
+    	final int resourceStartIndex = 9; // 9 dimensions (index, costType, account, region, zone, product, operation, usageType, units)  plus cost and usage columns
+    	final int numNonResourceColumns = resourceStartIndex + 2; // plus cost and usage columns
         List<Map<TagGroup, CostAndUsage>> data = Lists.newArrayList();
         
         String line;
@@ -430,7 +430,7 @@ public class DataSerializer implements ReadWriteDataSerializer, DataVersion {
         	}
         	TagGroup tag = null;
 			try {
-				tag = TagGroup.getTagGroup(items[1], items[2], items[3], items[4], items[5], items[6], items[7], resourceGroup, accountService, productService);
+				tag = TagGroup.getTagGroup(items[1], items[2], items[3], items[4], items[5], items[6], items[7], items[8], resourceGroup, accountService, productService);
 			} catch (ResourceException e) {
 				// Should never throw because no user tags are null
 			}

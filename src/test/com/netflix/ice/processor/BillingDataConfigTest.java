@@ -48,7 +48,7 @@ public class BillingDataConfigTest {
 				"	\"tags\":[\n" + 
 				"		{\n" +
 				"           \"name\": \"Environment\",\n" + 
-				"			\"aliases\": [ \"env\" ],\n" + 
+				"			\"aliases\": [ { \"name\": \"env\" }],\n" +
 				"			\"values\": {\n" + 
 				"				\"Prod\": [ \"production\", \"prd\" ]\n" + 
 				"			}\n" + 
@@ -90,7 +90,8 @@ public class BillingDataConfigTest {
 				"    externalId: 12345\n" + 
 				"tags:\n" + 
 				"  - name: Environment\n" + 
-				"    aliases: [env]\n" + 
+				"    aliases:\n" +
+				"      - name: env\n" +
 				"    values:\n" + 
 				"        Prod: [production, prd]\n" +
 				"";

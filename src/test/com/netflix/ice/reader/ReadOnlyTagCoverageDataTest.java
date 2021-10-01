@@ -37,6 +37,7 @@ import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.ReadWriteTagCoverageData;
 import com.netflix.ice.processor.TagCoverageMetrics;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -54,7 +55,7 @@ public class ReadOnlyTagCoverageDataTest {
         DataOutput out = new DataOutputStream(output);
 		
         
-        TagGroup tagGroup = TagGroup.getTagGroup(as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
+        TagGroup tagGroup = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("123", ""), Region.US_WEST_2, null, ps.getProduct(Product.Code.S3), Operation.ondemandInstances, UsageType.getUsageType("c1.medium", "hours"), null);
         int numTags = 5;
         TagCoverageMetrics metrics = new TagCoverageMetrics(numTags);
         TagCoverageMetrics.add(metrics, new boolean[]{ false, false, false, false, true });

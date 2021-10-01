@@ -45,7 +45,8 @@ public class BillingDataConfigTest {
 		"    \n" + 
 		"tags:\n" + 
 		"  - name: Environment\n" + 
-		"    aliases: [env]\n" + 
+		"    aliases:\n" +
+		"      - name: env\n" +
 		"    values:\n" + 
 		"      Prod: [production, prd]\n" + 
 		"      \n" + 

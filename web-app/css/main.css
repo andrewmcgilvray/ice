@@ -24,11 +24,16 @@ img          { border: none; }
     color: #000;
     background-color: #f0f9ff;
 }
+.titlebar .links {
+    margin: 20px;
+    float: right
+}
+.titlebar .links a { text-decoration: underline; cursor: pointer; }
 .titlebar img.console     { margin-right: 6px; height: 58px; }
 .titlebar .header         { float: left; height: 43px; padding-top:15px; }
 .titlebar .region         { float: left; margin: 0 7px 0 0; }
-.titlebar .region form    { float: left; display: inline-block; vertical-align: top; padding: 5px 5px 0 0; }
-.titlebar .region img     { float: left; display: inline-block; }
+.titlebar .region form    { display: inline-block; vertical-align: top; padding: 5px 5px 0 0; }
+.titlebar .region img     { display: inline-block; }
 .titlebar .region select  { width: 100px; }
 
 .titlebar .region,
@@ -137,7 +142,6 @@ table, fieldset             { border: 1px solid #DDD; }
 fieldset table              { border: none; }
 table                       { width: 100%; }
 tr.prop table, table.narrow { width: auto; }
-table.userTags tr td { width: 230px; }
 tr                    { border: 0; }
 td, th                { font-size: 11px; font-family: verdana, arial, helvetica, sans-serif; line-height: 11px; padding: 5px 6px; text-align: left; vertical-align: top; }
 td.date               { white-space: nowrap; }
@@ -321,7 +325,7 @@ a.nacprod { padding: 4px 5px 5px 5px; background-color: #E9231B; color: white !i
 .cluster h3            {                  margin-bottom: 8px; }
 .cluster ul.tasks      { padding-left: 0; margin-bottom: 10px; list-style-type: none; }
 .groupReplacingPush    { padding: 0;      margin: 0; }
-.groupReplacingPush li { padding: 10px;   margin-right: 14px; margin-bottom: 14px; display: inline-block; float: left; max-width: 340px; border-style: solid; border-color: #CCC #999 #999 #CCC; border-width: 1px 2px 2px 1px; }
+.groupReplacingPush li { padding: 10px;   margin-right: 14px; margin-bottom: 14px; display: inline-block; max-width: 340px; border-style: solid; border-color: #CCC #999 #999 #CCC; border-width: 1px 2px 2px 1px; }
 .groupReplacingPush .batchResizeContainer { display: none; padding: 0 8px; }
 .groupReplacingPush                       .launchDisabledMessage { display: none; }
 .groupReplacingPush li.launchingSuspended .launchDisabledMessage { display: block; }
@@ -346,19 +350,112 @@ div.grippie { background: #EEEEEE url(../images/grippie.png) no-repeat scroll ce
 .messageForIeUsers              { padding: 10px; color: blue; font-size: 13px; font-weight: bold; background-color: white; }
 .chromeFrameInstallDefaultStyle { width: 96%; height: 90%; border: 5px solid blue; z-index: 1000; left: 410px; top: 360px; }
 
-.allNoneButton {padding: 0}
-.metaStart {width: 202px}
-.metaAccounts {width: 250px}
-.metaRegions {width: 130px}
-.metaProducts {width: 175px}
-.metaOperations {width: 230px}
-.metaUsageTypes {width: 230px}
-.metaResourceGroups {width: 450px}
-.metaUserTags {width: 230px}
-.metaTags {width: 125px}
-.metaSelect {height:80px;}
-.metaInput {}
-.metaFilter {border: 1px solid #CCC; background-color: #EEF8FF; color: #092448; width: 60px; margin-right: 8px;}
+.meta {
+    display: grid;
+    grid:
+        "start show account region product operation usageType" 225px /
+        220px 200px 265px 140px 1fr 1fr 1fr;
+    column-gap: 12px;
+    border: 1px solid #DDD;
+    padding: 5px;
+}
+.meta div:not(.metaAccounts) div .metaSelect {height: 178px;}
+.meta .metaAccounts div div .accountSelect {height: 150px;}
+
+.metaUtilization {
+    display: grid;
+    grid:
+        "start show account region product operation usageType" 1fr /
+        220px 200px 265px 140px 1fr 1fr 1fr;
+    column-gap: 12px;
+    border: 1px solid #DDD;
+    padding: 5px;
+}
+.metaUtilization div:not(.metaAccounts) div .metaSelect {height: 105px;}
+.metaUtilization .metaAccounts div div .accountSelect {height: 78px;}
+
+.metaStart {
+    grid-area: start;
+}
+
+.metaTime {
+    display: grid;
+    grid:
+        "start startSelect" 25px
+        "end endSelect" 25px
+        "ag ag" 25px
+        / 40px 1fr;
+    row-gap: 5px;
+    padding: 5px;
+}
+.metaTime input {
+    margin-top: -3px;
+}
+.aggregate {grid-area: ag;}
+
+.metaCostType {
+    display: grid;
+    grid:
+        "item item" 25px
+        "item item" 25px
+        "item item" 25px
+        "item item" 25px /
+        60% 40%;
+    padding: 5px 10px;
+}
+.metaCostTypeHeader {
+    padding: 5px;
+    padding-top: 12px;
+}
+
+.metaShow {grid-area: show;}
+.metaShow div { padding: 5px; }
+
+.metaTag {
+    display: grid;
+    grid:
+        "select select select" 1fr
+        "filter all none" 25px / 1fr 20px 20px;
+    row-gap: 0px;
+}
+.metaSelect {width: 100%;}
+.metaFilter {border: 1px solid #CCC; background-color: #EEF8FF; color: #092448; margin-right: 8px;}
+.metaTag .metaSelect {grid-area: select;}
+.metaTag input {grid-area: filter;}
+.metaAccounts {grid-area: account;}
+.metaAccounts div div .orgSelect {width: 266px;}
+.metaAccounts div div .accountSelect {width: 100%;}
+.metaRegions div input {width: 72px;}
+.allButton {grid-area: all; padding: 0; height: 18px; margin-top: 3px;}
+.noneButton {grid-area: none; padding: 0; height: 18px; margin-top: 3px;}
+
+.metaRegions {grid-area: region;}
+.metaProducts {grid-area: product;}
+.metaOperations {grid-area: operation;}
+.metaUsageTypes {grid-area: usageType;}
+
+.metaUserTags {
+    display: grid;
+    grid:
+        "header tags" 1fr
+        / 180px 1fr;
+    border: 1px solid #DDD;
+    padding: 5px;
+}
+.metaUserTagsHeader div { padding-left: 5px; padding-bottom: 10px;}
+
+.metaUserTagsGrid {
+    display: grid;
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    row-gap: 10px;
+    column-gap: 12px;
+}
+.metaUserTagsGrid div {grid-row: auto; grid-column: auto;}
+.metaUserTagsGrid div .metaTag {
+    grid-template-rows: 84px 25px;
+}
+
 a.legendControls {text-decoration: underline; cursor: pointer; color: #08c; font-weight: bold;}
 div.legendIcon {float: left; margin-right: 3px; width: 16px; height: 12px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;}
 

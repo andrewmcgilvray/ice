@@ -15,5 +15,6 @@ src/test/data
 src/test/tmp
 test.xml
 src/test/resources/private
+src/test/tmp
 out
 .idea

@@ -21,6 +21,7 @@ import java.util.List;
 
 import com.netflix.ice.processor.postproc.Rule;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -44,6 +45,11 @@ public class AggregationTagGroup {
 		this.userTags = userTags;
 		this.userTagIndeces = userTagIndeces;
 		this.hashcode = genHashCode();
+	}
+	
+	public CostType getCostType() {
+		int index = types.indexOf(Rule.TagKey.costType);
+		return index < 0 ? null : (CostType) tags.get(index); 
 	}
 	
 	public Account getAccount() {
@@ -94,7 +100,7 @@ public class AggregationTagGroup {
 	}
 	
 	public TagGroup getTagGroup(int numUserTags) {
-		return TagGroup.getTagGroup(getAccount(), getRegion(), getZone(), getProduct(), getOperation(), getUsageType(), getResourceGroup(numUserTags));
+		return TagGroup.getTagGroup(getCostType(), getAccount(), getRegion(), getZone(), getProduct(), getOperation(), getUsageType(), getResourceGroup(numUserTags));
 	}
 	
 	public UserTag getUserTag(Integer index) {

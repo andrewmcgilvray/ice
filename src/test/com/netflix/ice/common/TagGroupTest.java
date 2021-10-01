@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.ice.basic.BasicAccountService;
 import com.netflix.ice.basic.BasicProductService;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -57,15 +58,15 @@ public class TagGroupTest {
 	public void testRdsTags() {		
 		AccountService as = new BasicAccountService();
 		
-		TagGroup tg1 = TagGroup.getTagGroup(as.getAccountById("111111111234", ""), Region.US_EAST_1, null, ps.getProduct("AWS Relational Database Service", "AmazonRDS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
-		TagGroup tg2 = TagGroup.getTagGroup(as.getAccountById("111111111234", ""), Region.US_EAST_1, null, ps.getProduct("AWS Relational Database Service", "AmazonRDS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		TagGroup tg1 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111234", ""), Region.US_EAST_1, null, ps.getProduct("AWS Relational Database Service", "AmazonRDS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		TagGroup tg2 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111234", ""), Region.US_EAST_1, null, ps.getProduct("AWS Relational Database Service", "AmazonRDS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
 		assertEquals("TagGroups should be equivalent", tg1, tg2);
 
-		tg2 = TagGroup.getTagGroup(as.getAccountById("111111111234", ""), Region.US_EAST_1, null, ps.getProduct(Product.Code.Rds), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		tg2 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111234", ""), Region.US_EAST_1, null, ps.getProduct(Product.Code.Rds), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
 		assertEquals("TagGroups with alias should be equivalent", tg1, tg2);
 		
 		Product p = ps.getProduct(Product.Code.RdsFull);
-		tg2 = TagGroup.getTagGroup(as.getAccountById("111111111234", ""), Region.US_EAST_1, null, p, Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		tg2 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111234", ""), Region.US_EAST_1, null, p, Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
 		assertEquals("Product tags should be equivalent", System.identityHashCode(tg1.product), System.identityHashCode(p));
 		assertEquals("Product tags should be equivalent", tg1.product, p);
 		assertEquals("TagGroups with alias made with new product object should be equivalent", tg1, tg2);		
@@ -74,14 +75,14 @@ public class TagGroupTest {
 	@Test
 	public void testEquals() {
 		AccountService as = new BasicAccountService();
-		TagGroup tg1 = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
-		TagGroup tg2 = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		TagGroup tg1 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		TagGroup tg2 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
 		assertTrue("Should be equal", tg1 == tg2);
 		assertEquals("Should be equal", tg1, tg1);
 		assertEquals("Should be equal", tg1, tg2);
 		
-		TagGroup tga = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct(Product.Code.DataTransfer), Operation.getOperation("PublicIP-Out"), UsageType.getUsageType("USW2-AWS-Out-Bytes", "GB"), null);
-		TagGroup tgb = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct(Product.Code.DataTransfer), Operation.getOperation("PublicIP-Out"), UsageType.getUsageType("USW1-AWS-Out-Bytes", "GB"), null);
+		TagGroup tga = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct(Product.Code.DataTransfer), Operation.getOperation("PublicIP-Out"), UsageType.getUsageType("USW2-AWS-Out-Bytes", "GB"), null);
+		TagGroup tgb = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct(Product.Code.DataTransfer), Operation.getOperation("PublicIP-Out"), UsageType.getUsageType("USW1-AWS-Out-Bytes", "GB"), null);
 		assertFalse("Should not be equal", tga.equals(tgb));
 	}
 	
@@ -89,19 +90,19 @@ public class TagGroupTest {
 	public void testSerializeCsv() throws IOException, ResourceException {
 		// No resource group
 		AccountService as = new BasicAccountService();
-		TagGroup tg1 = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
+		TagGroup tg1 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), null);
 		
         StringWriter out = new StringWriter();
 
 		TagGroup.Serializer.serializeCsv(out, tg1);
-		String expect = "111111111345,us-east-1,,AmazonRFS,CreateDBInstance,RDS:GP2-Storage,GB";
+		String expect = "Recurring,111111111345,us-east-1,,AmazonRFS,CreateDBInstance,RDS:GP2-Storage,GB";
 		String got = out.toString();
 		assertEquals("no resource tag group csv incorrect", expect, got);
 		
-		TagGroup tg2 = TagGroup.getTagGroup(as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), ResourceGroup.getResourceGroup(new String[]{"Tag1"}));
+		TagGroup tg2 = TagGroup.getTagGroup(CostType.recurring, as.getAccountById("111111111345", ""), Region.US_EAST_1, null, ps.getProduct("Amazon Relational Food Service", "AmazonRFS"), Operation.getOperation("CreateDBInstance"), UsageType.getUsageType("RDS:GP2-Storage", "GB"), ResourceGroup.getResourceGroup(new String[]{"Tag1"}));
 		out = new StringWriter();
 		TagGroup.Serializer.serializeCsv(out, tg2);
-		expect = "111111111345,us-east-1,,AmazonRFS,CreateDBInstance,RDS:GP2-Storage,GB,Tag1";
+		expect = "Recurring,111111111345,us-east-1,,AmazonRFS,CreateDBInstance,RDS:GP2-Storage,GB,Tag1";
 		got = out.toString();
 		assertEquals("resource tag group csv incorrect", expect, got);
 	}

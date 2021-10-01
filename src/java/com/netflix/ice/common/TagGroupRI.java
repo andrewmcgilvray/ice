@@ -23,6 +23,7 @@ import org.apache.commons.lang.StringUtils;
 
 import com.google.common.collect.Maps;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -46,10 +47,10 @@ import com.netflix.ice.tag.Zone.BadZone;
 public class TagGroupRI extends TagGroupArn<ReservationArn> {
 	private static final long serialVersionUID = 1L;
 	
-	private TagGroupRI(Account account, Region region, Zone zone,
+	private TagGroupRI(CostType costType, Account account, Region region, Zone zone,
 			Product product, Operation operation, UsageType usageType,
 			ResourceGroup resourceGroup, ReservationArn reservationArn) {
-		super(account, region, zone, product, operation, usageType,
+		super(costType, account, region, zone, product, operation, usageType,
 				resourceGroup, reservationArn);
 	}
     
@@ -58,13 +59,14 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
     public static TagGroupRI get(TagGroup tg) {
     	if (tg instanceof TagGroupRI)
     		return (TagGroupRI) tg;
-    	return get(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup, null);
+    	return get(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup, null);
     }
     
-    public static TagGroupRI get(String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit, 
+    public static TagGroupRI get(String costType, String account, String region, String zone, String product, String operation, String usageTypeName, String usageTypeUnit, 
     		String[] resourceGroup, String reservationArn, AccountService accountService, ProductService productService) throws BadZone, ResourceException {
         Region r = Region.getRegionByName(region);
         return get(
+        	CostType.get(costType),
     		accountService.getAccountByName(account),
         	r, StringUtils.isEmpty(zone) ? null : r.getZone(zone),
         	productService.getProductByServiceCode(product),
@@ -74,8 +76,8 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
             ReservationArn.get(reservationArn));   	
     }
     
-    public static TagGroupRI get(Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup, ReservationArn reservationArn) {
-        TagGroupRI newOne = new TagGroupRI(account, region, zone, product, operation, usageType, resourceGroup, reservationArn);
+    public static TagGroupRI get(CostType costType, Account account, Region region, Zone zone, Product product, Operation operation, UsageType usageType, ResourceGroup resourceGroup, ReservationArn reservationArn) {
+        TagGroupRI newOne = new TagGroupRI(costType, account, region, zone, product, operation, usageType, resourceGroup, reservationArn);
         TagGroupRI oldOne = tagGroups.get(newOne);
         if (oldOne != null) {
             return oldOne;
@@ -87,8 +89,12 @@ public class TagGroupRI extends TagGroupArn<ReservationArn> {
     }
 
     @Override
-    public TagGroup withResourceGroup(ResourceGroup rg) {
-    	return get(account, region, zone, product, operation, usageType, rg, arn);
+    public TagGroupRI withCostType(CostType ct) {
+        return get(ct, account, region, zone, product, operation, usageType, resourceGroup, arn);
     }
-
+    
+    @Override
+    public TagGroupRI withoutResourceGroup() {
+    	return get(costType, account, region, zone, product, operation, usageType, null, arn);
+    }
 }

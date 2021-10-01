@@ -172,7 +172,7 @@ public class CostAndUsageReportProcessor implements MonthlyReportProcessor {
 		public Exception exception; // If not null, the file processor failed with this exception.
 		
 		FileData() {
-			costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(), config.getTagCoverage(), config.accountService, config.productService);
+			costAndUsageData = new CostAndUsageData(config.startDate, startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(), config.getTagCoverage(), config.accountService, config.productService);
 			delayedItems = Lists.newArrayList();
 			endMilli = startMilli;
 		}

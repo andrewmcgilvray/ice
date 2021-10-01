@@ -34,7 +34,7 @@ public class OperationTest {
 
 	@Test
 	public void testGetSavingsPlanOperations() {
-		assertEquals("wrong number of savings plan operations", 21, Operation.getSavingsPlanOperations(false).size());
+		assertEquals("wrong number of savings plan operations", 24, Operation.getSavingsPlanOperations(false).size());
 	}
 	
 	@Test
@@ -45,83 +45,51 @@ public class OperationTest {
 	}
 	
 	@Test
-	public void testTax() {
-		Operation.getTaxOperation("VAT");
-		List<String> opStrs = Lists.newArrayList("Tax - VAT");
-		List<Operation> operations = Operation.getOperations(opStrs);
-		assertEquals("did not find tax entry", 1, operations.size());
-		assertEquals("wrong name for tax entry", "Tax - VAT", operations.get(0).name);
-	}
-	
-	@Test
 	public void testIdentity() {
+		// Test Borrowed
 		List<Operation> operations = Operation.getReservationOperations(false);
 		List<Operation> excluded = Lists.newArrayList();
-		List<Operation.Identity.Value> exclude = Lists.newArrayList(Operation.Identity.Value.Amortized);
+		List<Operation.Identity.Value> exclude = Lists.newArrayList(Operation.Identity.Value.Borrowed);
 		int bits = Operation.Identity.getIdentitySet(exclude);
 		for (Operation op: operations) {
 			if (op.isOneOf(bits))
 				excluded.add(op);
 		}
-		assertEquals("wrong number of amortized items", 15, excluded.size());
-		
-		// Test tax
-		Operation.getTaxOperation("VAT");
-		List<String> opStrs = Lists.newArrayList("Tax - VAT");
-		operations = Operation.getOperations(opStrs);
-		exclude = Lists.newArrayList(Operation.Identity.Value.Tax);
-		bits = Operation.Identity.getIdentitySet(exclude);
+		assertEquals("wrong number of borrowed reservation items", 11, excluded.size());
+
+		operations = Operation.getSavingsPlanOperations(false);
 		excluded = Lists.newArrayList();
+		exclude = Lists.newArrayList(Operation.Identity.Value.Borrowed);
+		bits = Operation.Identity.getIdentitySet(exclude);
 		for (Operation op: operations) {
 			if (op.isOneOf(bits))
 				excluded.add(op);
 		}
-		assertEquals("wrong number of tax items", 1, excluded.size());
-		assertTrue("Tax not categorized as tax", excluded.get(0).isTax());
-		assertFalse("Tax incorrectly categorized as recurring", excluded.get(0).isRecurring());
-		
-		// Test credit
-		Operation.getCreditOperation("Foo");
-		opStrs = Lists.newArrayList("Credit - Foo");
-		operations = Operation.getOperations(opStrs);
-		exclude = Lists.newArrayList(Operation.Identity.Value.Credit);
-		bits = Operation.Identity.getIdentitySet(exclude);
+		assertEquals("wrong number of borrowed savings plan items", 5, excluded.size());		
+
+		// Test lent
+		operations = Operation.getReservationOperations(true);
 		excluded = Lists.newArrayList();
+		exclude = Lists.newArrayList(Operation.Identity.Value.Lent);
+		bits = Operation.Identity.getIdentitySet(exclude);
 		for (Operation op: operations) {
 			if (op.isOneOf(bits))
 				excluded.add(op);
 		}
-		assertEquals("wrong number of credit items", 1, excluded.size());
-		assertTrue("Credit not categorized as credit", excluded.get(0).isCredit());
-		assertFalse("Credit incorrectly categorized as recurring", excluded.get(0).isRecurring());
-		assertFalse("Credit incorrectly categorized as tax", excluded.get(0).isTax());
-		assertFalse("Credit incorrectly categorized as tax", excluded.get(0).isAmortized());
-	}
-	
-	@Test
-	public void testDeserializeCreditAndTax() {
-		// Make sure we properly categorize tax and credit entries
-		Operation taxOp = Operation.deserializeOperation("Tax - VAT");
-		assertTrue("tax operation not categorized correctly", taxOp.isTax());
-		assertEquals("tax operation has wrong name", "Tax - VAT", taxOp.name);
+		assertEquals("wrong number of lent items", 11, excluded.size());	
 		
-		Operation creditOp = Operation.deserializeOperation("Credit - Foo");
-		assertTrue("credit operation not categorized correctly", creditOp.isCredit());
-		assertEquals("credit operation has wrong name", "Credit - Foo", creditOp.name);
+		operations = Operation.getSavingsPlanOperations(true);
+		excluded = Lists.newArrayList();
+		exclude = Lists.newArrayList(Operation.Identity.Value.Lent);
+		bits = Operation.Identity.getIdentitySet(exclude);
+		for (Operation op: operations) {
+			if (op.isOneOf(bits))
+				excluded.add(op);
+		}
+		assertEquals("wrong number of lent savings plan items", 5, excluded.size());		
+
 	}
-	
-	@Test
-	public void testEmptyNameCreditAndTax() {
-		Operation taxOp = Operation.getTaxOperation("");
-		assertTrue("tax operation not categorized correctly", taxOp.isTax());
-		assertEquals("tax operation has wrong name", "Tax - None", taxOp.name);
-		
-		Operation creditOp = Operation.getCreditOperation("");
-		assertTrue("credit operation not categorized correctly", creditOp.isCredit());
-		assertEquals("credit operation has wrong name", "Credit - None", creditOp.name);
-	}
-	
-	
+			
     public static final Operation AATag = Operation.getOperation("AA");
     public static final Operation BBTag = Operation.getOperation("BB");
     public static final Operation aaTag = Operation.getOperation("aa");

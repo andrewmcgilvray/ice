@@ -28,6 +28,7 @@ import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
@@ -39,6 +40,7 @@ import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
 
 public class TagListsWithUserTagsTest {
+	List<CostType> costTypes = Lists.newArrayList(CostType.recurring);
 	Account[] accounts = new Account[]{
 			new Account("123456789012", "Account1", null)
 	};
@@ -58,6 +60,7 @@ public class TagListsWithUserTagsTest {
 		userTagLists.add(tags3);
 		
 		TagListsWithUserTags tagLists = new TagListsWithUserTags(
+				costTypes,
 				Lists.newArrayList(accounts),
 				Region.getRegions(regions),
 				null, // zones
@@ -69,27 +72,27 @@ public class TagListsWithUserTagsTest {
 		
 		Product product = ps.getProduct("AWS Product", "AWS Product Code");
 		// TagGroup with a match on each user tag
-		TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		TagGroup tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t0v0","t1v1","t2v0",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 
 		// TagGroup with a match on first and last and an empty match in the middle
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t0v0","","t2v0",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 
 		// First two user tags should match, but not the third because we don't have an empty element in the tagLists
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"","t1v1","",""}));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg));
 
 		// TagGroup with match on first and last, but second tag has non-empty non-matching value
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t0v0","t1v4","t2v0",""}));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg));
 
 		// TagGroup with null resourceGroup
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), null);
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), null);
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg, true));
 
@@ -100,18 +103,19 @@ public class TagListsWithUserTagsTest {
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg, true));
 		
 		// TagGroup with a match on the first and second tags and an empty match on the third
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t0v0","t1v0","",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
 		
 		
 		// TagGroup with only first user tag
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t0v0","","",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg, true));
 		
 		Product cloudWatch = ps.getProduct(Product.Code.CloudWatch);
 		tagLists = new TagListsWithUserTags(
+				costTypes,
 				Lists.newArrayList(accounts),
 				Region.getRegions(regions),
 				null, // zones
@@ -120,13 +124,13 @@ public class TagListsWithUserTagsTest {
 				Lists.newArrayList(UsageType.getUsageType("CW:MetricMonitorUsage", "")), // usageTypes
 				userTagLists
 				);		
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"","","t2v0",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"","","",""}));
 		assertTrue("TagGroup not found in TagLists", tagLists.contains(tg));
-		tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
+		tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, cloudWatch, Operation.getOperation("MetricStorage:AWS/EC2"), UsageType.getUsageType("CW:MetricMonitorUsage", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"","t1v2","t2v2",""}));
 		assertFalse("TagGroup incorrectly found in TagLists", tagLists.contains(tg));
 
@@ -138,6 +142,7 @@ public class TagListsWithUserTagsTest {
 		userTagLists.add(userTags);
 		
 		tagLists = new TagListsWithUserTags(
+				costTypes,
 				Lists.newArrayList(accounts),
 				Region.getRegions(regions),
 				null, // zones
@@ -157,6 +162,7 @@ public class TagListsWithUserTagsTest {
 		userTagLists.add(tags3);
 		
 		TagListsWithUserTags tagLists = new TagListsWithUserTags(
+				costTypes,
 				Lists.newArrayList(accounts),
 				Region.getRegions(regions),
 				null, // zones
@@ -208,7 +214,7 @@ public class TagListsWithUserTagsTest {
 		
 		Product product = ps.getProduct("AWS Product", "AWS Product Code");
 		
-		TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		TagGroup tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t1v1","t2v2"}));
 		assertTrue("Account tag not found in TagLists", tagLists.contains(tg.account, TagType.Account, 0));
 		
@@ -238,6 +244,7 @@ public class TagListsWithUserTagsTest {
 		userTagLists.get(2).add(UserTag.empty);
 		
 		TagListsWithUserTags tagLists = new TagListsWithUserTags(
+				costTypes,
 				Lists.newArrayList(accounts),
 				Region.getRegions(regions),
 				null, // zones
@@ -259,7 +266,7 @@ public class TagListsWithUserTagsTest {
         assertEquals("wrong product", tag, tl.products.get(0));
 
         Product product = ps.getProduct("Product", "ProductCode");
-		TagGroup userTagTagGroup = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+		TagGroup userTagTagGroup = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, product, Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 				ResourceGroup.getResourceGroup(new String[]{"t0v0","","",""}));
 
 		tag = UserTag.get("t0v0");

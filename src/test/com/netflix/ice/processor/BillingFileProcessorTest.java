@@ -192,7 +192,7 @@ public class BillingFileProcessorTest {
 		//bfp.reservationProcessor.setDebugHour(0);
 		//bfp.reservationProcessor.setDebugFamily("c4");
     	
-		CostAndUsageData costAndUsageData = new CostAndUsageData(startMilli, null, null, TagCoverage.none, null, productService);
+		CostAndUsageData costAndUsageData = new CostAndUsageData(null, startMilli, null, null, TagCoverage.none, null, productService);
 		costAndUsageData.enableTagGroupCache(true);
         Instances instances = new Instances(null, null, null);
         
@@ -286,7 +286,7 @@ public class BillingFileProcessorTest {
 				TagGroup tg = entry.getKey();
 				// Convert any TagGroupRIs to TagGroups since the RI version isn't reconstituted from file
 				if (tg instanceof TagGroupRI) {
-					tg = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
+					tg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, tg.resourceGroup);
 				}
 				CostAndUsage cau = entry.getValue();
 				if (!cau.isZero())
@@ -392,9 +392,9 @@ public class BillingFileProcessorTest {
 
         while ((line = in.readLine()) != null) {
         	String[] items = line.split(",");        	
-        	TagGroup tag = TagGroup.getTagGroup(items[0], items[1], items[2], items[3], items[4], items[5],
-        			items.length > 6 ? items[6] : "", 
-        			items.length > 7 ? items[7].split(separatorRegex, -1) : null, 
+        	TagGroup tag = TagGroup.getTagGroup(items[0], items[1], items[2], items[3], items[4], items[5], items[6],
+        			items.length > 7 ? items[7] : "", 
+        			items.length > 8 ? items[8].split(separatorRegex, -1) : null, 
         			accountService, productService);
             result.add(tag);
         }

@@ -21,93 +21,112 @@ tags:
     aliases: [env]
     values:
       Prod: [production, prd]
-
-#
-#
-# Kubernetes - list of reports
-#
-# enable break out of compute costs by tag.
-#
-kubernetes:
-  - bucket: k8s-report-bucket
-    region: us-east-1
-    prefix: hourly/kubernetes
-    accountId: 123456789012
-    accessRole: ice
-    #externalId: 
-    
-	# Kubernetes reports contain line items identified first by cluster name.
-	# Cost entries in the billing data can be associated to a cluster by applying a
-	# set of rules to the tag values on the billing entry in order to generate a cluster name.
-	# A set of rules is combined into a formula. Each rule is separated by '+'
-	# A rule can be one of:
-	#   literal string enclosed by double quotes
-	#   tagname with zero or more function calls. e.g. TagName.func().func()...
-	#       functions can be one of toLower(), toUpper(), regex()
-    clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex("k8s-(.*)")' ]
-    
-    # user tag and value assigned to indicate cluster compute instance
-    computeTag: Role
-    computeValue: compute
-    
-    # user tag to assign namespace name
-    namespaceTag: K8sNamespace
-    
-    namespaceMappings:
-      - tag: Environment
-        value: Prod
-        patterns: [ ".*prod.*", ".*production.*", ".*prd.*" ]
-        
-    # assign the following kubernetes labels to the matching user tags
-    tags: [ userTag1, userTag2 ]
-
 #
 #
 # PostProcessor rules
 #
-# Allows generation of arbitrary cost and usage data from the existing cost and usage data
-# This is useful to compute out-of-cycle-billing data based on usage for privately negotiated
-# pricing not reflected in the cost and usage reports.
+# Allows generation of arbitrary cost and usage data based on rules. This can be used to modify
+# the cost and usage in place or used to export data as a report.
+# The most common usage is to allocate costs by assigning additional user tag values based on a
+# percentage of usage through use of an Allocation Report.
+#
+# An Allocation Report rule may also specify a Kubernetes report as input which the post processor
+# will convert to an Allocation report based on the Kubernetes metrics in the Kubernetes report.
 #
 postprocrules:
-  - name: OCBProduct
+	# Example that computes out-of-cycle-billing data based on usage for privately negotiated
+	# pricing not reflected in the cost and usage reports.
+  - name: OCBProductExample
     start: <start-month> # e.g. 2018-10
     end: <end-month> # e.g. 2019-10
-    operands:
-      #
-      # Operands require a type of "cost" or "usage" to specify which data collection to use
-      # The remaining optional values are as follows:
-      #   accounts: [list-of-account-ids]
-      #   regions: [list-of-regions]
-      #   zones: [list-of-zones]
-      #   product: <product service code>
-      #   operation: <regex>  regex with 1 capture group, e.g. (..)-Operation[12].*
-      #   usageType: <regex>  regex with 1 capture group, e.g. (..)-UsageType[12].*
-      #
-      # There must be one "in" and one "out" operand. The in operand drives what data is
-      # captured to apply the calculations. Other operands can be provided that have
-      # whatever names you chose. The "in" and other operands can be referenced in the
-      # "out" expression by enclosing the operand name in "${}".
-      # The reserved name "group" is assigned the value of the capture group for the
-      # "in" operation and usageType regex expressions. It can be used in the "out"
-      # operand as well as other optional operands.
-      # Values not specified for additional operands and copied from the "in" parameter.
-      #
-      out: # required output operand
-        product: <Product Service Code>
-        usageType: ${group}-Requests
+    #
+    # "operands" and "in" definitions specify filter parameters for the query used to
+    # collect the data on which to apply the calculations.
+    #
+    # The optional "filter" values are as follows:
+    #   costType: [list-of-costTypes]
+    #   account: [list-of-account-ids]
+    #   region: [list-of-regions]
+    #   zone: [list-of-zones]
+    #   product: [list-of-product-service-codes]
+    #   operation: [list-of-operations]
+    #   usageType: [list-of-usage-types]
+    #
+    # All values for the filters are regex strings.
+    #
+    # "patterns" defines a list of regex patterns that can be used to specify capture groups
+    # for extracting values from a tag to use in constructing the value of the corresponding output tag.
+    #
+    #
+    # There must be one "in" value and one "result". The in operand drives what data is
+    # captured to apply the calculations. Other operands can be provided that have
+    # whatever names you choose. The "in" and other operands can be referenced in the
+    # "out" expression by enclosing the operand name in "${}".
+    # Values not specified for additional operands and copied from the "in" parameter.
+    #
+    in:
+      filter:
+        product: [<Product Service Code>]
+        usageType: ['..-Requests-[12].*']
+    patterns:
+      region: '(..)-.*'
+    results:
+      - out: # required output tag values
+          product: <Product Service Code>
+          usageType: ${region}-Requests
+        # cost is the computation that gets evaluated to produce a value saved using the out operand specification.
+        cost: <expression>  # e.g. '${in.usage} * 0.01 / 1000'
+        # usage is the computation that gets evaluated to product a value saved using the out operand specification.
+        usage: <expression> # e.g. '${in.usage}'
+  #
+  # Example that processes a Kubernetes metrics report to do cost allocation
+  #
+  - name: KubernetesExample
+    start: <start-month> # e.g. 2018-10
+    end: <end-month> # e.g. 2019-10
+    in:
+      filter:
+        account: [list-of-account-ids]
+        userTags:
+          # user tag and value assigned to indicate the resource is a cluster compute instance
+          Role: [compute]
+    allocation:
+      s3Bucket:
+        name: k8s-report-bucket
+        region: us-east-1
+        prefix: hourly/kubernetes-
+        accountId: 123456789012
+        accessRole: ice
+        #externalId:
+      kubernetes:
+      	# Kubernetes reports contain line items identified first by cluster name.
+	    # Cost entries in the billing data can be associated to a cluster by applying a
+	    # set of rules to the tag values on the billing entry in order to generate a cluster name.
+	    # A set of rules is combined into a formula. Each rule is separated by '+'
+	    # A rule can be one of:
+	    #   literal string enclosed by double quotes
+	    #   tagname with zero or more function calls. e.g. TagName.func().func()...
+	    #       functions can be one of toLower(), toUpper(), regex()
+        clusterNameFormulae: [ 'Cluster.toLower()', 'Cluster.regex("k8s-(.*)")' ]
+        type: Pod
+        out:
+          # assign the following kubernetes labels to the matching user tags
+          # map key is the user tag key as defined in ice.properties customTags and value is the report column header
+          userTag1: userTag1
+          userTag2: userTag2
+          K8sNamespace: K8sNamespace
+          K8sType: K8sType
       in:
-        type: usage
-        product: <Product Service Code>
-        usageType: (..)-Requests-[12].*
-      data:
-        type: usage
-        usageType: ${group}-DataTransfer-Out-Bytes
-    #
-    # cost is the computation that gets evaluated to produce a value saved using the out operand specification.
-    #
-    cost: <expression>  # e.g. '(${in} - (${data} * 1024 / 5)) * 0.01 / 1000'
-    #
-    # usage is the computation that gets evaluated to product a value saved using the out operand specification.
-    #
-    usage: <expression> # e.g. '${in} - (${data} * 1024 / 5)'
+        _product: _Product
+      out:
+        K8sNamespace: K8sNamespace
+        K8sType: K8sType
+      tagMaps:
+        Environment:
+          - maps:
+              Prod:
+                key: K8sNamespace
+                operator: isOneOf
+                values: [ ".*prod.*", ".*production.*", ".*prd.*" ]
+        
+      

@@ -28,6 +28,7 @@ import com.netflix.ice.basic.BasicProductService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Account;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
@@ -35,6 +36,7 @@ import com.netflix.ice.tag.ResourceGroup.ResourceException;
 import com.netflix.ice.tag.UsageType;
 
 public class TagListsTest {
+	List<CostType> costTypes = Lists.newArrayList(CostType.recurring);
 	Account[] accounts = new Account[]{
 			new Account("123456789012", "Account1", null)
 	};
@@ -57,6 +59,7 @@ public class TagListsTest {
 			
 			public void Run() throws ResourceException {
 				TagLists tagLists = new TagLists(
+						costTypes,
 						Lists.newArrayList(accounts),
 						Region.getRegions(regions),
 						null, // zones
@@ -66,7 +69,7 @@ public class TagListsTest {
 						null
 						);
 				
-				TagGroup tg = TagGroup.getTagGroup(accounts[0], Region.getRegionByName("us-east-1"), null, ps.getProduct("Product", "ProductCode"), Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
+				TagGroup tg = TagGroup.getTagGroup(CostType.recurring, accounts[0], Region.getRegionByName("us-east-1"), null, ps.getProduct("Product", "ProductCode"), Operation.getOperation("Operation"), UsageType.getUsageType("UsageType", ""), 
 						ResourceGroup.getResourceGroup(resourceGroupName));
 				ResourceGroup resourceGroupInTagLists = resourceGroups == null || resourceGroups.size() == 0 ? null : resourceGroups.get(0);
 				if (shouldBeTrue)

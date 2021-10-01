@@ -79,17 +79,11 @@ public class InstancesService implements DataCache {
 	@Override
 	public boolean refresh() {
         logger.info("Instances refresh...");
-        try {
-        	// Ask for one day prior to make sure we've processed a report if at
-        	// start of month.
-        	instances.retrieve(DateTime.now().minusDays(1).getMillis(), accountService, productService);
-        	
-        	instancesCache = buildCache();
-        }
-        catch (Exception e) {
-            logger.error("failed to download instances data", e);
-            return true;
-        }
+		// Ask for one day prior to make sure we've processed a report if at
+		// start of month.
+		instances.retrieve(DateTime.now().minusDays(1).getMillis(), accountService, productService);
+
+		instancesCache = buildCache();
         return false;
 	}
 

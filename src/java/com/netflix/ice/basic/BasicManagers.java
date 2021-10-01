@@ -29,7 +29,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.*;
 import com.netflix.ice.common.Config.TagCoverage;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.processor.TagGroupWriter;
 import com.netflix.ice.reader.*;
 import com.netflix.ice.tag.Account;
@@ -39,6 +39,7 @@ import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.Region;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
 import com.netflix.ice.tag.UsageType;
@@ -277,7 +278,7 @@ public class BasicManagers extends Poller implements Managers {
     }
 
     @Override
-    public Collection<UserTag> getUserTagValues(List<Account> accounts, List<Region> regions, List<Zone> zones, Collection<Product> products, int index) throws Exception {
+    public Collection<UserTag> getUserTagValues(List<CostType> costTypes, List<Account> accounts, List<Region> regions, List<Zone> zones, Collection<Product> products, int index) throws Exception {
     	List<Future<Collection<ResourceGroup>>> futures = Lists.newArrayList();
     	
     	Set<UserTag> userTagValues = Sets.newTreeSet();
@@ -291,7 +292,7 @@ public class BasicManagers extends Poller implements Managers {
 				//logger.error("No TagGroupManager for product " + product + ", products: " + getProducts().size());
 				continue;
 			}			
-			futures.add(getUserTagValuesForProduct(new TagLists(accounts, regions, zones, Lists.newArrayList(product)), tagGroupManager));
+			futures.add(getUserTagValuesForProduct(new TagLists(costTypes, accounts, regions, zones, Lists.newArrayList(product)), tagGroupManager));
         }
 		// Wait for completion
 		for (Future<Collection<ResourceGroup>> f: futures) {
@@ -319,6 +320,7 @@ public class BasicManagers extends Poller implements Managers {
     @Override
     public Map<Tag, double[]> getData(
     		Interval interval,
+    		List<CostType> costTypes,
     		List<Account> accounts,
     		List<Region> regions,
     		List<Zone> zones,
@@ -339,7 +341,7 @@ public class BasicManagers extends Poller implements Managers {
 		
 		if (products.size() == 0) {
 	    	List<Future<Collection<Product>>> futures = Lists.newArrayList();
-            TagLists tagLists = new TagLists(accounts, regions, zones);
+            TagLists tagLists = new TagLists(costTypes, accounts, regions, zones);
             for (Product product: getProducts()) {
                 if (product == null)
                     continue;
@@ -364,7 +366,7 @@ public class BasicManagers extends Poller implements Managers {
 				//logger.error("No DataManager for product " + product);
 				continue;
 			}
-			TagLists tagLists = new TagListsWithUserTags(accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists);
+			TagLists tagLists = new TagListsWithUserTags(costTypes, accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists);
 			logger.debug("-------------- Process product ----------------" + product);
             futures.add(getDataForProduct(
             		isCost,
@@ -542,16 +544,18 @@ public class BasicManagers extends Poller implements Managers {
 	}
 
 	@Override
-	public UserTagStatistics getUserTagStatistics() throws ResourceException {
+	public UserTagStatistics getUserTagStatistics(String month) throws ResourceException {
 		List<UserTagStats> stats = Lists.newArrayList();
 		
-		// Build the full set of unique tagGroups across across all products and time
+		// Build the full set of unique tagGroups across all products.
+		// If month is null, span all time, else just include the requested month
 		Set<TagGroup> tagGroups = Sets.newHashSet();
-		
+		Long monthMillis = month == null ? null : new DateTime(month, DateTimeZone.UTC).getMillis();
+
 		for (Product p: products) {
 			if (p == null)
 				continue;			
-			tagGroups.addAll(tagGroupManagers.get(p).getTagGroupsWithResourceGroups());
+			tagGroups.addAll(tagGroupManagers.get(p).getTagGroupsWithResourceGroups(monthMillis));
 		}
 		
 		// Extract the unique set of resource Groups

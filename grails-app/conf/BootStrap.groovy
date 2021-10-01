@@ -171,9 +171,9 @@ class BootStrap {
                 properties.setProperty(IceOptions.INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS, prop.getProperty(IceOptions.INCLUDE_ZERO_COST_USAGE_FOR_PRODUCTS, ""));
 
                 properties.setProperty(IceOptions.RESOURCE_GROUP_COST, prop.getProperty(IceOptions.RESOURCE_GROUP_COST, "modeled"));
-				properties.setProperty(IceOptions.WRITE_JSON_FILES, prop.getProperty(IceOptions.WRITE_JSON_FILES, ""));
-				
-				
+                properties.setProperty(IceOptions.WRITE_JSON_FILES, prop.getProperty(IceOptions.WRITE_JSON_FILES, ""));
+                properties.setProperty(IceOptions.WRITE_PARQUET_FILES, prop.getProperty(IceOptions.WRITE_PARQUET_FILES, ""));
+
 				ReservationService reservationService = new BasicReservationService(reservationPeriod, reservationPurchaseOption);
 				PriceListService priceListService = new PriceListService(
 					properties.getProperty(IceOptions.LOCAL_DIR), 
@@ -202,8 +202,10 @@ class BootStrap {
                     properties.setProperty(IceOptions.HIGHSTOCK_URL, prop.getProperty(IceOptions.HIGHSTOCK_URL));
 				if (prop.getProperty(IceOptions.COMPANY_NAME) != null)
 					properties.setProperty(IceOptions.COMPANY_NAME, prop.getProperty(IceOptions.COMPANY_NAME));
-				if (prop.getProperty(IceOptions.DASHBOARD_NOTICE) != null)
-					properties.setProperty(IceOptions.DASHBOARD_NOTICE, prop.getProperty(IceOptions.DASHBOARD_NOTICE));
+                if (prop.getProperty(IceOptions.DASHBOARD_NOTICE) != null)
+                    properties.setProperty(IceOptions.DASHBOARD_NOTICE, prop.getProperty(IceOptions.DASHBOARD_NOTICE));
+                if (prop.getProperty(IceOptions.DASHBOARD_LINKS) != null)
+                    properties.setProperty(IceOptions.DASHBOARD_LINKS, prop.getProperty(IceOptions.DASHBOARD_LINKS));
 				properties.setProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, prop.getProperty(IceOptions.ENABLE_REPROCESS_REQUESTS, "false"));
 					
                 readerConfig = new ReaderConfig(

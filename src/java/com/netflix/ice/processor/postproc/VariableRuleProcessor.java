@@ -23,7 +23,7 @@ import com.netflix.ice.common.AwsUtils;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.processor.CostAndUsageData;
 import com.netflix.ice.processor.DataSerializer;
 import com.netflix.ice.processor.CostAndUsageData.PostProcessorStats;
@@ -31,7 +31,6 @@ import com.netflix.ice.processor.CostAndUsageData.RuleType;
 import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.config.KubernetesConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
-import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.UsageType;
@@ -121,6 +120,8 @@ public class VariableRuleProcessor extends RuleProcessor {
 				info = "Allocations exceeded 100% for keys " + allocationReport.getInTagKeys() + " with values: "+ overAllocatedKeys.toString();
 				logger.warn(info);
 			}
+			if (allocationReport.isParsingError())
+				info = "Parser encountered empty or bad allocation values" + (!info.isEmpty() ? ", " + info : "");
 		}
 		sw.stop();
 		info = "Elapsed time: " + sw.toString() + (!info.isEmpty() ? ", " + info : "");
@@ -206,9 +207,6 @@ public class VariableRuleProcessor extends RuleProcessor {
 		sw.start();
 		
  		Map<AggregationTagGroup, CostAndUsage[]> aggregatedInDataGroups = Maps.newHashMap();
- 		List<String> userTagKeys = outCauData.getUserTagKeysAsStrings();
-		int costTypeIndex = userTagKeys == null ? -1 : userTagKeys.indexOf("CostType");
-		boolean addedOperationForCostType = rule.getIn().addedOperationForCostType();
 		int[] indeces = getIndeces(outCauData.getUserTagKeysAsStrings());
 		
 	    List<Rule.TagKey> groupByTags = rule.getGroupBy();
@@ -231,11 +229,6 @@ public class VariableRuleProcessor extends RuleProcessor {
 			UserTag[] outUserTags = new UserTag[indeces.length];
 			for (int i = 0; i < indeces.length; i++) {
 				outUserTags[i] = indeces[i] < 0 ? UserTag.empty : inUserTags[indeces[i]];
-			}
-			if (costTypeIndex >= 0) {
-				outUserTags[costTypeIndex] = UserTag.get(CostType.getCostType(tagGroup.operation).name);
-				if (addedOperationForCostType)
-					tagGroup = tagGroup.withOperation(null);
 			}
 			tagGroup = tagGroup.withResourceGroup(ResourceGroup.getResourceGroup(outUserTags));
 			
@@ -459,7 +452,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 
 		inConfig.setGroupByTags(groupByTags);
 		
-		Query query = new Query(inConfig, resourceService.getCustomTags(), false);
+		Query query = new Query(inConfig, resourceService.getCustomTags());
 		
 		int maxNum = data.getMaxNum();
 		Map<AggregationTagGroup, CostAndUsage[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());

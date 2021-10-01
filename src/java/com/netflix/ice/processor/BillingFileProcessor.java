@@ -27,11 +27,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.basic.BasicReservationService;
 import com.netflix.ice.common.*;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.processor.postproc.PostProcessor;
 import com.netflix.ice.processor.pricelist.InstancePrices;
 import com.netflix.ice.processor.pricelist.InstancePrices.ServiceCode;
 import com.netflix.ice.tag.Operation.ReservationOperation;
+import com.netflix.ice.tag.CostType;
 import com.netflix.ice.tag.Product;
 
 import org.apache.commons.io.IOUtils;
@@ -51,10 +52,9 @@ import java.util.*;
 public class BillingFileProcessor extends Poller {
     protected static Logger staticLogger = LoggerFactory.getLogger(BillingFileProcessor.class);
 
-    private ProcessorConfig config;
-    private WorkBucketConfig workBucketConfig;
+    private final ProcessorConfig config;
+    private final WorkBucketConfig workBucketConfig;
     private Long startMilli;
-    private Long endMilli;
     /**
      * The usageDataByProduct map holds both the usage data for each
      * individual product that has resourceIDs (if ResourceService is enabled) and a "null"
@@ -64,7 +64,7 @@ public class BillingFileProcessor extends Poller {
     private CostAndUsageData costAndUsageData;
     private Instances instances;
     
-    private MonthlyReportProcessor cauProcessor;
+    private final MonthlyReportProcessor cauProcessor;
     
 
     public BillingFileProcessor(ProcessorConfig config) throws Exception {
@@ -94,7 +94,7 @@ public class BillingFileProcessor extends Poller {
             		.build();
 
             try {
-	            StopInstancesRequest request = new StopInstancesRequest().withInstanceIds(new String[] { config.processorInstanceId });
+	            StopInstancesRequest request = new StopInstancesRequest().withInstanceIds(config.processorInstanceId);
 	            ec2.stopInstances(request);
             }
             catch (Exception e) {
@@ -115,7 +115,6 @@ public class BillingFileProcessor extends Poller {
         	catch (Exception e) {
         		logger.error("Error processing report for month " + dataTime + ", " + e);
         		e.printStackTrace();
-        		continue;
         	}
 	    }
 	    if (!wroteConfig) {
@@ -130,8 +129,9 @@ public class BillingFileProcessor extends Poller {
     private boolean processMonth(DateTime month, List<MonthlyReport> reports, DateTime latestMonth) throws Exception {
     	StopWatch sw = new StopWatch();
     	sw.start();
-    	
-        startMilli = endMilli = month.getMillis();
+
+    	Long endMilli = month.getMillis();
+        startMilli = endMilli;
         init(startMilli);
         
         ProcessorStatus ps = getProcessorStatus(AwsUtils.monthDateFormat.print(month));
@@ -172,7 +172,7 @@ public class BillingFileProcessor extends Poller {
         
         
         
-        /***** Debugging */
+        /* Debugging */
 //            ReadWriteData costData = costDataByProduct.get(null);
 //            Map<TagGroup, Double> costMap = costData.getData(0);
 //            TagGroup redshiftHeavyTagGroup = new TagGroup(config.accountService.getAccountByName("IntegralReach"), Region.US_EAST_1, null, Product.redshift, Operation.reservedInstancesHeavy, UsageType.getUsageType("dc1.8xlarge", Operation.reservedInstancesHeavy, ""), null);
@@ -198,7 +198,7 @@ public class BillingFileProcessor extends Poller {
     	Map<Product, InstancePrices> prices = Maps.newHashMap();
     	for (ServiceCode sc: ServiceCode.values()) {
     		// EC2 and RDS Instances are broken out into separate products, so need to grab those
-    		Product prod = null;
+    		Product prod;
     		switch (sc) {
     		case AmazonEC2:
         		prod = config.productService.getProduct(Product.Code.Ec2Instance);
@@ -230,12 +230,14 @@ public class BillingFileProcessor extends Poller {
     	savingsPlanProcessor.process(null);
     	            
         logger.info("adding savings data for " + month + "...");
-        addSavingsData(month, costAndUsageData, null, config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
-        addSavingsData(month, costAndUsageData, config.productService.getProduct(Product.Code.Ec2Instance), config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
+        addSavingsData(costAndUsageData, null, config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
+        addSavingsData(costAndUsageData, config.productService.getProduct(Product.Code.Ec2Instance), config.priceListService.getPrices(month, ServiceCode.AmazonEC2));
                 
         // Run the post processor
         try {
-            PostProcessor pp = new PostProcessor(config.postProcessorRules, config.reportSubPrefix, config.accountService, config.productService, config.resourceService, config.workBucketConfig, config.numthreads);
+            PostProcessor pp = new PostProcessor(config.startDate, config.postProcessorRules, config.reportSubPrefix,
+                    config.accountService, config.productService, config.resourceService, config.workBucketConfig,
+                    config.jsonFiles, config.parquetFiles, config.numthreads);
             pp.process(costAndUsageData);
         }
         catch (Exception e) {
@@ -250,7 +252,7 @@ public class BillingFileProcessor extends Poller {
         config.productService.archive(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);
 
         logger.info("archiving results for " + month + (config.hourlyData ? " with" : " without") + " hourly data...");
-        costAndUsageData.archive(config.startDate, config.jsonFiles, config.priceListService.getInstanceMetrics(), config.priceListService, config.numthreads, config.hourlyData);
+        costAndUsageData.archive(config.jsonFiles, config.parquetFiles, config.priceListService.getInstanceMetrics(), config.priceListService, config.numthreads, config.hourlyData);
         
         logger.info("archiving instance data...");
         archiveInstances();
@@ -276,7 +278,7 @@ public class BillingFileProcessor extends Poller {
         return true;
     }
     
-    private void addSavingsData(DateTime month, CostAndUsageData data, Product product, InstancePrices ec2Prices) throws Exception {
+    private void addSavingsData(CostAndUsageData data, Product product, InstancePrices ec2Prices) {
     	DataSerializer ds = data.get(product);
     	if (ds == null)
     		return;
@@ -288,7 +290,7 @@ public class BillingFileProcessor extends Poller {
     	 */
     	for (TagGroup tg: ds.getTagGroups()) {
     		if (tg.operation == ReservationOperation.spotInstances) {
-    			TagGroup savingsTag = TagGroup.getTagGroup(tg.account, tg.region, tg.zone, tg.product, ReservationOperation.spotInstanceSavings, tg.usageType, tg.resourceGroup);
+    			TagGroup savingsTag = TagGroup.getTagGroup(CostType.savings, tg.account, tg.region, tg.zone, tg.product, ReservationOperation.spotInstanceSavings, tg.usageType, tg.resourceGroup);
     			for (int i = 0; i < ds.getNum(); i++) {
     				// For each hour of usage...
     				DataSerializer.CostAndUsage cau = ds.get(i, tg);
@@ -305,7 +307,7 @@ public class BillingFileProcessor extends Poller {
     
 
     void init(long startMilli) {
-    	costAndUsageData = new CostAndUsageData(startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(),
+    	costAndUsageData = new CostAndUsageData(config.startDate, startMilli, config.workBucketConfig, config.resourceService == null ? null : config.resourceService.getUserTagKeys(),
     			config.getTagCoverage(), config.accountService, config.productService);
     	costAndUsageData.enableTagGroupCache(true);
         instances = new Instances(workBucketConfig.localDir, workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix);

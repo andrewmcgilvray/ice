@@ -34,7 +34,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.netflix.ice.common.AwsUtils;
-import com.netflix.ice.common.Config.WorkBucketConfig;
+import com.netflix.ice.common.WorkBucketConfig;
 import com.netflix.ice.common.ResourceService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagMappings;
@@ -81,8 +81,9 @@ public class AllocationReport extends Report {
 	private List<Set<String>> inTagValues; // Values used in the allocation report for each input tag key. Used to resolve empty strings for values in the report.
 	private List<HourData> data;	
 	private List<String> header;
-	private List<TagMappers> taggers;
+	protected List<TagMappers> taggers;
 	private List<String> newTagKeys;
+	private boolean parsingError = false;
 	
 	/**
 	 * KeyMatcher supports the glob style wildcards '*' and '?' in tag names
@@ -309,7 +310,9 @@ public class AllocationReport extends Report {
 			}
 		}
 	}
-	
+
+	public boolean isParsingError() { return parsingError; }
+
 	protected List<String> getHeader() {
 		return header;
 	}
@@ -555,11 +558,16 @@ public class AllocationReport extends Report {
 			if (!tag.isEmpty()) // Only overwrite the existing value if we have something.
 				tags[outTagIndeces.get(i)] = tag;
 		}
-		
+
+		// Make a copy of the tags so mapper rules don't influence each other
+		String[] srcTags = new String[tags.length];
+		for (int i = 0; i < tags.length; i++)
+			srcTags[i] = tags[i];
+
 		// Apply any mapping rules
 		for (TagMappers tm: taggers) {
 			int index = tm.getTagIndex();
-			String tag = tm.getMappedUserTagValue(startMillis, tg.account.getId(), tags, tags[index]);
+			String tag = tm.getMappedUserTagValue(startMillis, tg.account.getId(), srcTags, srcTags[index]);
 			tags[index] = tag;
 		}
 		try {
@@ -690,9 +698,16 @@ public class AllocationReport extends Report {
 		    	List<String> outTags = Lists.newArrayList();
 		    	int startHour = (int) ((new DateTime(record.getString(AllocationColumn.StartDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
 		    	int endHour = (int) ((new DateTime(record.getString(AllocationColumn.EndDate), DateTimeZone.UTC).getMillis() - monthMillis) / (1000 * 60 * 60));
-		    	double allocation = Double.parseDouble(record.getString(AllocationColumn.Allocation));
+		    	String allocationStr = record.getString(AllocationColumn.Allocation);
+		    	if (allocationStr.isEmpty()) {
+		    		logger.warn("Skipping allocation report entry with empty value at line " + lineNumber + ": \"" + record + "\"");
+					parsingError = true;
+		    		continue;
+				}
+		    	double allocation = Double.parseDouble(allocationStr);
 		    	if (Double.isNaN(allocation) || Double.isInfinite(allocation)) {
-		    		logger.warn("Allocation report entry with NaN or Inf allocation, skipping.");
+		    		logger.warn("Skipping allocation report entry with NaN or Inf allocation at line " + lineNumber + ": \"" + record + "\"");
+		    		parsingError = true;
 		    		continue;
 		    	}
 		    	for (String key: inTagKeys)
