@@ -250,7 +250,7 @@ public class PostProcessor {
 		writer.close();
 
 		logger.info("Upload work bucket data config file");
-		AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix, file);
+		AwsUtils.upload(workBucketConfig.workS3BucketName, workBucketConfig.workS3BucketPrefix + file.getName(), file);
 	}
 
 	private void saveProcessorStatus(String timeStr, ProcessorStatus status, WorkBucketConfig workBucketConfig) {
@@ -269,7 +269,7 @@ public class PostProcessor {
 		File localCopy = new File(reportWorkBucketConfig.localDir, InstanceMetrics.dbName);
 		FileUtils.copyFile(instanceMetrics, localCopy);
 		logger.info("Upload instance metrics");
-		AwsUtils.upload(reportWorkBucketConfig.workS3BucketName, reportWorkBucketConfig.workS3BucketPrefix, localCopy);
+		AwsUtils.upload(reportWorkBucketConfig.workS3BucketName, reportWorkBucketConfig.workS3BucketPrefix + localCopy.getName(), localCopy);
 	}
 
 	protected String reportName(DateTime month, String ruleName, RuleConfig.Aggregation aggregation) {
