@@ -42,7 +42,7 @@ import org.joda.time.Interval;
  */
 public interface Managers {
 
-    void init();
+    void init() throws ExecutionException, InterruptedException;
 
     /**
      *

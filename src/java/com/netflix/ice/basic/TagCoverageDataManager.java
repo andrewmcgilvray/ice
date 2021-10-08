@@ -239,7 +239,7 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 		return aggregate(data, from, to, result, tagGroups, usageUnit);
     }
         
-    private TagCoverageMetrics[] getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+    public TagCoverageMetrics[] getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
     	Interval adjusted = getAdjustedInterval(interval);
         DateTime start = adjusted.getStart();
         DateTime end = adjusted.getEnd();

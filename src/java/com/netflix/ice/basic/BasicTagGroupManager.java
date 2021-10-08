@@ -55,6 +55,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     private final AccountService accountService;
     private final ProductService productService;
     private final int numUserTags;
+    private final Product product;
     private final String dbName;
     private final File file;
     private TreeMap<Long, Collection<TagGroup>> tagGroups;
@@ -68,6 +69,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     	this.accountService = accountService;
     	this.productService = productService;
     	this.numUserTags = numUserTags;
+    	this.product = product;
         this.dbName = TagGroupWriter.DB_PREFIX + (product == null ? "all" : product.getServiceCode());
         file = new File(workBucketConfig.localDir, dbName + (compress ? compressExtension : ""));
         
@@ -82,6 +84,7 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     	this.accountService = null;
     	this.productService = null;
     	this.numUserTags = numUserTags;
+    	this.product = null;
     	this.dbName = null;
     	this.file = null;
     	this.totalInterval = totalInterval;
@@ -303,6 +306,10 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
         }
 
         return zones;
+    }
+
+    public Product getProduct() {
+        return product;
     }
 
     public Collection<Product> getProducts(Set<TagGroup> tagGroupsInRange, TagLists tagLists) {
