@@ -189,6 +189,8 @@ public class BasicManagers extends Poller implements Managers {
 			// Wait for completion
 			for (Future<BasicTagGroupManager> f: futures) {
 				BasicTagGroupManager tagGroupManager = f.get();
+				if (tagGroupManagers.containsKey(tagGroupManager.getProduct()))
+					logger.error("Overwriting existing tag group manager with product code: " + tagGroupManager.getProduct().getServiceCode());
 				tagGroupManagers.put(tagGroupManager.getProduct(), tagGroupManager);
 			}
 			for (Product product: newProducts) {
@@ -207,7 +209,9 @@ public class BasicManagers extends Poller implements Managers {
 					String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
 					int numUserTags = product == null ? 0 : config.userTagKeys.size();
 
-
+					if (dataManagers.containsKey(key)) {
+						logger.error("Overwriting existing data manager with key: " + key + ", " + key.hashCode());
+					}
 					dataManagers.put(key, new BasicDataManager(config.startDate, partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
 							config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, forReservations));
 					if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
@@ -258,16 +262,17 @@ public class BasicManagers extends Poller implements Managers {
     	});    	
     }
 
-    private static class Key implements Comparable<Key> {
+    protected static class Key implements Comparable<Key> {
         Product product;
         ConsolidateType consolidateType;
+
         Key(Product product, ConsolidateType consolidateType) {
             this.product = product;
             this.consolidateType = consolidateType;
         }
 
         public int compareTo(Key t) {
-            int result = this.product == t.product ? 0 : (this.product == null ? 1 : (t.product == null ? -1 : t.product.compareTo(this.product)));
+            int result = this.product == t.product ? 0 : (this.product == null ? -1 : (t.product == null ? 1 : this.product.compareTo(t.product)));
             if (result != 0)
                 return result;
             return consolidateType.compareTo(t.consolidateType);
@@ -293,6 +298,17 @@ public class BasicManagers extends Poller implements Managers {
 
             return result;
         }
+
+        public String toString() {
+        	StringBuilder sb = new StringBuilder(64);
+			sb.append("{");
+        	if (product != null)
+        		sb.append(product.getName()).append(", ").append(product.getServiceCode());
+        	else
+        		sb.append("null");
+        	sb.append(", ").append(consolidateType.toString());
+        	return sb.toString();
+		}
     }
 
     @Override

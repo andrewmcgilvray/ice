@@ -89,6 +89,10 @@ public class BasicTagGroupManager implements TagGroupManager, DataCache {
     	this.file = null;
     	this.totalInterval = totalInterval;
     }
+
+    public String getDbName() {
+        return dbName;
+    }
  
     public Collection<TagGroup> getTagGroups() {
     	Set<TagGroup> uniqueTagGroups = Sets.newHashSet();
