@@ -88,6 +88,10 @@ public class DataSerializer extends ReadWriteGenericData<DataSerializer.CostAndU
     		return new CostAndUsage(cost - value.cost, usage - value.usage);
     	}
 
+    	public CostAndUsage mul(double allocation) {
+    		return isZero() ? this : new CostAndUsage(cost * allocation, usage * allocation);
+		}
+
     	public boolean equals(CostAndUsage o) {
     		return cost == o.cost && usage == o.usage;
 		}
