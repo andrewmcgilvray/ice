@@ -28,8 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.netflix.ice.tag.*;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.BeforeClass;
@@ -58,6 +56,7 @@ import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.ProcessorConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.processor.postproc.AllocationReport.Key;
+import com.netflix.ice.tag.*;
 
 public class VariableRuleProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -141,6 +140,27 @@ public class VariableRuleProcessorTest {
 		assertEquals(message + ", wrong number of allocations", expect.size(), got.size());
 		for (int i = 0; i < expect.size(); i++)
 			assertEquals(message + ", mismatched allocation for " + expect.get(i).key, expect.get(i).allocation, got.get(i).allocation, 1.0E-6);
+	}
+
+	// Test at the noise margin
+	@Test
+	public void testGetTinyFullAllocations() {
+		VariableRuleProcessor.Allocation[] fullyAllocated = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.1),
+				new VariableRuleProcessor.Allocation(keys[1], 0.9),
+		};
+		VariableRuleProcessor.Allocation[] fullyAllocatedExpected = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.1),
+				new VariableRuleProcessor.Allocation(keys[1], 0.9),
+		};
+
+		testAllocation(0.000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
+
+		fullyAllocatedExpected = new VariableRuleProcessor.Allocation[]{
+				new VariableRuleProcessor.Allocation(keys[0], 1.0),
+		};
+		// Should return one allocation even though the total is below the noise.
+		testAllocation(0.00000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
 	}
 
 	// Test at the noise margin
