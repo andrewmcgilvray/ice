@@ -86,7 +86,7 @@ public class ReaderConfig extends Config {
             AWSCredentialsProvider credentialsProvider,
             Managers managers,
             ProductService productService,
-            ThroughputMetricService throughputMetricService) throws UnsupportedEncodingException, InterruptedException, IOException, BadZone {
+            ThroughputMetricService throughputMetricService) throws UnsupportedEncodingException, InterruptedException, IOException, BadZone, ExecutionException {
         super(properties, credentialsProvider, productService);
                 
         WorkBucketDataConfig dataConfig = readWorkBucketDataConfig();
@@ -151,7 +151,6 @@ public class ReaderConfig extends Config {
     	ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     	List<Future<Void>> futures = Lists.newArrayList();
 
-    	
         for (Product product: products) {
             TagGroupManager tagGroupManager = managers.getTagGroupManager(product);
             Interval interval = tagGroupManager.getOverlapInterval(new Interval(new DateTime(DateTimeZone.UTC).minusMonths(monthlyCacheSize), new DateTime(DateTimeZone.UTC)));
@@ -173,8 +172,8 @@ public class ReaderConfig extends Config {
 			f.get();
 		}
     }
-        
-    public Future<Void> readData(final Product product, final ConsolidateType consolidateType, final Interval interval, final DataManager dataManager, final List<UserTagKey> userTagList, ExecutorService pool) {
+
+    private Future<Void> readData(final Product product, final ConsolidateType consolidateType, final Interval interval, final DataManager dataManager, final List<UserTagKey> userTagList, ExecutorService pool) {
     	return pool.submit(new Callable<Void>() {
     		@Override
     		public Void call() throws Exception {
@@ -195,7 +194,7 @@ public class ReaderConfig extends Config {
             DateTime start = interval.getStart().withDayOfMonth(1).withMillisOfDay(0);
             do {
                 int hours = dataManager.getDataLength(start);
-                logger.info("found " + hours + " hours data for " + product + " "  + interval);
+                //logger.info("found " + hours + " hours data for " + product.name + " "  + interval);
                 start = start.plusMonths(1);
             }
             while (start.isBefore(interval.getEnd()));
@@ -203,7 +202,8 @@ public class ReaderConfig extends Config {
         else if (consolidateType == ConsolidateType.daily) {
             DateTime start = interval.getStart().withDayOfYear(1).withMillisOfDay(0);
             do {
-                dataManager.getDataLength(start);
+                int days = dataManager.getDataLength(start);
+                //logger.info("found " + days + " days data for " + product.name + " "  + interval);
                 start = start.plusYears(1);
             }
             while (start.isBefore(interval.getEnd()));

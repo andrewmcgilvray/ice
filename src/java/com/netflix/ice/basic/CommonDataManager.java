@@ -17,10 +17,12 @@
  */
 package com.netflix.ice.basic;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import com.google.common.collect.Lists;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.Hours;
@@ -53,32 +55,22 @@ public abstract class CommonDataManager<T extends ReadOnlyGenericData<D>, D>  ex
     	super(startDate, dbName, consolidateType, compress, monthlyCacheSize, workBucketConfig, accountService, productService);
         this.tagGroupManager = tagGroupManager;
 	}
-	
-    protected void getColumns(TagType groupBy, Tag tag, int userTagGroupByIndex, T data, TagLists tagLists, List<Integer> columnIndecies, List<TagGroup> tagGroups) {    	
-    	Map<TagGroup, Integer> m = data.getTagGroups(groupBy, tag, userTagGroupByIndex);
-    	if (m == null) {
-    		// No index, do it the hard way
-            int columnIndex = 0;
-            for (TagGroup tagGroup: data.getTagGroups()) {
-            	boolean contains = tagLists.contains(tagGroup, true);
-                if (contains) {
-                	columnIndecies.add(columnIndex);
-                	tagGroups.add(tagGroup);
-                }
-                columnIndex++;
-            }    		
-    		return;
-    	}
-    	
-        for (TagGroup tagGroup: m.keySet()) {
-        	boolean contains = tagLists.contains(tagGroup, true);
+
+    protected List<TagGroup> getTagGroups(TagType groupBy, Tag tag, int userTagGroupByIndex, T data, TagLists tagLists) {
+        Collection<TagGroup> tagGroups = data.getTagGroups(groupBy, tag, userTagGroupByIndex);
+        if (tagGroups == null)
+            return null;
+
+        List<TagGroup> outTagGroups = Lists.newArrayList();
+        for (TagGroup tagGroup: tagGroups) {
+            boolean contains = tagLists.contains(tagGroup, true);
             if (contains) {
-            	columnIndecies.add(m.get(tagGroup));
-            	tagGroups.add(tagGroup);
+                outTagGroups.add(tagGroup);
             }
         }
+        return outTagGroups;
     }
-    
+
     protected int getFromIndex(DateTime start, Interval interval) {
     	int fromIndex = 0;
     	if (!interval.getStart().isBefore(start)) {

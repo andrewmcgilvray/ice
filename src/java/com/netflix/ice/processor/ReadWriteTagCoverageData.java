@@ -20,11 +20,14 @@ package com.netflix.ice.processor;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.common.TimeSeriesTagCoverageMetrics;
 
 public class ReadWriteTagCoverageData extends ReadWriteGenericData<TagCoverageMetrics> {
 	
@@ -42,22 +45,39 @@ public class ReadWriteTagCoverageData extends ReadWriteGenericData<TagCoverageMe
 	}
 
 	@Override
-	protected void writeValue(DataOutput out, TagCoverageMetrics value) throws IOException {
-		out.writeBoolean(value != null);
-		if (value != null)
-			value.serialize(out);	
+	protected void serializeTimeSeriesData(Collection<TagGroup> keys, DataOutput out) throws IOException {
+		TagCoverageMetrics metrics[] = new TagCoverageMetrics[data.size()];
+
+		for (TagGroup tagGroup: keys) {
+			for (int i = 0; i < data.size(); i++) {
+				Map<TagGroup, TagCoverageMetrics> map = getData(i);
+				metrics[i] = map.get(tagGroup);
+			}
+			TimeSeriesTagCoverageMetrics tsd = new TimeSeriesTagCoverageMetrics(metrics);
+			tsd.serialize(out);
+		}
+
 	}
 
 	@Override
-	protected TagCoverageMetrics readValue(DataInput in) throws IOException {
-		Boolean hasValue = in.readBoolean();
-		return hasValue ? TagCoverageMetrics.deserialize(in, numUserTags) : null;
-	}
-	
-	@Override
-    protected TagCoverageMetrics add(TagCoverageMetrics a, TagCoverageMetrics b) {
-		a.add(b);
-		return a;
+	protected List<Map<TagGroup, TagCoverageMetrics>> deserializeTimeSeriesData(Collection<TagGroup> keys, DataInput in) throws IOException {
+		List<Map<TagGroup, TagCoverageMetrics>> data = Lists.newArrayList();
+		int num = in.readInt();
+		for (int i = 0; i < num; i++)
+			data.add(Maps.<TagGroup, TagCoverageMetrics>newHashMap());
+
+		boolean timeSeries = true;
+		TagCoverageMetrics metrics[] = new TagCoverageMetrics[num];
+		for (TagGroup tagGroup: keys) {
+			TimeSeriesTagCoverageMetrics tsm = TimeSeriesTagCoverageMetrics.deserialize(in, numUserTags);
+			tsm.get(0, num, metrics);
+			for (int i = 0; i < num; i++) {
+				if (metrics[i] != null) {
+					data.get(i).put(tagGroup, metrics[i]);
+				}
+			}
+		}
+		return data;
 	}
 
 }

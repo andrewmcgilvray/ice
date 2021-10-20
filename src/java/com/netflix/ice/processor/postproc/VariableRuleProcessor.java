@@ -1,8 +1,5 @@
 package com.netflix.ice.processor.postproc;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -303,30 +300,25 @@ public class VariableRuleProcessor extends RuleProcessor {
 	}
 
 	static class Allocation implements Comparable<Allocation> {
-		public static int scale = 5;
+		public static double noiseThreshold = 1.0E-5;
 		public AllocationReport.Key key;
-		public BigDecimal allocation;
+		public double allocation;
 
-		Allocation(AllocationReport.Key key, Double allocation) {
-			this.key = key;
-			this.allocation = BigDecimal.valueOf(allocation);
-		}
-
-		Allocation(AllocationReport.Key key, BigDecimal allocation) {
+		Allocation(AllocationReport.Key key, double allocation) {
 			this.key = key;
 			this.allocation = allocation;
 		}
 
 		@Override
 		public String toString() {
-			return key.toString() + "=" + allocation.toString();
+			return key.toString() + "=" + Double.toString(allocation);
 		}
 
 		@Override
 		public int compareTo(Allocation o) {
 			if (this == o)
 				return 0;
-			return allocation.compareTo(o.allocation);
+			return ((Double) allocation).compareTo(o.allocation);
 		}
 
 		@Override
@@ -336,71 +328,53 @@ public class VariableRuleProcessor extends RuleProcessor {
 			if (!(o instanceof Allocation))
 				return false;
 			Allocation other = (Allocation)o;
-			return allocation.compareTo(other.allocation) == 0;
+			return allocation == other.allocation;
 		}
 	}
 
 	/**
-	 * Produce a sorted list of allocations
-	 * omitting insignificant amounts and normalizing any overallocation.
+	 * Produce a sorted list of allocations from largest to smallest
+	 * and normalize any over-allocation.
 	 */
-	protected static List<Allocation> getCleanedAllocations(Map<AllocationReport.Key, Double> hourData, CostAndUsage total) {
-		// Compute the total allocation so that if greater than 1 we can compute a
-		// scaling factor for all the allocations to prevent over-allocation.
-		BigDecimal totalAllocated = BigDecimal.ZERO;
-
-		// Add up the allocations that produce tiny values so we can skip them
-		// and apply the amount to the greatest allocated tag group
-		List<Allocation> skippedAllocations = Lists.newArrayList();
-		BigDecimal totalSkipAllocated = BigDecimal.ZERO;
-
-		List<Allocation> adjustedAllocations = Lists.newArrayList();
-		BigDecimal totalCost = BigDecimal.valueOf(total.cost);
-
+	protected static List<Allocation> getCleanedAllocations(Map<AllocationReport.Key, Double> hourData, double cost) {
+		// Compute the total allocation requested allocation
+		double totalRequestedAllocations = 0.0;
+		double totalAllocations = 0.0;
+		List<Allocation> allocations = Lists.newArrayList();
+		Allocation largest = null;
 		for (Map.Entry<AllocationReport.Key, Double> e: hourData.entrySet()) {
 			double d = e.getValue();
-			BigDecimal bd = BigDecimal.valueOf(d).setScale(Allocation.scale, RoundingMode.HALF_EVEN);
-			totalAllocated = totalAllocated.add(bd);
-			BigDecimal rounded = totalCost.multiply(bd).setScale(Allocation.scale, RoundingMode.HALF_EVEN);
-			if (rounded.compareTo(BigDecimal.ZERO) == 0) {
-				skippedAllocations.add(new Allocation(e.getKey(), bd));
-				totalSkipAllocated = totalSkipAllocated.add(bd);
-			}
-			else {
-				adjustedAllocations.add(new Allocation(e.getKey(), bd));
+			totalRequestedAllocations += d;
+			Allocation a = new Allocation(e.getKey(), d);
+			if (largest == null || a.allocation > largest.allocation)
+				largest = a;
+			if (d * cost >= Allocation.noiseThreshold) {
+				allocations.add(a);
+				totalAllocations += d;
 			}
 		}
-
-		if (adjustedAllocations.isEmpty()) {
+		if (allocations.isEmpty()) {
 			// All the allocations produced very small values.
-			// If allocations total 100%, put everything on
-			// the biggest allocation.
-			if (totalSkipAllocated.compareTo(BigDecimal.ONE) == 0) {
-				Collections.sort(skippedAllocations);
-				Allocation biggest = skippedAllocations.get(skippedAllocations.size()-1);
-				adjustedAllocations.add(new Allocation(biggest.key, BigDecimal.ONE));
+			if (totalRequestedAllocations + Allocation.noiseThreshold > 1.0) {
+				// If allocations total 100% or more, put everything on
+				// the largest allocation.
+				allocations.add(new Allocation(largest.key, 1.0));
 			}
-			return adjustedAllocations;
+			return allocations;
 		}
-
 		// Sort the list
-		Collections.sort(adjustedAllocations);
+		Collections.sort(allocations);
 
-		// Add the skipped allocations to the greatest allocation
-		// or the unallocated portion if it's bigger.
-		BigDecimal unAllocated = BigDecimal.ONE.subtract(totalAllocated).max(BigDecimal.ZERO);
-		Allocation biggest = adjustedAllocations.get(adjustedAllocations.size()-1);
-		if (unAllocated.compareTo(biggest.allocation) < 0)
-			biggest.allocation = biggest.allocation.add(totalSkipAllocated);
-
-		// If we have an over-allocation, scale each allocation back
-		if (totalAllocated.compareTo(BigDecimal.ONE) > 0) {
-			for (Allocation a: adjustedAllocations) {
-				a.allocation = a.allocation.divide(totalAllocated, RoundingMode.HALF_EVEN);
-			}
+		if (totalRequestedAllocations + Allocation.noiseThreshold < 1.0) {
+			// Total allocation is less than one, we can leave the remainder unassigned
+		}
+		else {
+			// Total allocation is greater than or equal to 1.0, so rebalance the allocations
+			for (Allocation a: allocations)
+				a.allocation /= totalAllocations;
 		}
 
-		return adjustedAllocations;
+		return allocations;
 	}
 
 	protected static void processHourData(AllocationReport report, DataSerializer data, int hour, TagGroup tg, CostAndUsage total, Set<TagGroup> allocatedTagGroups) throws Exception {
@@ -410,37 +384,37 @@ public class VariableRuleProcessor extends RuleProcessor {
 		}
 		
 		// Use BigDecimal to control rounding errors
-		BigDecimal totalCost = BigDecimal.valueOf(total.cost);
-		BigDecimal totalUsage = BigDecimal.valueOf(total.usage);
-		BigDecimal allocationRemainder = BigDecimal.ONE;
+		double allocationRemainder = 1.0;
 
-		List<Allocation> allocations = getCleanedAllocations(hourData, total);
+		List<Allocation> allocations = getCleanedAllocations(hourData, total.cost);
 		if (allocations.isEmpty())
 			return;
 
 		// Remove the source value - we'll add any unallocated back at the end
 		data.remove(hour, tg);
-
+		TagGroup allocatedTagGroup = null;
 		for (Allocation a: allocations) {
-			BigDecimal costAllocation = totalCost.multiply(a.allocation, MathContext.DECIMAL64);
-			BigDecimal usageAllocation = totalUsage.multiply(a.allocation, MathContext.DECIMAL64);
+			double costAllocation = total.cost * a.allocation;
+			double usageAllocation = total.usage * a.allocation;
 
-			TagGroup allocatedTagGroup = report.getOutputTagGroup(a.key, tg);
+			allocatedTagGroup = report.getOutputTagGroup(a.key, tg);
 
-			allocationRemainder = allocationRemainder.subtract(a.allocation, MathContext.DECIMAL64);
+			allocationRemainder -= a.allocation;
 
 			allocatedTagGroups.add(allocatedTagGroup);
 			
-			data.add(hour,  allocatedTagGroup,
-					new CostAndUsage(costAllocation.setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue(),
-									 usageAllocation.setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue()));
+			data.add(hour,  allocatedTagGroup, total.mul(a.allocation));
 		}
 		
-		if (allocationRemainder.compareTo(BigDecimal.ZERO) > 0) {
-			// Add the remaining cost on the original tagGroup
-			double cost = totalCost.multiply(allocationRemainder, MathContext.DECIMAL64).setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue();
-			double usage = totalUsage.multiply(allocationRemainder, MathContext.DECIMAL64).setScale(Allocation.scale, RoundingMode.HALF_EVEN).doubleValue();
-			data.add(hour, tg, new CostAndUsage(cost, usage));
+		if (Math.abs(allocationRemainder) > 0) {
+			if (Math.abs(allocationRemainder) < Allocation.noiseThreshold) {
+				// Add the remaining cost to the last (largest) allocation tagGroup
+				data.add(hour, allocatedTagGroup, total.mul(allocationRemainder));
+			}
+			else {
+				// Add the remaining cost on the original tagGroup
+				data.add(hour, tg, total.mul(allocationRemainder));
+			}
 		}
 	}
 

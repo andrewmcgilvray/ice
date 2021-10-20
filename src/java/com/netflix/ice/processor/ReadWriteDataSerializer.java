@@ -31,7 +31,11 @@ public interface ReadWriteDataSerializer {
     public interface TagGroupFilter {
     	public Collection<TagGroup> getTagGroups(Collection<TagGroup> tagGroups);
     }
-    
+
+    public interface Summable<T> {
+        public T add(T value);
+    }
+
     public void serialize(DataOutput out, TagGroupFilter filter) throws IOException;
 
     public void deserialize(AccountService accountService, ProductService productService, DataInput in) throws IOException, BadZone;

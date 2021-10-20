@@ -17,143 +17,54 @@
  */
 package com.netflix.ice.reader;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.tag.Operation.ReservationOperation;
-import com.netflix.ice.tag.Operation.SavingsPlanOperation;
-import com.netflix.ice.tag.Zone.BadZone;
+import com.netflix.ice.common.TimeSeriesData;
+import com.netflix.ice.tag.Operation;
+import com.netflix.ice.tag.Zone;
 
 import java.io.DataInput;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReadOnlyData extends ReadOnlyGenericData<ReadOnlyData.Data> {
+public class ReadOnlyData extends ReadOnlyGenericData<TimeSeriesData> {
     protected Logger logger = LoggerFactory.getLogger(getClass());
+    protected boolean forReservations;
 
-    public static class Data {
-    	private double[] cost;
-    	private double[] usage;
-    	
-    	public Data(int size) {
-    		cost = new double[size];
-    		usage = new double[size];
-    	}
-    	
-    	public Data(double[] cost, double[] usage) {
-    		this.cost = cost;
-    		this.usage = usage;
-    	}
-    	
-    	public int size() {
-    		return Math.max(cost.length, usage.length);
-    	}
-    	
-    	public double[] getCost() {
-    		return cost;
-    	}
-    	
-    	public double[] getUsage() {
-    		return usage;
-    	}
-    	
-    	public void add(Data from) {
-            for (int i = 0; i < from.cost.length; i++) {
-            	cost[i] += from.cost[i];
-            	usage[i] += from.usage[i];
-            }
-    	}
-    	
-    	public boolean hasCostData() {
-        	// Check for values in the data array and ignore if all zeros
-            for (int i = 0; i < cost.length; i++) {
-            	if (cost[i] != 0.0)
-            		return true;
-            }
-            return false;
-    	}
-    	
-    	public boolean hasUsageData() {
-        	// Check for values in the data array and ignore if all zeros
-            for (int i = 0; i < usage.length; i++) {
-            	if (usage[i] != 0.0)
-            		return true;
-            }
-            return false;
-    	}
-    }
-    
-    
-    
     public ReadOnlyData(int numUserTags) {
-        super(new Data[]{}, Lists.<TagGroup>newArrayList(), numUserTags);
+        super(Maps.<TagGroup, TimeSeriesData>newHashMap(), numUserTags, 0);
+        forReservations = false;
     }
     
-    public ReadOnlyData(Data[] data, List<TagGroup> tagGroups, int numUserTags) {
-        super(data, tagGroups, numUserTags);
-    }
-    
-	@Override
-	protected Data[] newDataMatrix(int size) {
-		return new Data[size];
+    public ReadOnlyData(Map<TagGroup, TimeSeriesData> data, int numUserTags, int numIntervals) {
+		super(data, numUserTags, numIntervals);
 	}
-	
+
+    public void deserialize(AccountService accountService, ProductService productService, DataInput in, boolean forReservations) throws IOException, Zone.BadZone {
+        this.forReservations = forReservations;
+        super.deserialize(accountService, productService, in);
+    }
 	@Override
-	protected Data readDataArray(DataInput in) throws IOException {
-        Data data = new Data(tagGroups.size());
-        double[] cost = data.getCost();
-        double[] usage = data.getUsage();
-        for (int i = 0; i < tagGroups.size(); i++) {
-            cost[i] = in.readDouble();
-            usage[i] = in.readDouble();
+	protected void deserializeTimeSeriesData(List<TagGroup> keys, DataInput in) throws IOException {
+        // Read the data into cost and usage arrays indexed by time interval and TagGroup
+        int numKeys = keys.size();
+
+        // Load the map with a time series for each tag group
+        this.data = Maps.newHashMap();
+        for (int i = 0; i < keys.size(); i++) {
+            TagGroup tg = keys.get(i);
+
+            // If forReservations, skip all data that isn't for a reservation or savings plan operation
+            if (forReservations && !(tg.operation instanceof Operation.ReservationOperation || tg.operation instanceof Operation.SavingsPlanOperation))
+                continue;
+
+            this.data.put(tg, TimeSeriesData.deserialize(in));
         }
-        return data;
-	}
-	
-	@Override
-    public void deserialize(AccountService accountService, ProductService productService, DataInput in, boolean forReservations) throws IOException, BadZone {
-    	super.deserialize(accountService, productService, in, !forReservations);
-    	
-    	if (forReservations) {
-    		//Strip out all data that isn't for a reservation or savings plan operation
-    		
-    		// Build a column map index
-    		List<Integer> columnMap = Lists.newArrayList();
-            for (int i = 0; i < tagGroups.size(); i++) {
-            	if (tagGroups.get(i).operation instanceof ReservationOperation || tagGroups.get(i).operation instanceof SavingsPlanOperation)
-            		columnMap.add(i);
-            }
-
-            // Copy the tagGroups
-    		List<TagGroup> newTagGroups = Lists.newArrayList();
-    		for (int i: columnMap)
-            	newTagGroups.add(tagGroups.get(i));
-            this.tagGroups = newTagGroups;
-            
-    		// Copy the data
-            for (int i = 0; i < data.length; i++)  {
-            	Data oldData = data[i];
-            	Data newData = null;
-            	if (oldData != null) {            		
-            		newData = new Data(columnMap.size());
-            		double[] oldCost = oldData.getCost();
-            		double[] oldUsage = oldData.getUsage();
-            		double[] newCost = newData.getCost();
-            		double[] newUsage = newData.getUsage();
-            		
-	            	for (int j = 0; j < columnMap.size(); j++) {
-	            		newCost[j] = oldCost[columnMap.get(j)];
-	            		newUsage[j] = oldUsage[columnMap.get(j)];
-	            	}
-            	}
-	            data[i] = newData;
-            }
-        	buildIndecies();
-    	}
     }
-
 }

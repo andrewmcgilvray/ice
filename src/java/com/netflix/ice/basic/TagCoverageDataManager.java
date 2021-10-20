@@ -23,24 +23,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import com.netflix.ice.common.*;
+import com.netflix.ice.reader.*;
 import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.WorkBucketConfig;
-import com.netflix.ice.common.ConsolidateType;
-import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.processor.TagCoverageMetrics;
-import com.netflix.ice.reader.AggregateType;
-import com.netflix.ice.reader.DataManager;
-import com.netflix.ice.reader.ReadOnlyTagCoverageData;
-import com.netflix.ice.reader.TagGroupManager;
-import com.netflix.ice.reader.TagLists;
-import com.netflix.ice.reader.UsageUnit;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
@@ -48,7 +39,7 @@ import com.netflix.ice.tag.UserTag;
 import com.netflix.ice.tag.UserTagKey;
 import com.netflix.ice.tag.Zone.BadZone;
 
-public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TagCoverageMetrics[]> implements DataManager {
+public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverageData, TimeSeriesTagCoverageMetrics> implements DataManager {
     //private final static Logger staticLogger = LoggerFactory.getLogger(TagCoverageDataManager.class);
 	
 	protected List<UserTagKey> userTagKeys;
@@ -58,7 +49,12 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 		super(startDate, dbName, consolidateType, tagGroupManager, compress, monthlyCacheSize, workBucketConfig, accountService, productService);
 		this.userTagKeys = userTagKeys;
 	}
-	
+
+	public int size(DateTime start) throws ExecutionException {
+		ReadOnlyTagCoverageData data = getReadOnlyData(start);
+		return data.numTagGroups();
+	}
+
 	protected int getUserTagKeysSize() {
 		return userTagKeys.size();
 	}
@@ -87,30 +83,20 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
 	    return result;
 	}
 
-	private TagCoverageMetrics aggregate(List<Integer> columns,
-			List<TagGroup> tagGroups, UsageUnit usageUnit,
-			TagCoverageMetrics[] data) {
-		
-		TagCoverageMetrics result = new TagCoverageMetrics(getUserTagKeysSize());
-		if (data != null) {
-	        for (int i = 0; i < columns.size(); i++) {
-	        	TagCoverageMetrics d = data[columns.get(i)];
-	        	if (d != null)
-	        		result.add(d);
-	        }
-		}
-        return result;
-	}
-
-    private int aggregate(ReadOnlyTagCoverageData data, int from, int to, TagCoverageMetrics[] result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit) {		
+    private int aggregate(ReadOnlyTagCoverageData data, int from, int to, TagCoverageMetrics[] result, List<TagGroup> tagGroups, UsageUnit usageUnit) {
         int fromIndex = from;
-        int resultIndex = to;
-        while (resultIndex < result.length && fromIndex < data.getNum()) {
-        	TagCoverageMetrics[] fromData = data.getData(fromIndex++);
-            result[resultIndex] = aggregate(columns, tagGroups, usageUnit, fromData);
-            resultIndex++;
-        }
-        return fromIndex - from;
+
+		int numToCopy = Math.min(result.length - to, data.getNum() - from);
+		TagCoverageMetrics[] values = new TagCoverageMetrics[numToCopy];
+
+		for (TagGroup tg: tagGroups) {
+			TimeSeriesTagCoverageMetrics tsd = data.getData(tg);
+			tsd.get(fromIndex, numToCopy, values);
+			for (int i = 0; i < numToCopy; i++) {
+				result[to+i].add(values[i]);
+			}
+		}
+		return numToCopy;
 	}
 	
 	private boolean hasData(TagCoverageMetrics[] data) {
@@ -246,15 +232,14 @@ public class TagCoverageDataManager extends CommonDataManager<ReadOnlyTagCoverag
     private int aggregateData(DateTime time, TagLists tagLists, int from, int to, TagCoverageMetrics[] result, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
         ReadOnlyTagCoverageData data = getReadOnlyData(time);
 
-        // Figure out which columns we're going to aggregate
-        List<Integer> columnIndecies = Lists.newArrayList();
-        List<TagGroup> tagGroups = Lists.newArrayList();
-        
-    	getColumns(groupBy, tag, userTagGroupByIndex, data, tagLists, columnIndecies, tagGroups);
-    	return aggregate(data, from, to, result, columnIndecies, tagGroups, usageUnit);
+		// Figure out which tagGroups we're going to aggregate
+		List<TagGroup> tagGroups = getTagGroups(groupBy, tag, userTagGroupByIndex, data, tagLists);
+		if (tagGroups == null)
+			return 0;
+		return aggregate(data, from, to, result, tagGroups, usageUnit);
     }
         
-    private TagCoverageMetrics[] getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
+    public TagCoverageMetrics[] getData(Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
     	Interval adjusted = getAdjustedInterval(interval);
         DateTime start = adjusted.getStart();
         DateTime end = adjusted.getEnd();

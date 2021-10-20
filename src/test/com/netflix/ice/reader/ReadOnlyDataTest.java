@@ -3,14 +3,17 @@ package com.netflix.ice.reader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import com.netflix.ice.common.TimeSeriesData;
+import com.netflix.ice.tag.CostType;
+import com.netflix.ice.tag.TagType;
+import com.netflix.ice.tag.UserTag;
 import org.apache.commons.lang.ArrayUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -23,6 +26,9 @@ import com.netflix.ice.common.AccountService;
 import com.netflix.ice.common.ProductService;
 import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.tag.Zone.BadZone;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class ReadOnlyDataTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -63,52 +69,50 @@ public class ReadOnlyDataTest {
                 in.close();
         }
 
-        dump(data);
-        
-        String outFilename = dataDir + "/" + filename + "_ro.csv";
-        
-        FileWriter out;
-		out = new FileWriter(outFilename);
-        // Output CSV file
-		serialize(out, data);
-    	out.close();
-	}
-	
-    private void serialize(OutputStreamWriter out, ReadOnlyData data) throws IOException {
-    	out.write("num,cost,usage,account,region,zone,product,operation,usageType,usageUnits,resource\n");
+		Collection<TagGroup> tagGroups = data.getTagGroups(null, null, 0);
+		assertNotNull("tagGroups is NULL", tagGroups);
 
-        for (Integer i = 0; i < data.getNum(); i++) {
-            ReadOnlyData.Data values = data.getData(i);
-            if (values == null)
-            	continue;
-            double[] cost = values.getCost();
-            double[] usage = values.getUsage();
-        	for (int j = 0; j < values.size(); j++) {
-	            TagGroup tg = data.tagGroups.get(j);
-	            
-	            double c = cost[j];
-	            double u = usage[j];
-	            if (c == 0.0 && u == 0.0)
-	            	continue;
-	            
-	            out.write(i.toString() + ",");
-	            out.write(Double.toString(c) + ",");
-	            out.write(Double.toString(u) + ",");
-	            TagGroup.Serializer.serializeCsv(out, tg);
-	            out.write("\n");
-        	}
-        }
-    }
-    
-    private void dump(ReadOnlyData data) {
-    	for (int i = 0; i < data.getNum(); i++) {
-    		ReadOnlyData.Data ds = data.getData(i);
-    		if (ds != null && ds.getCost() != null) {
-    			Double[] doubleArray = ArrayUtils.toObject(ds.getCost());
-	    		List<Double> d = Arrays.asList(doubleArray);
-	    		logger.info("  " + i + ": " + d);    		
-    		}
-    	}
-    }
-    
+		tagGroups = data.getTagGroups(TagType.CostType, CostType.recurring, 0);
+		assertNotNull("Cost type tagGroups for recurring is NULL", tagGroups);
+
+		tagGroups = data.getTagGroups(TagType.Tag, UserTag.get("Dev"), 9);
+		assertNotNull("User Tag tagGroups index for Environment is NULL", tagGroups);
+
+        dump(data);
+	}
+
+	private void dump(ReadOnlyData data) {
+		for (TagGroup tg: data.getTagGroups(null, null, 0)) {
+			TimeSeriesData tsd = data.getData(tg);
+			double[] values = new double[tsd.size()];
+			tsd.get(TimeSeriesData.Type.COST, 0, tsd.size(), values);
+			Double[] doubleArray = ArrayUtils.toObject(values);
+			List<Double> d = Arrays.asList(doubleArray);
+			logger.info("  " + tg + ": " + d);
+		}
+	}
+
+	@Test
+	public void testTimeSeriesData() {
+		double[] cost  = new double[]{ 0, 1, 0 };
+		double[] usage = new double[]{ 0, 1, 0 };
+
+		TimeSeriesData tsd = new TimeSeriesData(cost, usage);
+
+		// Test pulling the full array
+		double[] got = new double[3];
+		tsd.get(TimeSeriesData.Type.COST, 0, 3, got);
+		for (int i = 0; i < cost.length; i++) {
+			assertEquals("cost doesn't match at index " + i, cost[i], got[i], 0.00001);
+		}
+
+		// Test pulling at start of 1
+		int offset = 1;
+		got = new double[cost.length - offset];
+		tsd.get(TimeSeriesData.Type.COST, offset, cost.length - offset, got);
+		for (int i = 0; i < got.length; i++) {
+			assertEquals("cost doesn't match at index " + i, cost[i+offset], got[i], 0.00001);
+		}
+	}
+
 }

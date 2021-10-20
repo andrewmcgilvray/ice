@@ -77,9 +77,10 @@ public class BasicProductService implements ProductService {
 	 */
     private ConcurrentMap<String, Product> productsByServiceName = Maps.newConcurrentMap();
     /*
-     * Map of products keyed by the name without the AWS or Amazon prefix. Also has entries for override names
+     * Map of product service codes keyed by the name without the AWS or Amazon prefix. Also has entries for override names
+     * We need a list of codes because MarketPlace often has different codes under the same name
      */
-    private ConcurrentMap<String, Product> productsByName = Maps.newConcurrentMap();
+    private ConcurrentMap<String, List<String>> serviceCodesByName = Maps.newConcurrentMap();
     /*
      * Map of products keyed by the AWS service code used for saving the data
      */
@@ -226,15 +227,24 @@ public class BasicProductService implements ProductService {
     		lock.unlock();
     	}
     }
+
+    private void addCodeForName(String name, String code) {
+    	List<String> codes = serviceCodesByName.get(name);
+    	if (codes == null) {
+			codes = Lists.newArrayList();
+			serviceCodesByName.put(name, codes);
+		}
+		codes.add(code);
+	}
     
     private void setProduct(Product product) {
-        productsByName.put(product.getIceName(), product);
+		addCodeForName(product.getIceName(), product.getServiceCode());
         productsByServiceCode.put(product.getServiceCode(), product);
 
         String canonicalName = product.getCanonicalName();
         if (!canonicalName.equals(product.getIceName())) {
         	// Product is using an alternate name, also save the canonical name
-        	productsByName.put(canonicalName, product);
+			addCodeForName(canonicalName, product.getServiceCode());
         }
         
         productsByServiceName.put(product.getServiceName(), product);
@@ -247,11 +257,14 @@ public class BasicProductService implements ProductService {
     public List<Product> getProducts(List<String> names) {
     	List<Product> result = Lists.newArrayList();
     	for (String name: names) {
-    		Product p = productsByName.get(name);
-    		if (p == null)
+    		List<String> codes = serviceCodesByName.get(name);
+    		if (codes == null)
     			logger.error("Unable to find product by name: " + name);
-    		else
-    	    	result.add(p);
+    		else {
+    			for (String code: codes) {
+					result.add(productsByServiceCode.get(code));
+				}
+			}
     	}
     	return result;
     }

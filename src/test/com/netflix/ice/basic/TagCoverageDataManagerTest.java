@@ -133,11 +133,11 @@ public class TagCoverageDataManagerTest {
 	    
 	    ReadOnlyTagCoverageData rod = data.loadDataFromFile(f);
 	    
-	    logger.info("File: " + f + " has " + rod.getTagGroups().size() + " tag groups and "+ rod.getNum() + " hours of data");
+	    logger.info("File: " + f + " has " + rod.getTagGroups(null, null, 0).size() + " tag groups and "+ rod.getNum() + " hours of data");
 	    
 	    SortedSet<Product> products = new TreeSet<Product>();
 	    SortedSet<Account> accounts = new TreeSet<Account>();
-	    for (TagGroup tg: rod.getTagGroups()) {
+	    for (TagGroup tg: rod.getTagGroups(null, null, 0)) {
 	    	products.add(tg.product);
 	    	accounts.add(tg.account);
 	    }

@@ -110,7 +110,7 @@ public class CostAndUsageLineItemProcessorTest {
     
     public static void init(AccountService as) throws Exception {
         accountService = as;
-        a2 = accountService.getAccountById(account2);
+        a2 = accountService.getAccountById(account2, "");
         
         productService = new BasicProductService();
 
@@ -608,7 +608,10 @@ public class CostAndUsageLineItemProcessorTest {
             for (Datum datum: expected) {
                 TagGroup tg = product == null ? datum.getTagGroupWithoutResources() : datum.tagGroup;
                 CostAndUsage cau = hourData.get(tg);
-                assertNotNull("should have tag group " + datum.tagGroup, cau);    
+                if (cau == null) {
+                    logger.error("Expected tagGroup not found: " + datum.tagGroup + ", have:\n" + hourData.keySet());
+                }
+                assertNotNull("should have tag group " + datum.tagGroup, cau);
                 assertEquals("wrong cost value for tag " + datum.tagGroup, datum.cau.cost, cau.cost, 0.001);
                 assertEquals("wrong usage value for tag " + datum.tagGroup, datum.cau.usage, cau.usage, 0.001);
             }
@@ -1363,7 +1366,7 @@ public class CostAndUsageLineItemProcessorTest {
 
     @Test
 	public void testZeroCostCloudFront() throws Exception {
-    	Line line = new Line(LineItemType.Usage, "us-east-1", "", "Amazon CloudFront", "US-Requests-Tier1", "GET", "CloudFront Requests", PricingTerm.none, "2021-08-01T00:00:00Z", "2021-08-01T01:00:00Z", "1000000", "0", "");
+    	Line line = new Line(LineItemType.Usage, "us-east-1", "", "AmazonCloudFront", "US-Requests-Tier1", "GET", "CloudFront Requests", PricingTerm.none, "2021-08-01T00:00:00Z", "2021-08-01T01:00:00Z", "1000000", "0", "");
     	ProcessTest test = new ProcessTest(line, Result.hourly, 31);
     	Datum[] expected = {
     			new Datum(CostType.recurring, a2, Region.US_EAST_1, null, productService.getProduct(Product.Code.CloudFront), Operation.getOperation("GET"), "US-Requests-Tier1", 0.0, 1000000),

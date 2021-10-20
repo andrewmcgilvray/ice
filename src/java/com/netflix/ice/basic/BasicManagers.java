@@ -101,7 +101,7 @@ public class BasicManagers extends Poller implements Managers {
     	lastProcessedPoller.shutdown();
     }
 
-    public void init() {
+    public void init() throws ExecutionException, InterruptedException {
         config = ReaderConfig.getInstance();
         lastProcessedPoller = new LastProcessedPoller(config.startDate, config.workBucketConfig);
         pool = Executors.newFixedThreadPool(config.numthreads);
@@ -136,7 +136,7 @@ public class BasicManagers extends Poller implements Managers {
         doWork();
     }
 
-    private void doWork() {
+    private void doWork() throws ExecutionException, InterruptedException {
     	// Update the reader configuration from the work bucket data configuration
     	config.update();
     	
@@ -181,39 +181,61 @@ public class BasicManagers extends Poller implements Managers {
             }
         }
 
-        for (Product product: newProducts) {
-        	BasicTagGroupManager tagGroupManager = new BasicTagGroupManager(product, true, config.workBucketConfig, config.accountService, config.productService, config.userTagKeys.size());
-            tagGroupManagers.put(product, tagGroupManager);
-            boolean loadTagCoverage = (product == null && config.getTagCoverage() != TagCoverage.none) || (product != null && config.getTagCoverage() == TagCoverage.withUserTags);
-            for (ConsolidateType consolidateType: ConsolidateType.values()) {
-                Key key = new Key(product, consolidateType);
-                
-            	boolean forReservations = consolidateType == ConsolidateType.hourly && !config.hourlyData;
-            	
-            	if (forReservations && product != null && !product.hasReservations() && !product.hasSavingsPlans()) {
-            		// Create hourly cost and usage managers only for reservation and savings plan operations
-            		continue;
-            	}
-            	
-            	String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
-            	int numUserTags = product == null ? 0 : config.userTagKeys.size();
-            		
-	               
-                dataManagers.put(key, new BasicDataManager(config.startDate, partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
-                		config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, forReservations));
-                if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
-    	            tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
-            				config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
-                }
-            }
-        }
+		if (!newProducts.isEmpty()) {
+			List<Future<BasicTagGroupManager>> futures = Lists.newArrayList();
+			for (Product product: newProducts) {
+				futures.add(newTagGroupManager(product));
+			}
+			// Wait for completion
+			for (Future<BasicTagGroupManager> f: futures) {
+				BasicTagGroupManager tagGroupManager = f.get();
+				if (tagGroupManagers.containsKey(tagGroupManager.getProduct()))
+					logger.error("Overwriting existing tag group manager with product code: " + tagGroupManager.getProduct().getServiceCode());
+				tagGroupManagers.put(tagGroupManager.getProduct(), tagGroupManager);
+			}
+			for (Product product: newProducts) {
+				BasicTagGroupManager tagGroupManager = tagGroupManagers.get(product);
+				boolean loadTagCoverage = (product == null && config.getTagCoverage() != TagCoverage.none) || (product != null && config.getTagCoverage() == TagCoverage.withUserTags);
+				for (ConsolidateType consolidateType: ConsolidateType.values()) {
+					Key key = new Key(product, consolidateType);
 
-        if (newProducts.size() > 0) {
+					boolean forReservations = consolidateType == ConsolidateType.hourly && !config.hourlyData;
+
+					if (forReservations && product != null && !product.hasReservations() && !product.hasSavingsPlans()) {
+						// Create hourly cost and usage managers only for reservation and savings plan operations
+						continue;
+					}
+
+					String partialDbName = consolidateType + "_" + (product == null ? "all" : product.getServiceCode());
+					int numUserTags = product == null ? 0 : config.userTagKeys.size();
+
+					if (dataManagers.containsKey(key)) {
+						logger.error("Overwriting existing data manager with key: " + key + ", " + key.hashCode());
+					}
+					dataManagers.put(key, new BasicDataManager(config.startDate, partialDbName, consolidateType, tagGroupManager, compress, numUserTags,
+							config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService, instanceMetricsService, forReservations));
+					if (loadTagCoverage && consolidateType != ConsolidateType.hourly) {
+						tagCoverageManagers.put(key, new TagCoverageDataManager(config.startDate, "coverage_" + partialDbName, consolidateType, tagGroupManager, compress, config.userTagKeys,
+								config.monthlyCacheSize, config.workBucketConfig, config.accountService, config.productService));
+					}
+				}
+			}
+
             this.dataManagers = dataManagers;
             this.tagGroupManagers = tagGroupManagers;
             this.products = products;
         }
     }
+
+    private Future<BasicTagGroupManager> newTagGroupManager(final Product product) {
+    	return refreshPool.submit(new Callable<BasicTagGroupManager>() {
+			@Override
+			public BasicTagGroupManager call() throws Exception {
+				BasicTagGroupManager tagGroupManager = new BasicTagGroupManager(product, true, config.workBucketConfig, config.accountService, config.productService, config.userTagKeys.size());
+				return tagGroupManager;
+			}
+		});
+	}
     
     private void refreshDataManagers(WorkBucketConfig wbc) {
     	for (DataCache d: tagGroupManagers.values()) {
@@ -240,16 +262,17 @@ public class BasicManagers extends Poller implements Managers {
     	});    	
     }
 
-    private static class Key implements Comparable<Key> {
+    protected static class Key implements Comparable<Key> {
         Product product;
         ConsolidateType consolidateType;
+
         Key(Product product, ConsolidateType consolidateType) {
             this.product = product;
             this.consolidateType = consolidateType;
         }
 
         public int compareTo(Key t) {
-            int result = this.product == t.product ? 0 : (this.product == null ? 1 : (t.product == null ? -1 : t.product.compareTo(this.product)));
+            int result = this.product == t.product ? 0 : (this.product == null ? -1 : (t.product == null ? 1 : this.product.compareTo(t.product)));
             if (result != 0)
                 return result;
             return consolidateType.compareTo(t.consolidateType);
@@ -275,6 +298,17 @@ public class BasicManagers extends Poller implements Managers {
 
             return result;
         }
+
+        public String toString() {
+        	StringBuilder sb = new StringBuilder(64);
+			sb.append("{");
+        	if (product != null)
+        		sb.append(product.getName()).append(", ").append(product.getServiceCode());
+        	else
+        		sb.append("null");
+        	sb.append(", ").append(consolidateType.toString());
+        	return sb.toString();
+		}
     }
 
     @Override
@@ -367,7 +401,7 @@ public class BasicManagers extends Poller implements Managers {
 				continue;
 			}
 			TagLists tagLists = new TagListsWithUserTags(costTypes, accounts, regions, zones, Lists.newArrayList(product), operations, usageTypes, userTagLists);
-			logger.debug("-------------- Process product ----------------" + product);
+			//logger.debug("-------------- Process product ----------------" + product.getServiceCode());
             futures.add(getDataForProduct(
             		isCost,
                     interval,
@@ -384,7 +418,7 @@ public class BasicManagers extends Poller implements Managers {
         
 		for (Future<Map<Tag, double[]>> f: futures) {
 			Map<Tag, double[]> dataOfProduct = f.get();
-			
+			//logger.info("    size " + dataOfProduct.size() + ", " + dataOfProduct.keySet());
             if (groupBy == TagType.Product && dataOfProduct.size() > 0) {
                 double[] currentProductValues = dataOfProduct.get(dataOfProduct.keySet().iterator().next());
                 dataOfProduct.put(Tag.aggregated, Arrays.copyOf(currentProductValues, currentProductValues.length));
@@ -393,7 +427,7 @@ public class BasicManagers extends Poller implements Managers {
             merge(dataOfProduct, data);
 		}
 		
-		logger.debug("getData() time to process: " + sw);
+		//logger.debug("getData() time to process: " + sw);
 
     	return data;
     }
@@ -479,7 +513,7 @@ public class BasicManagers extends Poller implements Managers {
     		TagGroupManager tgm = tagGroupManagers.get(p);
     		TreeMap<Long, Integer> sizes = tgm.getSizes();
     		TreeMap<Long, List<Integer>> tagValuesSizes = tgm.getTagValueSizes(config.userTagKeys.size());
-    		BasicDataManager bdm = dataManagers.get(new Key(p, ConsolidateType.daily));
+    		DataManager bdm = dataManagers.get(new Key(p, ConsolidateType.daily));
     		
     		if (csv) {
     			sb.append(p + "," + sizes.lastEntry().getValue() + "," + bdm.size(year));

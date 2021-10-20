@@ -20,14 +20,12 @@ package com.netflix.ice.basic;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
+import com.netflix.ice.common.*;
+import com.netflix.ice.reader.*;
+import org.apache.commons.lang.ArrayUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
@@ -37,17 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.WorkBucketConfig;
-import com.netflix.ice.common.ConsolidateType;
-import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.reader.AggregateType;
-import com.netflix.ice.reader.ReadOnlyData;
-import com.netflix.ice.reader.TagGroupManager;
-import com.netflix.ice.reader.TagLists;
-import com.netflix.ice.reader.TagListsWithUserTags;
-import com.netflix.ice.reader.UsageUnit;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Product;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
@@ -93,10 +80,10 @@ public class BasicDataManagerTest {
 	    
 	    ReadOnlyData rod = data.loadDataFromFile(f);
 	    
-	    logger.info("File: " + f + " has " + rod.getTagGroups().size() + " tag groups and "+ rod.getNum() + " hours of data");
+	    logger.info("File: " + f + " has " + rod.getTagGroups(null, null, 0).size() + " tag groups and "+ rod.getNum() + " hours of data");
 	    
 	    SortedSet<Product> products = new TreeSet<Product>();
-	    for (TagGroup tg: rod.getTagGroups())
+	    for (TagGroup tg: rod.getTagGroups(null, null, 0))
 	    	products.add(tg.product);
 	
 	    logger.info("Products:");
@@ -117,48 +104,40 @@ public class BasicDataManagerTest {
 	    
 	    ReadOnlyData rod = data.loadDataFromFile(f);
 	    
-	    logger.info("File: " + f + " has " + rod.getTagGroups().size() + " tag groups and "+ rod.getNum() + " months of data");
+	    logger.info("File: " + f + " has " + rod.getTagGroups(null, null, 0).size() + " tag groups and "+ rod.getNum() + " months of data");
 	    
 	    SortedSet<Product> products = new TreeSet<Product>();
-	    for (TagGroup tg: rod.getTagGroups())
+	    for (TagGroup tg: rod.getTagGroups(null, null, 0))
 	    	products.add(tg.product);
 	
 	    logger.info("Products:");
 	    for (Product p: products)
 	    	logger.info("  " + p.getIceName());
-	    
-	    for (int i = 0; i < rod.getNum(); i++) {
-	    	List<TagGroup> tagGroups = (List<TagGroup>) rod.getTagGroups();
-	    	double total = 0;
-	    	double[] values = rod.getData(i).getCost();
-	    	if (values == null) {
-	    		logger.info("No cost data for month " + i);
-	    	}
-	    	else {
-		    	for (int j = 0; j < tagGroups.size(); j++) {
-		    		if (tagGroups.get(j).product.isEc2Instance()) {
-		    			total += values[j];
-		    		}
-		    	}
-		    	logger.info("EC2 Instance cost total for month " + i + ": " + total);
-		    	assertTrue("No cost data for month " + i, total > 0.0);
-	    	}
-	    	total = 0;
-	    	values = rod.getData(i).getUsage();
-	    	if (values == null) {
-	    		logger.info("No usage data for month " + i);
-	    	}
-	    	else {
-		    	for (int j = 0; j < tagGroups.size(); j++) {
-		    		if (tagGroups.get(j).product.isEc2Instance()) {
-		    			total += values[j];
-		    		}
-		    	}
-		    	logger.info("EC2 Instance usage total for month " + i + ": " + total);
-		    	assertTrue("No usage data for month " + i, total > 0.0);
-	    	}
-	    }
-	    		
+
+	    final int num = rod.getNum();
+		double[] costTotals = new double[num];
+		double[] usageTotals = new double[num];
+		double[] values = new double[num];
+		for (TagGroup tg: rod.getTagGroups(null, null, 0)) {
+			if (!tg.product.isEc2Instance())
+				continue;
+
+			TimeSeriesData tsd = rod.getData(tg);
+			tsd.get(TimeSeriesData.Type.COST, 0, num, values);
+			for (int i = 0; i < num; i++) {
+				costTotals[i] += values[i];
+			}
+			tsd.get(TimeSeriesData.Type.USAGE, 0, num, values);
+			for (int i = 0; i < num; i++) {
+				usageTotals[i] += values[i];
+			}
+		}
+		Double[] doubleArray = ArrayUtils.toObject(costTotals);
+		List<Double> d = Arrays.asList(doubleArray);
+		logger.info("EC2 Instance cost  totals: " + d);
+		doubleArray = ArrayUtils.toObject(costTotals);
+		d = Arrays.asList(doubleArray);
+		logger.info("EC2 Instance usage totals: " + d);
 	}
 	
 	private TagGroupManager makeTagGroupManager(DateTime testMonth, Collection<TagGroup> tagGroups) {
@@ -175,18 +154,17 @@ public class BasicDataManagerTest {
 	public void groupByUserTagAndFilterByUserTag() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
-		
-		ReadOnlyData.Data[] rawData = new ReadOnlyData.Data[]{
-				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
-		};
-		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
-		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
-		
-		
-		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
+		// Two tag groups with two intervals of data
+		Map<TagGroup, TimeSeriesData> rawData = Maps.newHashMap();
+		rawData.put(
+				TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps),
+				new TimeSeriesData(new double[]{1, 2}, new double[]{0, 0}));
+		rawData.put(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps),
+				new TimeSeriesData(new double[]{1, 2}, new double[]{0, 0}));
+
+		ReadOnlyData rod = new ReadOnlyData(rawData, 2, 2);
 		DateTime testMonth = DateTime.parse("2018-01-01");
-		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, tagGroups);
+		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, rawData.keySet());
 		
 		BasicDataManager dataManager = new TestDataFileCache(testMonth, null, ConsolidateType.monthly, tagGroupManager, true, 0, 0, null, as, ps, rod);
 		
@@ -217,17 +195,18 @@ public class BasicDataManagerTest {
 	public void groupByUserTagAndFilterByEmptyUserTag() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
-		
-		ReadOnlyData.Data[] rawData = new ReadOnlyData.Data[]{
-				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
-		};
-		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
-		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", null, as, ps));		
-		
-		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
+
+		// Two tag groups with two intervals of data
+		Map<TagGroup, TimeSeriesData> rawData = Maps.newHashMap();
+		rawData.put(
+				TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps),
+				new TimeSeriesData(new double[]{1, 2}, new double[]{0, 0}));
+		rawData.put(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", null, as, ps),
+				new TimeSeriesData(new double[]{1, 2}, new double[]{0, 0}));
+
+		ReadOnlyData rod = new ReadOnlyData(rawData, 2, 2);
 		DateTime testMonth = DateTime.parse("2018-01-01");
-		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, tagGroups);
+		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, rawData.keySet());
 		
 		BasicDataManager dataManager = new TestDataFileCache(testMonth, null, ConsolidateType.monthly, tagGroupManager, true, 0, 0, null, as, ps, rod);
 		
@@ -256,18 +235,19 @@ public class BasicDataManagerTest {
 	public void groupByNoneWithUserTagFilters() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
 		ProductService ps = new BasicProductService();
-		
-		ReadOnlyData.Data[] rawData = new ReadOnlyData.Data[]{
-				new ReadOnlyData.Data(new double[]{ 1.0, 2.0 }, null),
-		};
-		List<TagGroup> tagGroups = Lists.newArrayList();
-		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps));
-		tagGroups.add(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps));
-		
-		
-		ReadOnlyData rod = new ReadOnlyData(rawData, tagGroups, 2);
-		DateTime testMonth = DateTime.parse("2018-01-01");
-		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, tagGroups);
+
+		// Two tag groups with two intervals of data
+		Map<TagGroup, TimeSeriesData> rawData = Maps.newHashMap();
+		rawData.put(
+				TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps),
+				new TimeSeriesData(new double[]{1, 2}, new double[]{0, 0}));
+		rawData.put(TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "On-Demand Instances", "usgaeType", "usageTypeUnit", new String[]{"TagA", ""}, as, ps),
+				new TimeSeriesData(new double[]{1, 2}, new double[]{0, 0}));
+
+		ReadOnlyData rod = new ReadOnlyData(rawData, 2, 2);
+
+		DateTime testMonth = DateTime.parse("2018-01-01T00:00:00Z");
+		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, rawData.keySet());
 		
 		BasicDataManager dataManager = new TestDataFileCache(testMonth, null, ConsolidateType.monthly, tagGroupManager, true, 0, 0, null, as, ps, rod);
 		
@@ -319,15 +299,11 @@ public class BasicDataManagerTest {
 	    	return;
 	    
 	    ReadOnlyData rod = data.loadDataFromFile(f);
-	    
-	    for (int i = 0; i < rod.getData(0).size(); i++) {
-	    	//TagGroup tg = rod.getTagGroups().get(i);
-	    }
-	    
-	    logger.info("File: " + f + " has " + rod.getTagGroups().size() + " tag groups and "+ rod.getNum() + " hours of data");
+
+	    logger.info("File: " + f + " has " + rod.getTagGroups(null, null, 0).size() + " tag groups and "+ rod.getNum() + " hours of data");
 	    
 		DateTime testMonth = new DateTime("2020-01-01", DateTimeZone.UTC);
-		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, rod.getTagGroups());
+		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, rod.getTagGroups(null, null, 0));
 		
 		BasicDataManager dataManager = new TestDataFileCache(testMonth, null, ConsolidateType.hourly, tagGroupManager, true, 0, 0, null, as, ps, rod);
 		

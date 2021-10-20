@@ -23,24 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import com.netflix.ice.common.*;
+import com.netflix.ice.reader.*;
 import org.apache.commons.lang.time.StopWatch;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.ice.common.AccountService;
-import com.netflix.ice.common.WorkBucketConfig;
-import com.netflix.ice.common.ConsolidateType;
-import com.netflix.ice.common.ProductService;
-import com.netflix.ice.common.TagGroup;
-import com.netflix.ice.reader.AggregateType;
-import com.netflix.ice.reader.DataManager;
-import com.netflix.ice.reader.InstanceMetricsService;
-import com.netflix.ice.reader.ReadOnlyData;
-import com.netflix.ice.reader.TagGroupManager;
-import com.netflix.ice.reader.TagLists;
-import com.netflix.ice.reader.UsageUnit;
 import com.netflix.ice.tag.Operation;
 import com.netflix.ice.tag.Tag;
 import com.netflix.ice.tag.TagType;
@@ -52,7 +41,7 @@ import com.netflix.ice.tag.Zone.BadZone;
 /**
  * This class reads data from s3 bucket and feeds the data to UI
  */
-public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyData.Data> implements DataManager {
+public class BasicDataManager extends CommonDataManager<ReadOnlyData, TimeSeriesData> implements DataManager {
 
     protected InstanceMetricsService instanceMetricsService;
     protected int numUserTags;
@@ -76,7 +65,7 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
     	
 	public int size(DateTime start) throws ExecutionException {
 		ReadOnlyData data = getReadOnlyData(start);
-		return data.getTagGroups().size();
+		return data.numTagGroups();
 	}
 	
     @Override
@@ -112,26 +101,22 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
     	return value * multiplier;    		
     }
 
-    private double aggregate(List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit, double[] data) {
-		double result = 0.0;
-		if (data != null) {
-	        for (int i = 0; i < columns.size(); i++) {
-	        	double d = data[columns.get(i)];
-	        	if (d != 0.0)
-	        		result += adjustForUsageUnit(usageUnit, tagGroups.get(i).usageType, d);
-	        }
-		}
-        return result;
-	}
-
-    private int aggregate(boolean isCost, ReadOnlyData data, int from, int to, double[] result, List<Integer> columns, List<TagGroup> tagGroups, UsageUnit usageUnit) {		
+    private int aggregate(boolean isCost, ReadOnlyData data, int from, int to, double[] result, List<TagGroup> tagGroups, UsageUnit usageUnit) {
         int fromIndex = from;
-        for (int resultIndex = to; resultIndex < result.length && fromIndex < data.getNum(); resultIndex++) {
-        	ReadOnlyData.Data fromData = data.getData(fromIndex++);
-        	if (fromData != null)
-        		result[resultIndex] = aggregate(columns, tagGroups, usageUnit, isCost ? fromData.getCost() : fromData.getUsage());
-        }
-        return fromIndex - from;
+
+		int numToCopy = Math.min(result.length - to, data.getNum() - from);
+		double[] values = new double[numToCopy];
+		for (TagGroup tg: tagGroups) {
+			TimeSeriesData tsd = data.getData(tg);
+			tsd.get(isCost ? TimeSeriesData.Type.COST : TimeSeriesData.Type.USAGE, fromIndex, numToCopy, values);
+			for (int i = 0; i < numToCopy; i++) {
+				if (isCost)
+					result[to+i] += values[i];
+				else
+					result[to+i] += adjustForUsageUnit(usageUnit, tg.usageType, values[i]);
+			}
+		}
+		return numToCopy;
 	}
 	
 	private Map<Tag, double[]> processResult(boolean isCost, Map<Tag, double[]> data, TagType groupBy, AggregateType aggregate, List<UserTagKey> tagKeys) {
@@ -158,12 +143,11 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
     private int aggregateData(boolean isCost, DateTime time, TagLists tagLists, int from, int to, double[] result, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
         ReadOnlyData data = getReadOnlyData(time);
 
-        // Figure out which columns we're going to aggregate
-        List<Integer> columnIndecies = Lists.newArrayList();
-        List<TagGroup> tagGroups = Lists.newArrayList();
-        
-    	getColumns(groupBy, tag, userTagGroupByIndex, data, tagLists, columnIndecies, tagGroups);
-    	return aggregate(isCost, data, from, to, result, columnIndecies, tagGroups, usageUnit);
+		// Figure out which tagGroups we're going to aggregate
+		List<TagGroup> tagGroups = getTagGroups(groupBy, tag, userTagGroupByIndex, data, tagLists);
+		if (tagGroups == null)
+			return 0;
+		return aggregate(isCost, data, from, to, result, tagGroups, usageUnit);
     }
         
     private double[] getData(boolean isCost, Interval interval, TagLists tagLists, UsageUnit usageUnit, TagType groupBy, Tag tag, int userTagGroupByIndex) throws ExecutionException {
@@ -262,7 +246,5 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, ReadOnlyDa
         logger.debug("getData elapsed time: " + sw);
         return result;
     }
-
-
 
 }

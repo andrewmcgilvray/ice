@@ -24,15 +24,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.google.common.collect.Maps;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.BeforeClass;
@@ -61,11 +56,7 @@ import com.netflix.ice.processor.DataSerializer.CostAndUsage;
 import com.netflix.ice.processor.ProcessorConfig;
 import com.netflix.ice.processor.kubernetes.KubernetesReport;
 import com.netflix.ice.processor.postproc.AllocationReport.Key;
-import com.netflix.ice.tag.Account;
-import com.netflix.ice.tag.CostType;
-import com.netflix.ice.tag.Product;
-import com.netflix.ice.tag.ResourceGroup;
-import com.netflix.ice.tag.UserTagKey;
+import com.netflix.ice.tag.*;
 
 public class VariableRuleProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
@@ -131,19 +122,45 @@ public class VariableRuleProcessorTest {
 			new Key(Lists.newArrayList(new String[]{"three"})),
 			new Key(Lists.newArrayList(new String[]{"four"})),
 			new Key(Lists.newArrayList(new String[]{"five"})),
-			new Key(Lists.newArrayList(new String[]{"noise"})),
+			new Key(Lists.newArrayList(new String[]{"noise1"})),
+			new Key(Lists.newArrayList(new String[]{"noise2"})),
+			new Key(Lists.newArrayList(new String[]{"noise3"})),
+			new Key(Lists.newArrayList(new String[]{"noise4"})),
 	};
 
 	private void testAllocation(double cost, VariableRuleProcessor.Allocation[] allocations, VariableRuleProcessor.Allocation[] expected, String message) {
 		CostAndUsage total = new CostAndUsage(cost, 1.0);
 		Map<AllocationReport.Key, Double> hourData = Maps.newHashMap();
 		for (VariableRuleProcessor.Allocation a: allocations) {
-			hourData.put(a.key, a.allocation.doubleValue());
+			hourData.put(a.key, a.allocation);
 		}
-		List<VariableRuleProcessor.Allocation> got = VariableRuleProcessor.getCleanedAllocations(hourData, total);
+		List<VariableRuleProcessor.Allocation> got = VariableRuleProcessor.getCleanedAllocations(hourData, total.cost);
 		List<VariableRuleProcessor.Allocation> expect = Lists.newArrayList(expected);
 		Collections.sort(expect);
-		assertEquals(message, expect, got);
+		assertEquals(message + ", wrong number of allocations", expect.size(), got.size());
+		for (int i = 0; i < expect.size(); i++)
+			assertEquals(message + ", mismatched allocation for " + expect.get(i).key, expect.get(i).allocation, got.get(i).allocation, 1.0E-6);
+	}
+
+	// Test at the noise margin
+	@Test
+	public void testGetTinyFullAllocations() {
+		VariableRuleProcessor.Allocation[] fullyAllocated = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.1),
+				new VariableRuleProcessor.Allocation(keys[1], 0.9),
+		};
+		VariableRuleProcessor.Allocation[] fullyAllocatedExpected = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.1),
+				new VariableRuleProcessor.Allocation(keys[1], 0.9),
+		};
+
+		testAllocation(0.000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
+
+		fullyAllocatedExpected = new VariableRuleProcessor.Allocation[]{
+				new VariableRuleProcessor.Allocation(keys[0], 1.0),
+		};
+		// Should return one allocation even though the total is below the noise.
+		testAllocation(0.00000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
 	}
 
 	// Test at the noise margin
@@ -173,14 +190,17 @@ public class VariableRuleProcessorTest {
 				new VariableRuleProcessor.Allocation(keys[0], 0.1),
 				new VariableRuleProcessor.Allocation(keys[1], 0.2),
 				new VariableRuleProcessor.Allocation(keys[2], 0.3),
+				new VariableRuleProcessor.Allocation(keys[3], 0.3 - VariableRuleProcessor.Allocation.noiseThreshold),
 				// Add some noise which in this case will go unallocated
-				new VariableRuleProcessor.Allocation(keys[5], 0.000000001),
+				new VariableRuleProcessor.Allocation(keys[5], VariableRuleProcessor.Allocation.noiseThreshold/2),
+				new VariableRuleProcessor.Allocation(keys[6], VariableRuleProcessor.Allocation.noiseThreshold/2),
 		};
 
 		VariableRuleProcessor.Allocation[] underAllocatedExpected = {
 				new VariableRuleProcessor.Allocation(keys[0], 0.1),
 				new VariableRuleProcessor.Allocation(keys[1], 0.2),
 				new VariableRuleProcessor.Allocation(keys[2], 0.3),
+				new VariableRuleProcessor.Allocation(keys[3], 0.3 - VariableRuleProcessor.Allocation.noiseThreshold),
 		};
 
 		testAllocation(1.0, underAllocated, underAllocatedExpected, "under allocation wrong");
@@ -189,18 +209,17 @@ public class VariableRuleProcessorTest {
 	@Test
 	public void testGetCleanedFullAllocations() {
 		VariableRuleProcessor.Allocation[] fullyAllocated = {
-				new VariableRuleProcessor.Allocation(keys[0], 0.1),
-				new VariableRuleProcessor.Allocation(keys[1], 0.2),
-				new VariableRuleProcessor.Allocation(keys[2], 0.3),
-				new VariableRuleProcessor.Allocation(keys[3], 0.399999999),
-				// Add some noise which in this case will go to the "four" allocation
-				new VariableRuleProcessor.Allocation(keys[5], 0.000000001),
+				new VariableRuleProcessor.Allocation(keys[0], 0.499999),
+				new VariableRuleProcessor.Allocation(keys[1], 0.499989),
+				// Add some noise which will be reallocated across the others
+				new VariableRuleProcessor.Allocation(keys[5], 0.000005),
+				new VariableRuleProcessor.Allocation(keys[6], 0.000001),
+				new VariableRuleProcessor.Allocation(keys[7], 0.000005),
+				new VariableRuleProcessor.Allocation(keys[8], 0.000001),
 		};
 		VariableRuleProcessor.Allocation[] fullyAllocatedExpected = {
-				new VariableRuleProcessor.Allocation(keys[0], 0.1),
-				new VariableRuleProcessor.Allocation(keys[1], 0.2),
-				new VariableRuleProcessor.Allocation(keys[2], 0.3),
-				new VariableRuleProcessor.Allocation(keys[3], 0.4),
+				new VariableRuleProcessor.Allocation(keys[0], 0.499995),
+				new VariableRuleProcessor.Allocation(keys[1], 0.500005),
 		};
 
 		testAllocation(1.0, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
@@ -209,20 +228,19 @@ public class VariableRuleProcessorTest {
 	@Test
 	public void testGetCleanedOverAllocations() {
 		VariableRuleProcessor.Allocation[] overAllocated = {
+				new VariableRuleProcessor.Allocation(keys[0], 0.099999 * 2),
+				new VariableRuleProcessor.Allocation(keys[1], 0.199999 * 2),
+				new VariableRuleProcessor.Allocation(keys[2], 0.299999 * 2),
+				new VariableRuleProcessor.Allocation(keys[3], 0.399999 * 2),
+				// Add some noise which will be reallocated across the others
+				new VariableRuleProcessor.Allocation(keys[5], 0.000002 * 2),
+				new VariableRuleProcessor.Allocation(keys[6], 0.000002 * 2),
+		};
+		VariableRuleProcessor.Allocation[] overAllocatedExpected = {
 				new VariableRuleProcessor.Allocation(keys[0], 0.1),
 				new VariableRuleProcessor.Allocation(keys[1], 0.2),
 				new VariableRuleProcessor.Allocation(keys[2], 0.3),
 				new VariableRuleProcessor.Allocation(keys[3], 0.4),
-				new VariableRuleProcessor.Allocation(keys[4], 0.499999999),
-				// Add some noise which in this case will go to the "five" allocation
-				new VariableRuleProcessor.Allocation(keys[5], 0.000000001),
-		};
-		VariableRuleProcessor.Allocation[] overAllocatedExpected = {
-				new VariableRuleProcessor.Allocation(keys[0], 0.06667),
-				new VariableRuleProcessor.Allocation(keys[1], 0.13333),
-				new VariableRuleProcessor.Allocation(keys[2], 0.2),
-				new VariableRuleProcessor.Allocation(keys[3], 0.26667),
-				new VariableRuleProcessor.Allocation(keys[4], 0.33333),
 		};
 
 		testAllocation(1.0, overAllocated, overAllocatedExpected, "over allocation wrong");
@@ -232,7 +250,8 @@ public class VariableRuleProcessorTest {
 	public void testGetCleanedNoiseAllocation() {
 		VariableRuleProcessor.Allocation[] noiseAllocated = {
 				// Add some noise which in this case will go unallocated
-				new VariableRuleProcessor.Allocation(keys[5], 0.000000001),
+				new VariableRuleProcessor.Allocation(keys[5], VariableRuleProcessor.Allocation.noiseThreshold / 2),
+				new VariableRuleProcessor.Allocation(keys[6], VariableRuleProcessor.Allocation.noiseThreshold / 10),
 		};
 
 		VariableRuleProcessor.Allocation[] noiseAllocatedExpected = {
@@ -240,8 +259,7 @@ public class VariableRuleProcessorTest {
 		testAllocation(1.0, noiseAllocated, noiseAllocatedExpected, "wrong noise allocation");
 	}
 
-	@Test
-	public void testProcessHourData() throws Exception {
+	private AllocationReport getTwoTagAllocationReport() throws Exception {
 		String[] tagKeys = {"Key1","Key2"};
 		BasicResourceService rs = new BasicResourceService(ps, tagKeys, false);
 		String allocationYaml = "" +
@@ -262,9 +280,12 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		return new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+	}
 
-		// Process with a report
+	@Test
+	public void testProcessHourData() throws Exception {
+		AllocationReport ar = getTwoTagAllocationReport();
 		String reportData = "" +
 				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.9,EC2Instance,clusterA,ninety\n" +
@@ -272,25 +293,95 @@ public class VariableRuleProcessorTest {
 				"";
 		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData));
 
-		DataSerializer data = new DataSerializer(tagKeys.length);
+		DataSerializer data = new DataSerializer(2);
 		TagGroupSpec tgs = new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "compute"}, 2.9E-4, 1);
 		TagGroup tagGroup = tgs.getTagGroup(as, ps);
 		data.put(0, tagGroup, tgs.value);
-
 
 		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
 
 		VariableRuleProcessor.processHourData(ar, data, 0, tagGroup, tgs.value, allocatedTagGroups);
 		Map<TagGroup, CostAndUsage> hourData = data.getData(0);
 		TagGroupSpec[] expected = new TagGroupSpec[]{
-				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "ninety"}, 2.6E-4, 0),
-				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "ten"}, 3.0E-5, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "ninety"}, 2.61E-4, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "ten"}, 2.9E-5, 0),
 		};
 
 		for (TagGroupSpec spec: expected) {
 			TagGroup tg = spec.getTagGroup(as, ps);
 			assertEquals("wrong data for spec " + spec.toString(), spec.value.cost, hourData.get(tg).cost, 0.0000001);
 		}
+	}
+
+	@Test
+	public void testProcessHourDataMoreSplits() throws Exception {
+		AllocationReport ar = getTwoTagAllocationReport();
+		double[] splits = {
+				0.314448544,
+				0.007251372,
+				2.93E-05,
+				0.246577473,
+				4.60E-04,
+				7.89E-05,
+				0.184603151,
+				6.43E-05,
+				3.02E-05,
+				0.176628454,
+				1.05E-04,
+				4.76E-06,
+				0.004798945,
+				0.009011526,
+				3.54E-04,
+				0.05555417,
+		};
+
+		VariableRuleProcessor.Allocation[] fullyAllocated = new VariableRuleProcessor.Allocation[splits.length];
+		List<VariableRuleProcessor.Allocation> expected = Lists.newArrayList();
+		for (int i = 0; i < splits.length; i++) {
+			fullyAllocated[i] = new VariableRuleProcessor.Allocation(new Key(Lists.newArrayList(new String[]{"index" + Integer.toString(i)})), splits[i]);
+			if (i != 11)
+				expected.add(new VariableRuleProcessor.Allocation(new Key(Lists.newArrayList(new String[]{"index" + Integer.toString(i)})), splits[i] / (1-splits[11])));
+		}
+		VariableRuleProcessor.Allocation[] x = new VariableRuleProcessor.Allocation[splits.length - 1];
+		testAllocation(1.0, fullyAllocated, expected.toArray(x), "allocation wrong");
+
+
+		StringBuilder reportData = new StringBuilder();
+		reportData.append("StartDate,EndDate,Allocation,_Product,Key1,Key2\n");
+		int i = 0;
+		double total = 0;
+		for (double split: splits) {
+			reportData.append("2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,")
+					.append(Double.toString(split))
+					.append(",EC2Instance,clusterA,index")
+					.append(Integer.toString(i++))
+					.append("\n");
+			total += split;
+		}
+		assertEquals("splits data total wrong", 1.0, total, 1.0E-6);
+
+		ar.readCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), new StringReader(reportData.toString()));
+
+		double expectedCost = 1.0;
+		double expectedUsage = 1.0;
+		DataSerializer data = new DataSerializer(2);
+		TagGroupSpec tgs = new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "t3.nano", new String[]{"clusterA", "compute"}, expectedCost, expectedUsage);
+		TagGroup tagGroup = tgs.getTagGroup(as, ps);
+		data.put(0, tagGroup, tgs.value);
+
+		Set<TagGroup> allocatedTagGroups = Sets.newHashSet();
+
+		VariableRuleProcessor.processHourData(ar, data, 0, tagGroup, tgs.value, allocatedTagGroups);
+		Map<TagGroup, CostAndUsage> hourData = data.getData(0);
+
+		// Add up all the splits and make sure totals are correct
+		CostAndUsage cau = new CostAndUsage();
+		for (TagGroup tg: hourData.keySet()) {
+			cau = cau.add(hourData.get(tg));
+		}
+		assertEquals("wrong number of splits", 15, hourData.size());
+		assertEquals("wrong total cost", expectedCost, cau.cost, 1.0E-12);
+		assertEquals("wrong total usage", expectedUsage, cau.usage, 1.0E-12);
 	}
 
 	@Test
@@ -421,8 +512,8 @@ public class VariableRuleProcessorTest {
 		assertEquals("wrong number of output records", 4, hourData.keySet().size());
 
         expected = new TagGroupSpec[]{
-        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "twenty-five"}, 2631.6, 0),
-        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "seventy"}, 7368.4, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "twenty-five"}, 2631.579, 0),
+        		new TagGroupSpec("Recurring", a1, "eu-west-1", ec2Instance, "RunInstances", "EUW2:r5.xlarge", new String[]{"clusterC", "seventy"}, 7368.421, 0),
         };
 
         for (TagGroupSpec spec: expected) {
@@ -1162,8 +1253,8 @@ public class VariableRuleProcessorTest {
 		assertTrue("wrong unprocessed cluster", unprocessedClusters.contains("stage-usw2a"));
 		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
 
-		double[] expectedAllocatedCosts = new double[]{ 0.3936, 0.4324, 0.4133 };
-		double[] expectedUnusedCosts = new double[]{ 11.4360, 11.9056, 20.9427 };
+		double[] expectedAllocatedCosts = new double[]{ 0.3934, 0.4324, 0.4133 };
+		double[] expectedUnusedCosts = new double[]{ 11.4360, 11.9054, 20.9427 };
 		int [] expectedAllocationCounts = new int[]{ 10, 8, 11};
 		Map<TagGroup, CostAndUsage> hourData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
 
@@ -1264,7 +1355,7 @@ public class VariableRuleProcessorTest {
 		assertEquals("have wrong number of unprocessed clusters", 0, unprocessedClusters.size());
 		assertEquals("have unprocessed ATGs", 0, unprocessedAtgs.size());
 
-		double expectedUnusedCost = 11.5679;
+		double expectedUnusedCost = 11.56786;
 		Map<TagGroup, CostAndUsage> hourCostData = data.get(ps.getProduct(Product.Code.Ec2Instance)).getData(testDataHour);
 
 		TagGroup tg = dataSpecs[0].getTagGroup(as, ps);
@@ -1273,18 +1364,16 @@ public class VariableRuleProcessorTest {
 		ResourceGroup arg = ResourceGroup.getResourceGroup(atags);
 		TagGroup atg = tg.withResourceGroup(arg);
 
-		CostAndUsage allocatedCau = hourCostData.get(atg);
-		assertNull("Got allocated cost for default namespace with cluster tag " + clusterTag + ", should be too small to be allocated", allocatedCau);
 		String[] unusedTags = new String[]{"","","iamUser","","unused","unused","","","","", "compute"};
 		TagGroup unusedTg = TagGroup.getTagGroup(tg.costType, tg.account, tg.region, tg.zone, tg.product, tg.operation, tg.usageType, ResourceGroup.getResourceGroup(unusedTags));
 		CostAndUsage unusedCau = hourCostData.get(unusedTg);
-		assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCost, unusedCau.cost, 0.0001);
+		assertEquals("Incorrect unused cost with cluster tag " + clusterTag, expectedUnusedCost, unusedCau.cost, 0.00001);
 
 		// Add up all the cost values to see if we get back to 40.0
 		double total = 0.0;
 		for (CostAndUsage v: hourCostData.values())
 			total += v.cost;
-		assertEquals("Incorrect total cost when adding unused and allocated values", 40.0, total, 0.001);
+		assertEquals("Incorrect total cost when adding unused and allocated values", 40.0, total, 0.00001);
 	}
 
 	@Test

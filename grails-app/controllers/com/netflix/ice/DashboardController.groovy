@@ -250,10 +250,21 @@ class DashboardController {
             data.remove(ps.getProduct(Product.Code.DirectConnect));
         }
 
-        if (data.size() == 1 && data.iterator().next() == null)
-            data = Lists.newArrayList(UserTag.get(UserTag.none));
+        List<Tag> resultData = Lists.newArrayListWithCapacity(data.size());
+        if (data.size() == 1 && data.iterator().next() == null) {
+            resultData = Lists.newArrayList(UserTag.get(UserTag.none));
+        }
+        else {
+            // build the list removing duplicate names
+            String prevName = "";
+            for (Tag t: data) {
+                if (!t.name.equals(prevName))
+                    resultData.add(t);
+                prevName = t.name;
+            }
+        }
 
-        def result = [status: 200, data: data]
+        def result = [status: 200, data: resultData]
         render result as JSON
     }
 

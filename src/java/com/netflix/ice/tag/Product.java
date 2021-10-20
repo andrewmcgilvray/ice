@@ -147,8 +147,22 @@ public class Product extends Tag {
     	this.source = Source.code;
     	this.code = code;
     }
-    
-    public void update(String serviceName, String iceName) {
+
+    @Override
+	public int compareTo(Tag t) {
+		if (t == aggregated)
+			return -t.compareTo(this);
+		int result = this.getName().compareToIgnoreCase(t.getName());
+		if (result == 0)
+			result = this.getName().compareTo(t.getName());
+		if (result == 0 && t instanceof Product) {
+			Product o = (Product) t;
+			result = this.getServiceCode().compareTo(o.getServiceCode());
+		}
+		return result;
+	}
+
+	public void update(String serviceName, String iceName) {
     	this.serviceName = serviceName;
     	this.iceName = iceName;
     }
