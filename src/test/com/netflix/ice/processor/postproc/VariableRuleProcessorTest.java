@@ -162,28 +162,7 @@ public class VariableRuleProcessorTest {
 		// Should return one allocation even though the total is below the noise.
 		testAllocation(0.00000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
 	}
-
-	// Test at the noise margin
-	@Test
-	public void testGetTinyFullAllocations() {
-		VariableRuleProcessor.Allocation[] fullyAllocated = {
-				new VariableRuleProcessor.Allocation(keys[0], 0.1),
-				new VariableRuleProcessor.Allocation(keys[1], 0.9),
-		};
-		VariableRuleProcessor.Allocation[] fullyAllocatedExpected = {
-				new VariableRuleProcessor.Allocation(keys[0], 0.1),
-				new VariableRuleProcessor.Allocation(keys[1], 0.9),
-		};
-
-		testAllocation(0.000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
-
-		fullyAllocatedExpected = new VariableRuleProcessor.Allocation[]{
-				new VariableRuleProcessor.Allocation(keys[0], 1.0),
-		};
-		// Should return one allocation even though the total is below the noise.
-		testAllocation(0.00000133, fullyAllocated, fullyAllocatedExpected, "full allocation wrong");
-	}
-
+	
 	@Test
 	public void testGetCleanedUnderAllocations() {
 		VariableRuleProcessor.Allocation[] underAllocated = {
