@@ -51,7 +51,7 @@ public class Region extends Tag {
     public static final Region US_EAST_1_CHI_1 = new Region("us-east-1-chi-1", "CHI1", "US East (Chicago)");
     public static final Region US_EAST_1_DFW1 = new Region("us-east-1-dfw-1", "DFW1", "US East (Dallas)");
     public static final Region US_EAST_1_IAH_1 = new Region("us-east-1-iah-1", "IAH1", "US East (Houston)");
-    public static final Region US_EAST_1_MCI_1 = new Region("us-east-1-mci-1", "MCI1", "US East (Kansas City)");
+    public static final Region US_EAST_1_MCI_1 = new Region("us-east-1-mci-1", "MCI2", "US East (Kansas City 2)");
     public static final Region US_EAST_1_MIA_1 = new Region("us-east-1-mia-1", "MIA1", "US East (Miami)");
     public static final Region US_EAST_1_MSP_1 = new Region("us-east-1-msp-1", "MSP1", "US East (Minneapolis)");
     public static final Region US_EAST_1_NYC_1 = new Region("us-east-1-nyc-1", "NYC1", "US East (New York)");

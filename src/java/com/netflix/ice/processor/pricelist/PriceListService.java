@@ -244,8 +244,7 @@ public class PriceListService {
         InputStream stream = new URL(domain + offerVersionUrl).openStream();
         
        	InstancePrices prices = new InstancePrices(serviceCode, versionId, version.getBeginDate(), version.getEndDate());
-        boolean hasErrors = importPriceList(stream, prices);
-        if (!hasErrors)
+        if (importPriceList(stream, prices))
         	archive(prices, getFilename(serviceCode, versionId));
 
         return prices;
@@ -383,6 +382,7 @@ public class PriceListService {
 		DatabaseEdition("Database Edition"), // RDS only
 		LicenseModel("License Model"), // EC2 and RDS only
 		DeploymentOption("Deployment Option"), // RDS only
+		EngineMediaType("Engine Media Type"), // RDS only
 		Group, // EC2, RDS, Redshift, ElastiCache only
 		GroupDescription("Group Description"), // EC2, RDS, Redshift, ElastiCache only
 		TransferType("Transfer Type"), // EC2 only
@@ -397,6 +397,7 @@ public class PriceListService {
 		ClassicNetworkingSupport, // EC2 only
 		ConcurrencyScalingFreeUsage, // Redshift only
 		DedicatedEbsThroughput("Dedicated EBS Throughput"), // EC2 and RDS only
+		DeploymentModel("Deployment Model"), // RDS only
 		ECU, // EC2 and Redshift only
 		PricingUnit("Pricing Unit"), // Redshift only
 		ElasticGraphicsType("Elastic Graphics Type"), // EC2 only
@@ -435,6 +436,7 @@ public class PriceListService {
 		ProductType("Product Type"), // EC2 only
 		ResourceType("Resource Type"), // EC2 only
 		ServiceName("serviceName"),
+		VolumeName("Volume Name"), // RDS only
 		VolumeApiName("Volume API Name"), // EC2 only
 		VPCNetworkingSupport, // EC2 only
 		UsageFamily("Usage Family"), // Redshift only
@@ -546,6 +548,7 @@ public class PriceListService {
 				String[] memoryParts = memory.split(" ");
 				if (!memoryParts[1].toLowerCase().equals("gib")) {
 					logger.error("Found PriceList entry with product memory using non-GiB units: " + memoryParts[1] + ", usageType: " + usageType);
+					prices.setErrors(true);
 				}
 				memory = memoryParts[0].replace(",", "");
 			}
@@ -563,11 +566,13 @@ public class PriceListService {
 	    	product = new InstancePrices.Product(sku, memory, ecu, nsf, vcpu, instanceType, operatingSystem, operation, usageType, preinstalledSw, databaseEngine, databaseEdition);
 	    	if (key.usageType.name.endsWith(".others")) {
 	    		logger.error("Pricelist entry with unknown usage type: " + product);
+				prices.setErrors(true);
 	    	}
     		prices.setProduct(key, product);
     	}
     	else if (!product.sku.equals(sku)) {
     		logger.error("Pricelist product has two SKUs with same product key: " + product.sku + ", " + sku + ". Existing product: " + product + ", Ignored conflicting product: " + String.join(",", items));
+			prices.setErrors(true);
     		product = null;
     	}
     	return product;
@@ -603,10 +608,11 @@ public class PriceListService {
 				rate.hourly = pricePerUnit;				
     	}
     }
-    
-    private boolean importPriceList(InputStream stream, InstancePrices prices) {
-        boolean hasErrors = false;
-        
+
+	/**
+	 * return true if successful
+	 */
+	private boolean importPriceList(InputStream stream, InstancePrices prices) {
 		CsvParserSettings settings = new CsvParserSettings();
 		settings.setHeaderExtractionEnabled(false);
 		settings.setNullValue("");
@@ -646,10 +652,10 @@ public class PriceListService {
 		}
 	    catch (Exception e ) {
 	        logger.error("Error processing price list data: ", e);
-	        hasErrors = true;
+	        return false;
 	    }			
         
-        return hasErrors;
+        return true;
     }
     
     

@@ -87,6 +87,10 @@ public class InstancePrices implements Comparable<InstancePrices> {
 	public boolean hasErrors() {
 		return hasErrors;
 	}
+
+	public void setErrors(boolean hasErrors) {
+		this.hasErrors = hasErrors;
+	}
 	
     public Map<Key, Product> getPrices() {
 		return prices;
