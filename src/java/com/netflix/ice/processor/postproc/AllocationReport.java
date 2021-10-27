@@ -70,8 +70,9 @@ public class AllocationReport extends Report {
     	EndDate,
     	Allocation;
     }
-	
+
 	private AllocationConfig config;
+	private ResourceService resourceService;
 	private long startMillis;
 	private List<String> userTagKeys;
 	private List<String> inTagKeys;
@@ -84,7 +85,7 @@ public class AllocationReport extends Report {
 	protected List<TagMappers> taggers;
 	private List<String> newTagKeys;
 	private boolean parsingError = false;
-	
+
 	/**
 	 * KeyMatcher supports the glob style wildcards '*' and '?' in tag names
 	 */
@@ -222,8 +223,9 @@ public class AllocationReport extends Report {
 		}
 	}
 
-	public AllocationReport(AllocationConfig config, long startMillis, boolean isReport, List<String> userTagKeys, ResourceService resourceService) throws Exception {
+	public AllocationReport(String payerAccountId, AllocationConfig config, long startMillis, boolean isReport, List<String> userTagKeys, ResourceService resourceService) throws Exception {
     	super();
+		this.withPayerAccountId(payerAccountId);
     	S3BucketConfig bucket = config.getS3Bucket();
     	withS3BucketConfig(new S3BucketConfig()
 		.withName(bucket.getName())
@@ -234,6 +236,7 @@ public class AllocationReport extends Report {
 		.withExternalId(bucket.getExternalId()));
     	
 		this.config = config;
+		this.resourceService = resourceService;
 		this.startMillis = startMillis;
 		this.userTagKeys = userTagKeys;
 		this.header = Lists.newArrayList(new String[]{AllocationColumn.StartDate.toString(), AllocationColumn.EndDate.toString(), AllocationColumn.Allocation.toString()});
@@ -554,7 +557,7 @@ public class AllocationReport extends Report {
 		
 		// Assign values from allocation report
 		for (int i = 0; i < outputs.size(); i++) {
-			String tag = outputs.get(i);
+			String tag = resourceService.getCanonicalValue(outTagIndeces.get(i), outputs.get(i), payerAccountId);
 			if (!tag.isEmpty()) // Only overwrite the existing value if we have something.
 				tags[outTagIndeces.get(i)] = tag;
 		}

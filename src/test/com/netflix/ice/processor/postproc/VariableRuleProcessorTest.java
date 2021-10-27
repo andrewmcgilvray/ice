@@ -86,7 +86,7 @@ public class VariableRuleProcessorTest {
 		private AllocationReport ar;
 
 		public TestVariableRuleProcessor(Rule rule, CostAndUsageData outCauData, AllocationReport ar, ResourceService rs) {
-			super(rule, outCauData, as, ps, rs, null, null);
+			super(a1, rule, outCauData, as, ps, rs, null, null);
 			this.ar = ar;
 		}
 
@@ -259,7 +259,7 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
-		return new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		return new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 	}
 
 	@Test
@@ -400,7 +400,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		AllocationReport ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 
 		// First call with empty report to make sure it handles it
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
@@ -473,7 +473,7 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
 		rule = new Rule(getConfig(allocationYaml2), as, ps, rs.getCustomTags());
-		ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 		reportData = "" +
 				"StartDate,EndDate,Allocation,_Product,Key1,Key2\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,EC2Instance,clusterC,twenty-five\n" +
@@ -518,7 +518,7 @@ public class VariableRuleProcessorTest {
 				"    Key2: Key2\n" +
 				"";
 		rule = new Rule(getConfig(allocationYaml3), as, ps, rs.getCustomTags());
-		ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 		reportData = "" +
 				"StartDate,EndDate,Allocation,Key2\n" +
 				"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,twenty-five\n" +
@@ -591,7 +591,7 @@ public class VariableRuleProcessorTest {
 		loadData(dataSpecs, data, 2, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		AllocationReport ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 
 		// Process with a report
 		String reportData = "" +
@@ -671,7 +671,7 @@ public class VariableRuleProcessorTest {
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
+		AllocationReport ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), rs.getCustomTags(), rs);
 
 		// Process with a report
 		String reportData = "" +
@@ -769,7 +769,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys, rs);
+		AllocationReport ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys, rs);
 
 		// Process with a report
 		String reportData = "" +
@@ -841,7 +841,7 @@ public class VariableRuleProcessorTest {
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> userTagKeys = Lists.newArrayList(new String[]{"Key1","Key2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys, rs);
+		AllocationReport ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), userTagKeys, rs);
 
 		// Process with a report that has both empty and non-empty Key1 values.
 		// Should apply the allocations for specific non-empty values and then use
@@ -888,7 +888,7 @@ public class VariableRuleProcessorTest {
 	// Test report that has one or more output dimensions not in the source custom tags list
 	@Test
 	public void testMonthlyReportWithAllocationReportAndExtraTags() throws Exception {
-		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2"}, false);
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Key2","Extra1","Extra2"}, false);
 		String allocationYaml = "" +
 				"name: report-test\n" +
 				"start: 2019-11\n" +
@@ -911,14 +911,14 @@ public class VariableRuleProcessorTest {
 				"    Extra2: Extra2\n" +
 				"";
         TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
-        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute"}, 100.0, 0),
+        		new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"clusterA", "compute", "", ""}, 100.0, 0),
         };
 		CostAndUsageData data = new CostAndUsageData(null, new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC).getMillis(), null, rs.getUserTagKeys(), null, as, ps);
         loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
 		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
 
 		List<String> reportUserTagKeys = Lists.newArrayList(new String[]{"Extra1", "Key1", "Key2", "Extra2"});
-		AllocationReport ar = new AllocationReport(rule.config.getAllocation(), 0, rule.config.isReport(), reportUserTagKeys, rs);
+		AllocationReport ar = new AllocationReport(a1, rule.config.getAllocation(), 0, rule.config.isReport(), reportUserTagKeys, rs);
 
 		// Process with a report
 		String reportData = "" +

@@ -71,6 +71,11 @@ public abstract class ResourceService {
     abstract public ResourceGroup getResourceGroup(Account account, Product product, List<Tag> reservedInstanceTags, long millisStart);
 
     /**
+     * Consolidate tag value if configs specify an alias
+     */
+    abstract public String getCanonicalValue(int keyIndex, String value, String payerAccountId);
+
+    /**
      * Commit resource mappings. This method will be called at the end of billing file processing to commit your mappings.
      */
     abstract public void commit();

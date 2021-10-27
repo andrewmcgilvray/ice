@@ -56,7 +56,7 @@ public class PostProcessor {
     protected boolean debug = false;
 
     private final DateTime startDate;
-	private List<RuleConfig> rules;
+	private Map<String, List<RuleConfig>> rules;
 	private String reportSubPrefix;
 	private AccountService accountService;
 	private ProductService productService;
@@ -69,7 +69,7 @@ public class PostProcessor {
 
 	static final DateTimeFormatter yearMonth = DateTimeFormat.forPattern("yyyy-MM").withZone(DateTimeZone.UTC);
 
-	public PostProcessor(DateTime startDate, List<RuleConfig> rules, String reportSubPrefix,
+	public PostProcessor(DateTime startDate, Map<String, List<RuleConfig>> rules, String reportSubPrefix,
 						 AccountService accountService, ProductService productService,
 						 ResourceService resourceService, WorkBucketConfig workBucketConfig,
 						 List<ProcessorConfig.JsonFileType> jsonFiles, boolean parquetFiles, int numThreads) {
@@ -89,12 +89,14 @@ public class PostProcessor {
 	
 	public void process(CostAndUsageData data) {
 		logger.info("Post-process " + rules.size() + " rules");
-		for (RuleConfig rc: rules) {
-			try {
-				processRule(rc, data);
-			} catch (Exception e) {
-				logger.error("Error post-processing cost and usage data for rule " + rc.getName() + ": " + e);
-				e.printStackTrace();
+		for (String payerAccountId: rules.keySet()) {
+			for (RuleConfig rc : rules.get(payerAccountId)) {
+				try {
+					processRule(payerAccountId, rc, data);
+				} catch (Exception e) {
+					logger.error("Error post-processing cost and usage data for rule " + rc.getName() + ": " + e);
+					e.printStackTrace();
+				}
 			}
 		}
 		if (pool != null)
@@ -126,7 +128,7 @@ public class PostProcessor {
 		return startMilli >= ruleStart && startMilli < ruleEnd;
 	}
 	
-	protected void processRule(RuleConfig rc, CostAndUsageData data) throws Exception {
+	protected void processRule(String payerAccountId, RuleConfig rc, CostAndUsageData data) throws Exception {
 		logger.info("-------- Process rule: \"" + rc.getName() + "\" --------");
 		// Make sure the rule is in effect for the start date
 		if (!isActive(rc, data.getStartMilli())) {
@@ -180,7 +182,7 @@ public class PostProcessor {
 			if (pool == null && numThreads > 0)
 	    		pool = Executors.newFixedThreadPool(numThreads);
 
-			VariableRuleProcessor rp = new VariableRuleProcessor(rule, outData, accountService, productService, resourceService, workBucketConfig, pool);
+			VariableRuleProcessor rp = new VariableRuleProcessor(payerAccountId, rule, outData, accountService, productService, resourceService, workBucketConfig, pool);
 			boolean processed = rp.process(data);
 			if (processed && rc.isReport()) {
 				outData.enableTagGroupCache(true);

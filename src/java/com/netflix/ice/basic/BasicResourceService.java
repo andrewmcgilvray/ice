@@ -50,8 +50,9 @@ public class BasicResourceService extends ResourceService {
     class PayerAccountTagProperties {
 		private Map<String, TagConfig> tagConfigs;
 
-		// Map of tag values to canonical name. All keys are lower case.
-		// Maps are nested by Tag Key, then Value
+		// Maps of tag values to canonical name.
+		// Primary Map holds one map for each customTag key.
+		// Secondary Maps use lower case value as key, with associated canonical name.
 		private Map<String, Map<String, String>> tagValuesInverted;
 
 		// Map containing the lineItem column indeces that match the canonical tag keys specified by CustomTags
@@ -335,6 +336,27 @@ public class BasicResourceService extends ResourceService {
     	}
     	return null;
     }
+
+    /**
+	 * Consolidate tag value if configs specify an alias
+     */
+    @Override
+    public String getCanonicalValue(int keyIndex, String value, String payerAccountId) {
+		String tagKey = customTags.get(keyIndex);
+		PayerAccountTagProperties properties = tagProperties.get(payerAccountId);
+		Map<String, Map<String, String>> indeces = properties == null ? null : properties.tagValuesInverted;
+		Map<String, String> invertedIndex = indeces == null ? null : indeces.get(tagKey);
+
+		// cut all white space from tag value
+		String val = stripSpaces(value);
+		if (invertedIndex != null && !StringUtils.isEmpty(val)) {
+			if (invertedIndex.containsKey(val.toLowerCase())) {
+				val = invertedIndex.get(val.toLowerCase());
+			}
+			val = filter(val, keyIndex, tagKey, properties);
+		}
+		return val;
+	}
 
     private String filter(String value, int index, String tag, PayerAccountTagProperties properties) {
 		if (properties.tagConfigs != null) {

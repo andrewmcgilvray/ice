@@ -33,15 +33,17 @@ import com.netflix.ice.tag.UsageType;
 import com.netflix.ice.tag.UserTag;
 
 public class VariableRuleProcessor extends RuleProcessor {
+	private String payerAccountId;
 	private CostAndUsageData outCauData;
 	private ResourceService resourceService;
 	private WorkBucketConfig workBucketConfig;
 	private ExecutorService pool;
 
-	public VariableRuleProcessor(Rule rule, CostAndUsageData outCauData,
+	public VariableRuleProcessor(String payerAccountId, Rule rule, CostAndUsageData outCauData,
 			AccountService accountService, ProductService productService, 
 			ResourceService resourceService, WorkBucketConfig workBucketConfig, ExecutorService pool) {
 		super(rule, accountService, productService);
+		this.payerAccountId = payerAccountId;
 		this.outCauData = outCauData;
 		this.resourceService = resourceService;
 		this.workBucketConfig = workBucketConfig;
@@ -290,8 +292,9 @@ public class VariableRuleProcessor extends RuleProcessor {
 			}
 		}
 		else {
-			ar = new AllocationReport(rc.getAllocation(), data.getStartMilli(), rc.isReport(), 
-					outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings(), resourceService);
+			ar = new AllocationReport(payerAccountId, rc.getAllocation(), data.getStartMilli(), rc.isReport(),
+					outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings(),
+					resourceService);
 			// Download the allocation report and load it.
 			if (!ar.loadReport(data.getStart(), workBucketConfig.localDir))
 				ar = null; // No report to process
@@ -443,7 +446,7 @@ public class VariableRuleProcessor extends RuleProcessor {
 		int maxNum = data.getMaxNum();
 		Map<AggregationTagGroup, CostAndUsage[]> inData = runQuery(query, data, false, maxNum, rule.config.getName());
 		
-		AllocationReport allocationReport = new AllocationReport(rule.config.getAllocation(), data.getStartMilli(), rule.config.isReport(), 
+		AllocationReport allocationReport = new AllocationReport(payerAccountId, rule.config.getAllocation(), data.getStartMilli(), rule.config.isReport(),
 				outCauData == null ? resourceService.getCustomTags() : outCauData.getUserTagKeysAsStrings(), resourceService);
 		int numUserTags = resourceService.getCustomTags().size();
 		
