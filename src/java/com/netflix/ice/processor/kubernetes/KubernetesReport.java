@@ -191,7 +191,7 @@ public class KubernetesReport extends Report {
         logger.info("loading " + fileKey + "...");
 		long end = readFile(file);
         logger.info("done loading " + fileKey + ", end is " + LineItem.amazonBillingDateFormat.print(new DateTime(end)) + ", clusters: " + getClusters());
-        return true;
+        return end > month.getMillis(); // will return false if report was empty and didn't process any lines.
 	}
 
 	private File download(String localDir) {
