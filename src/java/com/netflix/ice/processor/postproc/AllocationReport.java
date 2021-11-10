@@ -227,13 +227,15 @@ public class AllocationReport extends Report {
     	super();
 		this.withPayerAccountId(payerAccountId);
     	S3BucketConfig bucket = config.getS3Bucket();
-    	withS3BucketConfig(new S3BucketConfig()
-		.withName(bucket.getName())
-		.withRegion(bucket.getRegion())
-		.withPrefix(bucket.getPrefix())
-		.withAccountId(bucket.getAccountId())
-		.withAccessRole(bucket.getAccessRole())
-		.withExternalId(bucket.getExternalId()));
+    	if (bucket != null) {
+			withS3BucketConfig(new S3BucketConfig()
+					.withName(bucket.getName())
+					.withRegion(bucket.getRegion())
+					.withPrefix(bucket.getPrefix())
+					.withAccountId(bucket.getAccountId())
+					.withAccessRole(bucket.getAccessRole())
+					.withExternalId(bucket.getExternalId()));
+		}
     	
 		this.config = config;
 		this.resourceService = resourceService;

@@ -28,6 +28,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.BeforeClass;
@@ -1434,5 +1437,77 @@ public class VariableRuleProcessorTest {
 				}
 			}
 		}
+	}
+
+	@Test
+	public void testGenerateDerivedAllocationReport() throws Exception {
+		// Take shared costs and distribute amount the non-shared owners according to their proportiaonal costs
+		BasicResourceService rs = new BasicResourceService(ps, new String[]{"Key1","Owner","Allocated","Key4"}, false);
+		String allocationYaml = "" +
+				"name: derived-allocation-report-test\n" +
+				"start: 2019-11\n" +
+				"end: 2022-11\n" +
+				"in:\n" +
+				"  filter:\n" +
+				"    userTags:\n" +
+				"      Owner: [Shared]\n" +
+				"allocation:\n" +
+				"  derived:\n" +
+				"    in:\n" +
+				"      filter:\n" +
+				"        userTags:\n" +
+				"          Owner: ['(?!Shared)^.*$']\n" + // Anything not "Shared"
+				"      groupByTags: [Owner]\n" +
+				"  out:\n" +
+				"    Allocated: Owner\n" +
+				"";
+		TagGroupSpec[] dataSpecs = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "A", "", ""}, 1000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "B", "", ""}, 3000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "Shared", "", ""}, 8000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"", "Shared", "", ""}, 80.0, 0),
+		};
+		CostAndUsageData data = new CostAndUsageData(null, 0, null, rs.getUserTagKeys(), null, as, ps);
+		loadData(dataSpecs, data, 0, rs.getUserTagKeys().size());
+		Rule rule = new Rule(getConfig(allocationYaml), as, ps, rs.getCustomTags());
+
+		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
+		AllocationReport ar = vrp.generateDerivedAllocationReport(data);
+		assertEquals("wrong number of allocations", 1, ar.getOutTagKeys().size());
+
+		StringWriter out = new StringWriter();
+		ar.writeCsv(new DateTime("2020-08-01T00:00:00Z", DateTimeZone.UTC), out);
+		String result = out.toString();
+		StringReader reader = new StringReader(result);
+		Iterable<CSVRecord> records = CSVFormat.DEFAULT
+				.withFirstRecordAsHeader()
+				.parse(reader);
+		String[] header = records.iterator().next().getParser().getHeaderNames().toArray(new String[]{});
+		String[] expectedHeader = new String[]{"StartDate", "EndDate", "Allocation", "Owner"};
+		assertArrayEquals("Incorrect header", expectedHeader, header);
+		String expected =
+						"StartDate,EndDate,Allocation,Owner\r\n" +
+						"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.25,A\r\n" +
+						"2020-08-01T00:00:00Z,2020-08-01T01:00:00Z,0.75,B\r\n";
+		assertEquals("derived allocation report incorrect", expected, result);
+
+		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
+		vrp.process(data);
+
+		TagGroupSpec[] expectedData = new TagGroupSpec[]{
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "A", "", ""}, 1000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "B", "", ""}, 3000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "Shared", "A", ""}, 2000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", ec2Instance, "RunInstances", "m5.2xlarge", new String[]{"", "Shared", "B", ""}, 6000.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"", "Shared", "A", ""}, 20.0, 0),
+				new TagGroupSpec("Recurring", a1, "us-east-1", cloudWatch, "MetricStorage:AWS/EC2", "CW:MetricMonitorUsage", new String[]{"", "Shared", "B", ""}, 60.0, 0),
+		};
+
+		for (TagGroupSpec spec: expectedData) {
+			TagGroup tg = spec.getTagGroup(as, ps);
+			Map<TagGroup, CostAndUsage> dataMap = data.get(tg.product).getData(0);
+			assertEquals("wrong data for spec " + spec.toString(), spec.value.cost, dataMap.get(tg).cost, 0.001);
+		}
+
 	}
 }
