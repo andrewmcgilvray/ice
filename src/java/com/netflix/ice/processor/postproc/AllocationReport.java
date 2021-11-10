@@ -304,12 +304,17 @@ public class AllocationReport extends Report {
 					if (parentName != null && !parentName.isEmpty()) {
 						// Get the parent config from the resource service and inherit
 						TagMappings parent = resourceService.getTagMappings(tagKey, parentName);
-						if (parent != null)
+						if (parent != null) {
 							tagMappings.inherit(parent);
-						else
+							tagMappingsList.add(tagMappings);
+						}
+						else {
 							logger.error("userTags rule for tag key \"" + tagKey + "\" references unknown tag mappings name: " + parentName);
+						}
 					}
-					tagMappingsList.add(tagMappings);
+					else {
+						tagMappingsList.add(tagMappings);
+					}
 				}
 				taggers.add(new TagMappers(userTagKeys.indexOf(tagKey), tagKey, tagMappingsList, tagKeyIndeces));
 			}
