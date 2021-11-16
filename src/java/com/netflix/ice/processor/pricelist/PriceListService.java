@@ -403,6 +403,7 @@ public class PriceListService {
 		ElasticGraphicsType("Elastic Graphics Type"), // EC2 only
 		MemoryGiB("Memory (GiB)"), // ES only
 		EnhancedNetworkingSupported("Enhanced Networking Supported"), // EC2 and RDS only
+		FromRegionCode("From Region Code"), // EC2 only
 		GPU, // EC2 only
 		InstanceTypeFamily("Instance Type Family"), // RDS only
 		
@@ -434,8 +435,10 @@ public class PriceListService {
 		PreInstalledSw("Pre Installed S/W"), // EC2 only
 		ProcessorFeatures("Processor Features"), // EC2 and RDS only
 		ProductType("Product Type"), // EC2 only
+		RegionCode("Region Code"),
 		ResourceType("Resource Type"), // EC2 only
 		ServiceName("serviceName"),
+		ToRegionCode("To Region Code"), // EC2 only
 		VolumeName("Volume Name"), // RDS only
 		VolumeApiName("Volume API Name"), // EC2 only
 		VPCNetworkingSupport, // EC2 only
