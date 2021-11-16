@@ -500,8 +500,10 @@ public class LineItem {
 
         if (lineItemType == LineItemType.DiscountedUsage) {
             double usageAmount = Double.parseDouble(items[usageQuantityIndex]);
-            double normFactor = items[lineItemNormalizationFactorIndex].isEmpty() ? computeProductNormalizedSizeFactor(items[usageTypeIndex]) : Double.parseDouble(items[lineItemNormalizationFactorIndex]);
-            double productFactor = items[productNormalizationSizeFactorIndex].isEmpty() ? computeProductNormalizedSizeFactor(items[productUsageTypeIndex]) : Double.parseDouble(items[productNormalizationSizeFactorIndex]);
+            String linf = items[lineItemNormalizationFactorIndex];
+            double normFactor = (linf.isEmpty() || linf.equals("NA")) ? computeProductNormalizedSizeFactor(items[usageTypeIndex]) : Double.parseDouble(linf);
+            String pnsf = items[productNormalizationSizeFactorIndex];
+            double productFactor = (pnsf.isEmpty() || pnsf.equals("NA")) ? computeProductNormalizedSizeFactor(items[productUsageTypeIndex]) : Double.parseDouble(pnsf);
             Double actualUsage = usageAmount * normFactor / productFactor;            
             return actualUsage.toString();
         }
