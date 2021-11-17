@@ -744,7 +744,12 @@ public class BasicResourceServiceTest {
 				"          DestValue:\n" +
 				"            key: TagKey1\n" +
 				"            operator: isOneOf\n" +
-				"            values: [SrcValue1]\n";
+				"            values: [SrcValue1]\n" +
+				"          srcvalue1a:\n" +
+				"            key: TagKey1\n" +
+				"            operator: isOneOf\n" +
+				"            values: [Srcvalue1a]\n" +
+				"";
 
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"TagKey1"};
@@ -754,7 +759,13 @@ public class BasicResourceServiceTest {
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue"});
 		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
 		assertEquals("Resource name doesn't match", expect, resource);
-	}
+
+		// Test overwrite where only case differs in both the source and dest
+		tags = new String[]{ "", "SrcValue1a", "SrcValue2", "SrcValue3", "SrcValue4"};
+		expect = ResourceGroup.getResourceGroup(new String[]{ "srcvalue1a"});
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", expect, resource);
+    }
 
 	@Test
 	public void testTagValueFilter() throws Exception {
