@@ -230,7 +230,51 @@ public class BasicDataManagerTest {
 		assertNotNull("No aggregated tag", data.get(Tag.aggregated));
 		assertNotNull("No (none) tag", data.get(UserTag.get(UserTag.none)));
 	}
-	
+
+	@Test
+	public void groupByUserTagInfrequentUsage() throws BadZone, ResourceException {
+		AccountService as = new BasicAccountService();
+		ProductService ps = new BasicProductService();
+
+		// Two tag groups with two intervals of data
+		double[] timeSeries = {0, 1, 0, 0, 0, 1};
+		Map<TagGroup, TimeSeriesData> rawData = Maps.newHashMap();
+		rawData.put(
+				TagGroup.getTagGroup("Recurring", "account", "us-east-1", null, "product", "operation", "usgaeType", "usageTypeUnit", new String[]{"TagA","TagB"}, as, ps),
+				new TimeSeriesData(timeSeries, timeSeries));
+
+		ReadOnlyData rod = new ReadOnlyData(rawData, 2, timeSeries.length);
+		DateTime testMonth = DateTime.parse("2018-01-01");
+		TagGroupManager tagGroupManager = makeTagGroupManager(testMonth, rawData.keySet());
+
+		BasicDataManager dataManager = new TestDataFileCache(testMonth, null, ConsolidateType.daily, tagGroupManager, true, 0, 0, null, as, ps, rod);
+
+		Interval interval = new Interval(testMonth, testMonth.plusDays(timeSeries.length));
+		List<List<UserTag>> userTagLists = Lists.newArrayList();
+		List<UserTag> listA = Lists.newArrayList();
+		List<UserTag> listB = Lists.newArrayList();
+		userTagLists.add(listA);
+		userTagLists.add(listB);
+
+		listB.add(UserTag.get("TagB"));
+
+		TagLists tagLists = new TagListsWithUserTags(null, null, null, null, null, null, null, userTagLists);
+
+		Map<Tag, double[]> data = dataManager.getData(true, interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
+
+		for (Tag t: data.keySet()) {
+			logger.info("Tag: " + t + ": " + data.get(t)[0]);
+		}
+		assertEquals("Wrong number of groupBy tags", 2, data.size());
+		assertNotNull("No aggregated tag", data.get(Tag.aggregated));
+		assertNotNull("No TagB tag", data.get(UserTag.get("TagB")));
+
+		// Request data past the end of the time series
+		interval = new Interval(testMonth.plusDays(timeSeries.length + 2), testMonth.plusDays(timeSeries.length + 4));
+		data = dataManager.getData(true, interval, tagLists, TagType.Tag, AggregateType.data, null, UsageUnit.Instances, 1);
+		assertEquals("Wrong number of groupBy tags", 0, data.size());
+	}
+
 	@Test
 	public void groupByNoneWithUserTagFilters() throws BadZone, ResourceException {
 		AccountService as = new BasicAccountService();
