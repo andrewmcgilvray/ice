@@ -105,6 +105,9 @@ public class BasicDataManager extends CommonDataManager<ReadOnlyData, TimeSeries
         int fromIndex = from;
 
 		int numToCopy = Math.min(result.length - to, data.getNum() - from);
+		if (numToCopy <= 0)
+			return 0;
+
 		double[] values = new double[numToCopy];
 		for (TagGroup tg: tagGroups) {
 			TimeSeriesData tsd = data.getData(tg);
