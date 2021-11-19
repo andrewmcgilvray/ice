@@ -118,7 +118,7 @@ public class BasicResourceService extends ResourceService {
     public TagMappings getTagMappings(String tagKey, String name) {
     	for (Map<String, TagConfig> maps: tagConfigs.values()) {
 			TagConfig tc = maps.get(tagKey);
-    		if (tc != null) {
+    		if (tc != null && tc.mapped != null) {
     			for (TagMappings tm: tc.mapped) {
     				String n = tm.getName();
     				if (n != null && n.equals(name))
