@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Maps;
 import com.netflix.ice.processor.ProcessorConfig;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -93,8 +94,9 @@ public class PostProcessorTest {
 				"      Key2: [compute]\n" +
 				"  groupBy: [costType,account]\n" +
 				"";
-		List<RuleConfig> rules = Lists.newArrayList(getConfig(reportYaml));
+		Map<String, List<RuleConfig>> rules = Maps.newHashMap();
     	Account a = as.getAccountById("111111111111");
+		rules.put(a.getId(), Lists.newArrayList(getConfig(reportYaml)));
         Datum[] data = new Datum[]{
         		new Datum(0,  5.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","", "clusterA", "compute", ""}))),
         		new Datum(0, 25.0, 0, TagGroup.getTagGroup(CostType.recurring, a, null, null, null, null, null, ResourceGroup.getResourceGroup(new String[]{"Recurring","extra1A", "clusterA", "twenty-five", "extra2A"}))),

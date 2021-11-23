@@ -21,11 +21,16 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.netflix.ice.processor.config.S3BucketConfig;
 
 public class Report {
-
+	protected String payerAccountId;
 	protected S3ObjectSummary s3ObjectSummary;
 	protected S3BucketConfig s3BucketConfig;
 
 	public Report() {
+	}
+
+	public Report withPayerAccountId(String payerAccountId) {
+		this.payerAccountId = payerAccountId;
+		return this;
 	}
 	
 	public Report withS3ObjectSummary(S3ObjectSummary s3ObjectSummary) {

@@ -20,7 +20,7 @@ import com.netflix.ice.tag.Product;
 
 public abstract class RuleProcessor {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-    
+
 	protected Rule rule;
 	protected AccountService accountService;
 	protected ProductService productService;

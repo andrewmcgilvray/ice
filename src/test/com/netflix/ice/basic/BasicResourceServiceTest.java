@@ -697,37 +697,75 @@ public class BasicResourceServiceTest {
 		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
 		assertEquals("Resource name doesn't match", expect, resource);
 	}
-	
+
 	@Test
 	public void testGetTagGroupMappedFromAlias() throws Exception {
 		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
-		
+
 		// Mapping rules for new virtual tag
 		String yaml = "" +
-		"tags:\n" +
-		"  - name: DestKey\n" +
-		"    aliases:\n" +
-		"      - name: TagKey2\n" +
-		"    mapped:\n" +
-		"      - include: [" + payerAccount + "]\n" +
-		"        maps:\n" +
-		"          DestValue1:\n" +
-		"            key: TagKey3\n" +
-		"            operator: isOneOf\n" +
-		"            values: [SrcValue3]\n" +
-		"  - name: TagKey4\n" +
-		"    aliases:\n" +
-		"      - name: TagKey3\n";
-		
+				"tags:\n" +
+				"  - name: DestKey\n" +
+				"    aliases:\n" +
+				"      - name: TagKey2\n" +
+				"    mapped:\n" +
+				"      - include: [" + payerAccount.getId() + "]\n" +
+				"        maps:\n" +
+				"          DestValue1:\n" +
+				"            key: TagKey3\n" +
+				"            operator: isOneOf\n" +
+				"            values: [SrcValue3]\n" +
+				"  - name: TagKey4\n" +
+				"    aliases:\n" +
+				"      - name: TagKey3\n";
+
 		String start = "2020-01-01T00:00:00Z";
 		String[] customTags = new String[]{"DestKey", "TagKey4"};
-		
+
 		// Test that mapping is being ignored due to using an alias
-		String[] tags = new String[]{ "", "SrcValue1", "", "SrcValue3", "SrcValue4"};		
+		String[] tags = new String[]{ "", "SrcValue1", "", "SrcValue3", "SrcValue4"};
 		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "", "SrcValue4"});
-		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);		
-		assertEquals("Resource name doesn't match", expect, resource);		
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", expect, resource);
 	}
+
+	@Test
+	public void testGetTagGroupMappedOverwrite() throws Exception {
+		Account payerAccount = makeAccountWithDefaultTag("123456789012", null, null);
+
+		// Mapping rules for new virtual tag
+		String yaml = "" +
+				"tags:\n" +
+				"  - name: TagKey1\n" +
+				"    mapped:\n" +
+				"      - include: [" + payerAccount.getId() + "]\n" +
+				"        force: true\n" +
+				"        maps:\n" +
+				"          DestValue:\n" +
+				"            key: TagKey1\n" +
+				"            operator: isOneOf\n" +
+				"            values: [SrcValue1]\n" +
+				"          srcvalue1a:\n" +
+				"            key: TagKey1\n" +
+				"            operator: isOneOf\n" +
+				"            values: [Srcvalue1a]\n" +
+				"";
+
+		String start = "2020-01-01T00:00:00Z";
+		String[] customTags = new String[]{"TagKey1"};
+
+		// Test that mapping is being ignored due to using an alias
+		String[] tags = new String[]{ "", "SrcValue1", "SrcValue2", "SrcValue3", "SrcValue4"};
+		ResourceGroup expect = ResourceGroup.getResourceGroup(new String[]{ "DestValue"});
+		ResourceGroup resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", expect, resource);
+
+		// Test overwrite where only case differs in both the source and dest
+		tags = new String[]{ "", "SrcValue1a", "SrcValue2", "SrcValue3", "SrcValue4"};
+		expect = ResourceGroup.getResourceGroup(new String[]{ "srcvalue1a"});
+		resource = getResourceGroup(yaml, start, tags, customTags, payerAccount, payerAccount);
+		assertEquals("Resource name doesn't match", expect, resource);
+    }
 
 	@Test
 	public void testTagValueFilter() throws Exception {
