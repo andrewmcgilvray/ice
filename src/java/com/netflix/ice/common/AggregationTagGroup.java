@@ -110,6 +110,10 @@ public class AggregationTagGroup {
 		int i = userTagIndeces.indexOf(index);
 		return i < 0 ? UserTag.empty : userTags.get(i);
 	}
+
+	public List<UserTag> getUserTags() {
+		return this.userTags;
+	}
 	
     public boolean groupBy(Rule.TagKey tagKey) {
     	return types.contains(tagKey);

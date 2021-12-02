@@ -21,12 +21,14 @@ import java.util.List;
 import java.util.Map;
 
 import com.netflix.ice.common.TagMappings;
+import com.netflix.ice.processor.config.DerivedConfig;
 import com.netflix.ice.processor.config.S3BucketConfig;
 import com.netflix.ice.processor.config.KubernetesConfig;
 
 public class AllocationConfig {
 	private S3BucketConfig s3Bucket;
 	private KubernetesConfig kubernetes;
+	private DerivedConfig derived;
 	// Input tag map = UserTag Key is the map key, Report Column name is the map value.
 	private Map<String, String> in;
 	// Output tag map = UserTag Key is the map key, Report Column name is the map value.
@@ -45,6 +47,12 @@ public class AllocationConfig {
 	}
 	public void setKubernetes(KubernetesConfig kubernetes) {
 		this.kubernetes = kubernetes;
+	}
+	public DerivedConfig getDerived() {
+		return derived;
+	}
+	public void setDerived(DerivedConfig derived) {
+		this.derived = derived;
 	}
 	public Map<String, String> getIn() {
 		return in;

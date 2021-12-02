@@ -95,7 +95,7 @@ public class ProcessorConfig extends Config {
     public final boolean parquetFiles;
 
     // Post=processor configuration rules
-    public List<RuleConfig> postProcessorRules;
+    public Map<String, List<RuleConfig>> postProcessorRules;
     public String reportSubPrefix;
     
     private static final String tagsBasename = "ice_tags";
@@ -472,10 +472,9 @@ public class ProcessorConfig extends Config {
      * Get the billing data configurations specified along side the billing reports and override any account names and default tagging
      */
     protected void processBillingDataConfig(Map<String, AccountConfig> accountConfigs) {
-    	postProcessorRules = Lists.newArrayList();
+    	postProcessorRules = Maps.newHashMap();
     	
         for (BillingBucket bb: billingBuckets) {
-        	
         	// Read account configs
         	BillingDataConfig bdc = readBillingDataConfig(bb, bb.getConfigAccountsBasename().isEmpty() ? accountsBasename : bb.getConfigAccountsBasename());
         	if (bdc != null) {
@@ -523,7 +522,7 @@ public class ProcessorConfig extends Config {
             	logger.info("Billing Data PostProcessor Configuration: Found " + (bdc.getPostprocrules() == null ? "null" : bdc.getPostprocrules().size()) + " post-processor rules");
 	        	List<RuleConfig> ruleConfigs = bdc.getPostprocrules();
 	        	if (ruleConfigs != null)
-	        		postProcessorRules.addAll(ruleConfigs);
+	        		postProcessorRules.put(bb.getAccountId(), ruleConfigs);
         	}
         }
     }
