@@ -81,6 +81,9 @@ public class Region extends Tag {
     public static final Region CA_CENTRAL_1 = new Region("ca-central-1", "CAN1", "Canada (Central)");
     public static final Region EU_WEST_1 = new Region("eu-west-1", "EU", "EU (Ireland)");
     public static final Region EU_CENTRAL_1 = new Region("eu-central-1", "EUC1", "EU (Frankfurt)");
+    public static final Region EU_CENTRAL_1_WL1_BER1 = new Region("eu-central-1-wl1-ber-wlz-1", "EUC1WL1BER1", "Europe (Vodafone) - Berlin");
+    public static final Region EU_CENTRAL_1_WL1_DTM1 = new Region("eu-central-1-wl1-dtm-wlz-1", "EUC1WL1DTM1", "Europe (Vodafone) - Dortmund");
+    public static final Region EU_CENTRAL_1_WL1_MUC1 = new Region("eu-central-1-wl1-muc-wlz-1", "EUC1WL1MUC1", "Europe (Vodafone) - Munich");
     public static final Region EU_WEST_2 = new Region("eu-west-2", "EUW2", "EU (London)");
     public static final Region EU_WEST_2_WL1_LON1 = new Region("eu-west-2-wl1-lon-wlz-1", "EUW2WL1LON1", "EU West (Vodafone) - London");
     public static final Region EU_WEST_3 = new Region("eu-west-3", "EUW3", "EU (Paris)");
@@ -95,6 +98,7 @@ public class Region extends Tag {
     public static final Region AP_NORTHEAST_3 = new Region("ap-northeast-3","APN3", "Asia Pacific (Osaka-Local)");
     public static final Region AP_SOUTHEAST_1 = new Region("ap-southeast-1", "APS1", "Asia Pacific (Singapore)");
     public static final Region AP_SOUTHEAST_2 = new Region("ap-southeast-2", "APS2", "Asia Pacific (Sydney)");
+    public static final Region AP_SOUTHEAST_3 = new Region("ap-southeast-3", "APS4", "Asia Pacific (Jakarta)");
     public static final Region AP_SOUTH_1 = new Region("ap-south-1", "APS3", "Asia Pacific (Mumbai)");
     public static final Region SA_EAST_1 = new Region("sa-east-1", "SAE1", "South America (Sao Paulo)");
     public static final Region ME_SOUTH_1 = new Region("me-south-1", "MES1", "Middle East (Bahrain)");
