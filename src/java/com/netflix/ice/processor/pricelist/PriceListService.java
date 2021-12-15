@@ -438,6 +438,7 @@ public class PriceListService {
 		RegionCode("Region Code"),
 		ResourceType("Resource Type"), // EC2 only
 		ServiceName("serviceName"),
+		SnapshotArchiveFeeType, // EC2 only
 		ToRegionCode("To Region Code"), // EC2 only
 		VolumeName("Volume Name"), // RDS only
 		VolumeApiName("Volume API Name"), // EC2 only
