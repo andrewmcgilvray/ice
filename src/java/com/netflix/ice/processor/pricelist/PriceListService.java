@@ -550,8 +550,8 @@ public class PriceListService {
 	    	String memory = getter.value(items, Column.Memory);
 			if (memory != null) {
 				String[] memoryParts = memory.split(" ");
-				if (!memoryParts[1].toLowerCase().equals("gib")) {
-					logger.error("Found PriceList entry with product memory using non-GiB units: " + memoryParts[1] + ", usageType: " + usageType);
+				if (!memoryParts[1].toLowerCase().equals("gib") && !memoryParts[1].toLowerCase().equals("gb")) {
+					logger.error("Found PriceList entry with product memory using non-GiB/GB units: " + memoryParts[1] + ", usageType: " + usageType);
 					prices.setErrors(true);
 				}
 				memory = memoryParts[0].replace(",", "");
