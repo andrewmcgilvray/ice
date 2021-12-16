@@ -594,7 +594,7 @@ public class AllocationReport extends Report {
 		// Apply any mapping rules
 		for (TagMappers tm: taggers) {
 			int index = tm.getTagIndex();
-			String tag = tm.getMappedUserTagValue(startMillis, tg.account.getId(), srcTags, srcTags[index]);
+			String tag = tm.getMappedUserTagValue(startMillis, tg, srcTags, srcTags[index]);
 			tags[index] = tag;
 		}
 		try {

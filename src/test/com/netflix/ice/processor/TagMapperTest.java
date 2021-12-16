@@ -21,6 +21,15 @@ import static org.junit.Assert.*;
 
 import java.util.Map;
 
+import com.netflix.ice.basic.BasicAccountService;
+import com.netflix.ice.basic.BasicProductService;
+import com.netflix.ice.common.AccountService;
+import com.netflix.ice.common.ProductService;
+import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.processor.postproc.TagGroupSpec;
+import com.netflix.ice.tag.CostType;
+import com.netflix.ice.tag.Product;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,7 +44,25 @@ public class TagMapperTest {
 		TagMappings tm = new TagMappings();
 		return mapper.readValue(yaml, tm.getClass());
 	}
-	
+
+	static ProductService ps;
+	static AccountService as;
+	static TagGroup defaultTagGroup;
+
+	@BeforeClass
+	static public void init() throws Exception {
+		ps = new BasicProductService();
+		as = new BasicAccountService();
+		defaultTagGroup = new TagGroupSpec(
+				"Recurring",
+				"123456789012",
+				"us-west-2",
+				Product.Code.Ec2Instance.serviceCode,
+				"RunInstances",
+				"r5.4xlarge",
+				null).getTagGroup(as, ps);
+	}
+
 	@Test
 	public void testIsOneOf() throws Exception {
 		String yaml =
@@ -55,12 +82,12 @@ public class TagMapperTest {
 		
 		// Test matching case
 		String[] tags = {"SrcValue1a",""};
-		String got = tm.apply(1, "123456789012", tags, "");
+		String got = tm.apply(1, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 		
 		// Test non-matching case
 		tags = new String[]{"Srcvalue1a",""};
-		got = tm.apply(1, "123456789012", tags, "");
+		got = tm.apply(1, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 	}
 
@@ -81,7 +108,7 @@ public class TagMapperTest {
 		
 		TagMapper tm = new TagMapper(1, config, tagKeyIndeces);
 		String[] tags = {"SrcValue1a",""};
-		String got = tm.apply(1, "123456789012", tags, "");
+		String got = tm.apply(1, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 	}
 
@@ -102,7 +129,7 @@ public class TagMapperTest {
 		
 		TagMapper tm = new TagMapper(1, config, tagKeyIndeces);
 		String[] tags = {"SrcValue1b",""};
-		String got = tm.apply(1, "123456789012", tags, "");
+		String got = tm.apply(1, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 	}
 
@@ -124,7 +151,7 @@ public class TagMapperTest {
 		
 		TagMapper tm = new TagMapper(0, config, tagKeyIndeces);
 		String[] tags = {"SrcValue1a",""};
-		String got = tm.apply(0, "123456789012", tags, "SrcValue1a");
+		String got = tm.apply(0, defaultTagGroup, tags, "SrcValue1a");
 		assertEquals("wrong mapped value", "DestValue1", got);
 	}
 
@@ -152,22 +179,22 @@ public class TagMapperTest {
 		
 		// Test for no terms true
 		String[] tags = {"","",""};
-		String got = tm.apply(2, "123456789012", tags, "");
+		String got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "", got);
 		
 		// Test for first term true
 		tags = new String[]{"SrcValue1","",""};
-		got = tm.apply(2, "123456789012", tags, "");
+		got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 		
 		// Test for second term true
 		tags = new String[]{"","SrcValue2",""};
-		got = tm.apply(2, "123456789012", tags, "");
+		got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 		
 		// Test for both terms true
 		tags = new String[]{"SrcValue1","SrcValue2",""};
-		got = tm.apply(2, "123456789012", tags, "");
+		got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 	}
 	
@@ -195,23 +222,50 @@ public class TagMapperTest {
 		
 		// Test for no terms true
 		String[] tags = {"","",""};
-		String got = tm.apply(2, "123456789012", tags, "");
+		String got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "", got);
 		
 		// Test for first term true
 		tags = new String[]{"SrcValue1","",""};
-		got = tm.apply(2, "123456789012", tags, "");
+		got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "", got);
 		
 		// Test for second term true
 		tags = new String[]{"","SrcValue2",""};
-		got = tm.apply(2, "123456789012", tags, "");
+		got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "", got);
 		
 		// Test for both terms true
 		tags = new String[]{"SrcValue1","SrcValue2",""};
-		got = tm.apply(2, "123456789012", tags, "");
+		got = tm.apply(2, defaultTagGroup, tags, "");
 		assertEquals("wrong mapped value", "DestValue1", got);
 	}
+
+	@Test
+	public void testPrimaryDimensionIsOneOf() throws Exception {
+		String yaml =
+			"maps:\n" +
+			"  Compute:\n" +
+			"    key: _Product\n" +
+			"    operator: isOneOf\n" +
+			"    values: [" + Product.Code.Ec2Instance.serviceCode + "]\n" +
+			"";
+
+		TagMappings config = loadYaml(yaml);
+		Map<String, Integer> tagKeyIndeces = Maps.newHashMap();
+		tagKeyIndeces.put("TagKey1", 0);
+		tagKeyIndeces.put("TagKey2", 1);
+
+		TagMapper tm = new TagMapper(1, config, tagKeyIndeces);
+
+		// Test
+		String[] tags = {"SrcValue1",""};
+		ProductService ps = new BasicProductService();
+		AccountService as = new BasicAccountService();
+
+		String got = tm.apply(1, defaultTagGroup, tags, "");
+		assertEquals("wrong mapped value", "Compute", got);
+	}
+
 
 }

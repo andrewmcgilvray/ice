@@ -17,6 +17,8 @@
  */
 package com.netflix.ice.common;
 
+import com.netflix.ice.processor.TagMapper;
+
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -28,6 +30,7 @@ public class TagMappingTerm {
 	
 	// Place for the TagMapper to cache the key index and compiled patterns
 	public int keyIndex;
+	public TagGroupField tagGroupField;
 	public List<Pattern> patterns;
 	
 	public enum Operator {
@@ -35,6 +38,16 @@ public class TagMappingTerm {
 		or,
 		isOneOf,
 		isNotOneOf;
+	}
+
+	public enum TagGroupField {
+		_CostType,
+		_Account,
+		_Region,
+		_Zone,
+		_Product,
+		_Operation,
+		_UsageType;
 	}
 
 	public List<TagMappingTerm> getTerms() {

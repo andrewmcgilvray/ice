@@ -53,20 +53,12 @@ public abstract class ResourceService {
      * Get resource group. Subclass can maintain a mapping of resource ids and resource group names.
      * Users can also choose to add user-defined tags in the billing file. E.g. in SampleMapDbResourceService,
      * the auto-scaling-group name is used to generate the resource group name.
-     * @param account
-     * @param region
-     * @param product
-     * @param resourceId: depending on product, resourceId could be:
-     * 1) instance id, if product is ec2_instance. You can use Edda (https://github.com/Netflix/edda) to query application name from instance id.
-     * 2) volume id, if product is ebs. You can use Edda (https://github.com/Netflix/edda) to query instance id from volumn id, then application name from instance id.
-     * 3) s3 bucket name if product is s3
-     * 4) db name if product is rds
-     * 5) etc.
+     * @param tagGroup
      * @param lineItem: the line item in the billing file. You can access your user-defined tags here.
      * @param millisStart
      * @return
      */
-    abstract public ResourceGroup getResourceGroup(Account account, Region region, Product product, LineItem lineItem, long millisStart);
+    abstract public ResourceGroup getResourceGroup(TagGroup tagGroup, LineItem lineItem, long millisStart);
     
     abstract public ResourceGroup getResourceGroup(Account account, Product product, List<Tag> reservedInstanceTags, long millisStart);
 

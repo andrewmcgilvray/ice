@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.netflix.ice.common.TagGroup;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
@@ -52,7 +53,8 @@ public class TagMapper {
 				continue;
 		}
 	}
-		
+
+
 	private int initTerm(String mappedValue, TagMappingTerm term, Map<String, Integer> tagKeyIndeces) {
 		TagMappingTerm.Operator op = term.getOperator();
 		if (op == null) {
@@ -76,19 +78,31 @@ public class TagMapper {
 		case isOneOf:
 		case isNotOneOf:
 			if (term.getKey() == null) {
-				logger.error("Tag mapping term for \"" + mappedValue + "\" \"\\\" with operator \\\"\" + op + has no key");
+				logger.error("Tag mapping term for \"" + mappedValue + "\" with operator \"" + op + "\" has no key");
 				return -1;
 			}
 			if (term.getValues() == null || term.getValues().isEmpty()) {
-				logger.error("Tag mapping term for \"" + mappedValue + "\" \"\\\" with operator \\\"\" + op + has no values");
+				logger.error("Tag mapping term for \"" + mappedValue + "\" with operator \"" + op + "\" has no values");
 				return -1;
 			}
-			if (!tagKeyIndeces.containsKey(term.getKey())) {
-				logger.error("Tag mapping term for \"" + mappedValue + "\" \"\\\" with operator \\\"\" + op + has invalid key");
+			String key = term.getKey();
+			term.tagGroupField = null;
+			if (key.startsWith("_")) {
+				try {
+					term.tagGroupField = TagMappingTerm.TagGroupField.valueOf(key);
+				}
+				catch (IllegalArgumentException e) {
+					logger.error("Tag mapping term for \"" + mappedValue + "\" with operator \"" + op + "\" has invalid key");
+					return -1;
+				}
+			}
+			else if (!tagKeyIndeces.containsKey(term.getKey())) {
+				logger.error("Tag mapping term for \"" + mappedValue + "\" with operator \"" + op + "\" has invalid key");
 				return -1;
 			}
 			// Set tag key index for term
-			term.keyIndex = tagKeyIndeces.get(term.getKey());
+			term.keyIndex = term.tagGroupField != null ? -1 : tagKeyIndeces.get(term.getKey());
+
 			// Create compiled patterns for values
 			term.patterns = Lists.newArrayList();
 			for (String regexTarget: term.getValues()) {
@@ -107,28 +121,41 @@ public class TagMapper {
 	public int getTagIndex() {
 		return tagIndex;
 	}
+
+	private String getField(TagMappingTerm.TagGroupField field, TagGroup tg) {
+		switch (field) {
+			case _CostType:	return tg.costType.name;
+			case _Account:	return tg.account.getId();
+			case _Region:	return tg.region.name;
+			case _Zone:		return tg.zone.name;
+			case _Product:	return tg.product.getServiceCode();
+			case _Operation: return tg.operation.name;
+			case _UsageType: return tg.usageType.name;
+		}
+		return "";
+	}
 	
-	private boolean eval(TagMappingTerm term, String[] tags) {
+	private boolean eval(TagMappingTerm term, TagGroup tg, String[] tags) {
 		TagMappingTerm.Operator op = term.getOperator();
 		
 		switch(op) {
 		case or:
 			for (TagMappingTerm t: term.getTerms()) {
-				if (eval(t, tags))
+				if (eval(t, tg, tags))
 					return true;
 			}
 			return false;
 			
 		case and:
 			for (TagMappingTerm t: term.getTerms()) {
-				if (!eval(t, tags))
+				if (!eval(t, tg, tags))
 					return false;
 			}
 			return true;
 			
 		case isOneOf:
 		case isNotOneOf:
-			String srcV = tags[term.keyIndex];
+			String srcV = term.tagGroupField == null ? tags[term.keyIndex] : getField(term.tagGroupField, tg);
 			if (srcV != null) {
 				for (Pattern p: term.patterns) {
 					Matcher m = p.matcher(srcV);
@@ -141,7 +168,7 @@ public class TagMapper {
 		return false;
 	}
 	
-	public String apply(long startMillis, String accountId, String[] tags, String value) {		
+	public String apply(long startMillis, TagGroup tg, String[] tags, String value) {
 		// Make sure the mapper is in effect and that we have maps
 		if (startMillis < this.startMillis || config.maps.isEmpty())
 			return value;
@@ -151,17 +178,17 @@ public class TagMapper {
 			return value;
 
     	// If we have an include filter, make sure the account is in the list
-    	if (config.include != null && !config.include.isEmpty() && !config.include.contains(accountId))
+    	if (config.include != null && !config.include.isEmpty() && !config.include.contains(tg.account.getId()))
     		return value;
     	
     	// If we have an exclude filter, make sure the account is not in the list
-    	if (config.exclude != null && !config.exclude.isEmpty() && config.exclude.contains(accountId))
+    	if (config.exclude != null && !config.exclude.isEmpty() && config.exclude.contains(tg.account.getId()))
     		return value;
 
-    	// We'll accept the first term in the list that returns a value
+    	// We'll accept the first term in the map that returns a value
 		for (String v: config.maps.keySet()) {
 			TagMappingTerm term = config.maps.get(v);
-			if (eval(term, tags)) {
+			if (eval(term, tg, tags)) {
 				value = v;
 				break;
 			}

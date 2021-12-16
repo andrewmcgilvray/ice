@@ -358,7 +358,7 @@ public class CostAndUsageReportLineItemProcessor implements LineItemProcessor {
 
         ResourceGroup resourceGroup = null;
         if (resourceService != null) {
-            resourceGroup = resourceService.getResourceGroup(account, region, product, lineItem, usageInterval.getStartMillis());
+            resourceGroup = resourceService.getResourceGroup(tagGroup, lineItem, usageInterval.getStartMillis());
         }
         
         // Do line-item-specific processing

@@ -211,7 +211,7 @@ public class BasicResourceService extends ResourceService {
 	}
 
     @Override
-    public ResourceGroup getResourceGroup(Account account, Region region, Product product, LineItem lineItem, long millisStart) {
+    public ResourceGroup getResourceGroup(TagGroup tagGroup, LineItem lineItem, long millisStart) {
     	if (customTags.size() == 0)
     		return null;
 
@@ -233,12 +233,12 @@ public class BasicResourceService extends ResourceService {
        		if (tagMappersForPayerAccount != null) {
        	    	TagMappers tagMappersForKey = tagMappersForPayerAccount.get(i);
 	        	if (tagMappersForKey != null)
-	        		v = tagMappersForKey.getMappedUserTagValue(millisStart, account.getId(), tags, tags[i]);
+	        		v = tagMappersForKey.getMappedUserTagValue(millisStart, tagGroup, tags, tags[i]);
        		}
        		
        		// Apply default mappings if any
         	if (v == null || v.isEmpty())
-        		v = account.getDefaultUserTagValue(customTags.get(i), millisStart);
+        		v = tagGroup.account.getDefaultUserTagValue(customTags.get(i), millisStart);
         	if (v == null)
         		v = ""; // never return null entries
         	tags[i] = v;

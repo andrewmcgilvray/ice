@@ -23,6 +23,7 @@ import java.util.Map;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.netflix.ice.common.TagGroup;
 import com.netflix.ice.common.TagMappings;
 
 public class TagMappers {
@@ -68,7 +69,7 @@ public class TagMappers {
     	return tagKey;
     }
     
-    public String getMappedUserTagValue(long startMillis, String accountId, String[] tags, String value) {
+    public String getMappedUserTagValue(long startMillis, TagGroup tg, String[] tags, String value) {
     	// return the user tag value for the specified account if there is a mapping configured.
     	
     	// Get the time-ordered values
@@ -76,7 +77,7 @@ public class TagMappers {
     	
     	for (List<TagMapper> tml: timeOrderedListsOfTagMappers) {
     		for (TagMapper tm: tml)
-    			value = tm.apply(startMillis, accountId, tags, value);
+    			value = tm.apply(startMillis, tg, tags, value);
     	}	
     	
     	return value;

@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import com.netflix.ice.common.TagGroup;
+import com.netflix.ice.tag.*;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
@@ -42,13 +44,7 @@ import com.netflix.ice.common.TagConfig;
 import com.netflix.ice.processor.CostAndUsageReport;
 import com.netflix.ice.processor.LineItem;
 import com.netflix.ice.processor.config.BillingDataConfig;
-import com.netflix.ice.tag.Account;
-import com.netflix.ice.tag.Product;
-import com.netflix.ice.tag.Region;
-import com.netflix.ice.tag.ResourceGroup;
 import com.netflix.ice.tag.ResourceGroup.ResourceException;
-import com.netflix.ice.tag.UserTag;
-import com.netflix.ice.tag.UserTagKey;
 
 public class BasicResourceServiceTest {
     private static final String resourcesDir = "src/test/resources";
@@ -88,8 +84,9 @@ public class BasicResourceServiceTest {
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.initHeader(li.getResourceTagsHeader(), "123456789012");
 		Account a = makeAccountWithDefaultTag("123456789012", "VirtualTagKey", "1234");
-		
-		ResourceGroup resource = rs.getResourceGroup(a, Region.US_EAST_1, ps.getProduct(Product.Code.Ec2Instance), li, 0);
+
+		TagGroup tg = TagGroup.getTagGroup(CostType.recurring, a, Region.US_EAST_1, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
+		ResourceGroup resource = rs.getResourceGroup(tg, li, 0);
 		UserTag[] tags = resource.getUserTags();
 		UserTag[] expected = {UserTag.get("Prod"), UserTag.get("serviceAPI"), UserTag.get("1234")};
 		for (int i = 0; i < tags.length; i++)
@@ -236,8 +233,10 @@ public class BasicResourceServiceTest {
 		
 		ResourceService rs = new BasicResourceService(ps, customTags, false);
 		rs.initHeader(li.getResourceTagsHeader(), "123456789012");
-		
-		ResourceGroup resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+
+		TagGroup tg = TagGroup.getTagGroup(CostType.recurring, a, null, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
+
+		ResourceGroup resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		UserTag[] userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set", "Prod", userTags[0].name);
 		
@@ -246,45 +245,49 @@ public class BasicResourceServiceTest {
 		//
 		// First set the effective date for a new value
 		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=Dev");
-		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		tg = TagGroup.getTagGroup(CostType.recurring, a, null, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
+		resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "Prod", userTags[0].name);
 		
 		// Now check after the effective date of the second value
 		item[2] = "2020-02-01T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "Dev", userTags[0].name);
 		
 		// Make sure out-of-time-ordered effective dates don't break things
 		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=Dev/2018=QA/2018-02=Test");
-		
+		tg = TagGroup.getTagGroup(CostType.recurring, a, null, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
+
 		item[2] = "2018-01-01T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "QA", userTags[0].name);
 		
 		item[2] = "2019-01-01T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "Test", userTags[0].name);
 		
 		// Check that we can stop setting values with a trailing '='
 		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=/2018=QA/2018-02=Test");
+		tg = TagGroup.getTagGroup(CostType.recurring, a, null, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
 		item[2] = "2020-02-21T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "", userTags[0].name);
 		
 		// Check that we ignore a trailing '/'
 		a = makeAccountWithDefaultTag("123456789012", "Environment", "Prod/2020-02=/2018=QA/2018-02=Test/");
+		tg = TagGroup.getTagGroup(CostType.recurring, a, null, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
 		item[2] = "2020-02-21T00:00:00Z";
 		li.setItems(item);
-		resourceGroup = rs.getResourceGroup(a, null, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		resourceGroup = rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 		userTags = resourceGroup.getUserTags();
 		assertEquals("default resource group not set correctly", "", userTags[0].name);		
 	}
@@ -391,7 +394,8 @@ public class BasicResourceServiceTest {
 		
 		// Test with mapped value
 		li.setItems(item);
-		return rs.getResourceGroup(account, Region.US_EAST_1, ps.getProduct(Product.Code.Ec2Instance), li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
+		TagGroup tg = TagGroup.getTagGroup(CostType.recurring, account, Region.US_EAST_1, null, ps.getProduct(Product.Code.Ec2Instance), null, null, null);
+		return rs.getResourceGroup(tg, li, new DateTime(item[2], DateTimeZone.UTC).getMillis());
 	}
 	
 	@Test
