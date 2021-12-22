@@ -59,15 +59,15 @@ import com.netflix.ice.tag.Zone.BadZone;
 
 public class DataSerializerTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-    private static final String resourcesDir = "src/test/resources";
-	private static final String dataDir = "src/test/data/";
+    private static final String resourcesDir = "src/test/resources/";
+	private static final String dataDir = "src/test/resources/private/";
     
     private static AccountService as;
     private static ProductService ps;
     
 	private static Properties getProperties() throws IOException {
 		Properties prop = new Properties();
-		File file = new File(resourcesDir + "/ice.properties");
+		File file = new File(resourcesDir + "private/ice.properties");
 		if (file.exists()) {
 			InputStream is = new FileInputStream(file);
 			prop.load(is);

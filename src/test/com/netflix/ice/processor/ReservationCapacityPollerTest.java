@@ -50,7 +50,7 @@ import com.netflix.ice.tag.Region;
 
 public class ReservationCapacityPollerTest {
 	static Ec2Mods ec2mods;
-	private static final String resourceDir = "src/test/resources/";
+	private static final String tmpDir = "src/test/tmp/";
 
 	@BeforeClass
 	public static void initMods() {
@@ -90,7 +90,7 @@ public class ReservationCapacityPollerTest {
 		.withDuration(94608000L);
 
 		CanonicalReservedInstances cri = new CanonicalReservedInstances("1", "ap-northeast-2", ri, "");		
-		PriceListService pls = new PriceListService(resourceDir, null, null);
+		PriceListService pls = new PriceListService(tmpDir, null, null);
 		ReservationCapacityPoller rcp = new ReservationCapacityPoller(null);
 
 		double fixedPrice = rcp.getFixedPrice(cri, Region.AP_NORTHEAST_2, pls);
@@ -124,7 +124,7 @@ public class ReservationCapacityPollerTest {
 		reservations.put(childKey, new CanonicalReservedInstances("1", "us-east-1", childRI, ""));
 		ReservationCapacityPoller rcp = new ReservationCapacityPoller(null);
 		
-		PriceListService pls = new PriceListService(resourceDir, null, null);
+		PriceListService pls = new PriceListService(tmpDir, null, null);
 		
 		rcp.handleEC2Modifications(reservations, ec2mods, Region.US_EAST_1, pls);
 		
@@ -170,7 +170,7 @@ public class ReservationCapacityPollerTest {
 		reservations.put(parentKey, new CanonicalReservedInstances("1", "us-east-1", parentRI, ""));
 		reservations.put(childKey, new CanonicalReservedInstances("1", "us-east-1", childRI, ""));
 		ReservationCapacityPoller rcp = new ReservationCapacityPoller(null);
-		PriceListService pls = new PriceListService(resourceDir, null, null);
+		PriceListService pls = new PriceListService(tmpDir, null, null);
 		
 		rcp.handleEC2Modifications(reservations, ec2mods, Region.US_WEST_2, pls);
 		

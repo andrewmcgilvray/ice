@@ -62,7 +62,7 @@ import com.netflix.ice.tag.Zone.BadZone;
 
 public class ReservationProcessorTest {
     protected static Logger logger = LoggerFactory.getLogger(ReservationProcessorTest.class);
-	private static final String resourceDir = "src/test/resources/";
+	private static final String tmpDir = "src/test/tmp/";
 
 	private final Product ec2Instance = productService.getProduct(Product.Code.Ec2Instance);
 	private final Product rdsInstance = productService.getProduct(Product.Code.RdsInstance);
@@ -124,7 +124,7 @@ public class ReservationProcessorTest {
 
 	@BeforeClass
 	public static void init() throws Exception {
-		priceListService = new PriceListService(resourceDir, null, null);
+		priceListService = new PriceListService(tmpDir, null, null);
 		priceListService.init();
 
 		productService = new BasicProductService();

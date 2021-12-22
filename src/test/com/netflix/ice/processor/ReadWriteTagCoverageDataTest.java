@@ -39,7 +39,7 @@ import com.netflix.ice.tag.Product;
 
 public class ReadWriteTagCoverageDataTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-	private static final String dataDir = "src/test/data/";
+	private static final String dataDir = "src/test/resources/private/";
 
 	@Test
 	public void loadFile() throws Exception {

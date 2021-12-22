@@ -47,7 +47,7 @@ import com.netflix.ice.tag.UserTagKey;
 
 public class TagCoverageDataManagerTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-	private static final String dataDir = "src/test/data/";
+	private static final String dataDir = "src/test/resources/private/";
 
 	class TestTagCoverageDataManager extends TagCoverageDataManager {
 		TestTagCoverageDataManager() {

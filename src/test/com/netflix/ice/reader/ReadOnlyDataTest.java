@@ -32,7 +32,7 @@ import static org.junit.Assert.assertNotNull;
 
 public class ReadOnlyDataTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-	private static final String dataDir = "src/test/data/";
+	private static final String dataDir = "src/test/resources/private/";
     
     private static AccountService as;
     private static ProductService ps;
@@ -46,7 +46,7 @@ public class ReadOnlyDataTest {
 
 	@Test
 	public void testFileRead() throws IOException, BadZone {
-        String filename = "cost_daily_505vubukj9ayygz7z5jbws97j_2020";
+        String filename = "cost_daily_EC2_2020";
         boolean forReservations = false;
         int numUserTags = 16;
        

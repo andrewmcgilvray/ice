@@ -46,7 +46,7 @@ import com.netflix.ice.tag.Zone.BadZone;
 
 public class BasicDataManagerTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
-	private static final String dataDir = "src/test/data/";
+	private static final String dataDir = "src/test/resources/private/";
 
 	class TestDataFileCache extends BasicDataManager {
 		private ReadOnlyData data;

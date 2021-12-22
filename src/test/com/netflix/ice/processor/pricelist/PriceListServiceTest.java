@@ -47,11 +47,12 @@ import com.netflix.ice.tag.UsageType;
 public class PriceListServiceTest {
 	protected static Logger logger = LoggerFactory.getLogger(PriceListService.class);
 	private static final String resourceDir = "src/test/resources/";
+	private static final String tmpDir = "src/test/tmp/";
 	private static PriceListService priceListService = null;
 	
 	@BeforeClass
 	public static void init() throws Exception {
-		priceListService = new PriceListService(resourceDir, null, null);
+		priceListService = new PriceListService(tmpDir, null, null);
 		priceListService.init();
 	}
 

@@ -70,8 +70,9 @@ public class BillingFileProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
     
     private static final String resourcesDir = "src/test/resources/";
-    private static final String resourcesReportDir = resourcesDir + "report/";
-    private static final String cauReportDir = resourcesReportDir + "Oct2017/";
+	private static final String resourcesReportDir = resourcesDir + "private/";
+	private static final String tmpDir = "src/test/tmp/";
+    private static final String cauReportDir = resourcesDir + "private/Oct2017/";
 	private static PriceListService priceListService = null;
 	private static Properties properties;
 	
@@ -82,7 +83,7 @@ public class BillingFileProcessorTest {
 
     private static void init(String propertiesFilename) throws Exception {
 		ReservationProcessorTest.init();
-		priceListService = new PriceListService(resourcesDir, null, null);
+		priceListService = new PriceListService(tmpDir, null, null);
 		priceListService.init();
         properties = getProperties(propertiesFilename);        
 		
@@ -143,7 +144,7 @@ public class BillingFileProcessorTest {
 		}
 	}
 	
-	public void testFileData(ReportTest reportTest, String prefix, ProductService productService) throws Exception {
+	public void testFileData(ReportTest reportTest, ProductService productService) throws Exception {
         ReservationPeriod reservationPeriod = ReservationPeriod.valueOf(properties.getProperty(IceOptions.RESERVATION_PERIOD, "oneyear"));
         PurchaseOption reservationPurchaseOption = PurchaseOption.valueOf(properties.getProperty(IceOptions.RESERVATION_PURCHASE_OPTION, "PartialUpfront"));
 		BasicReservationService reservationService = new BasicReservationService(reservationPeriod, reservationPurchaseOption);
@@ -235,7 +236,7 @@ public class BillingFileProcessorTest {
     		}
         }
                 
-        File expected = new File(resourcesReportDir, prefix+"cau.csv");
+        File expected = new File(tmpDir, "cost-and-usage.csv");
         if (!expected.exists()) {
         	// Comparison file doesn't exist yet, write out our current results
         	logger.info("Saving reference data...");
@@ -412,7 +413,7 @@ public class BillingFileProcessorTest {
 
 		init(filepath);
 		ProductService productService = new BasicProductService();
-		testFileData(new CostAndUsageTest(), "cau-", productService);
+		testFileData(new CostAndUsageTest(), productService);
 	}
 	
 	
