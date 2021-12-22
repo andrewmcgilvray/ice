@@ -1,3 +1,20 @@
+/*
+ *
+ *  Copyright 2013 Netflix, Inc.
+ *
+ *     Licensed under the Apache License, Version 2.0 (the "License");
+ *     you may not use this file except in compliance with the License.
+ *     You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ *
+ */
 package com.netflix.ice.processor;
 
 import com.google.common.collect.Lists;
@@ -64,12 +81,9 @@ public class DataParquetWriter {
         sb.append("  optional binary usageType (UTF8);\n");
         sb.append("  optional binary usageTypeUnit (UTF8);\n");
 
-        // User tags
-        sb.append("  required group tags {\n");
         for (UserTagKey key: tagKeys) {
-            sb.append("    optional binary ").append(key.name).append(" (UTF8);\n");
+            sb.append("  optional binary ").append(key.name).append(" (UTF8);\n");
         }
-        sb.append("  }\n");
 
         // Time ordered cost and usage pairs
         sb.append("  required group days (LIST) {\n");
@@ -206,14 +220,14 @@ public class DataParquetWriter {
 
         for (TagGroup tagGroup: tagGroups) {
             Group record = groupFactory.newGroup();
-            if (tagGroup.costType != null) {
-                record.add("costType", tagGroup.costType.name);
-            }
-            if (tagGroup.account != null) {
-                record.add("org", String.join("/", tagGroup.account.getParents()));
-                record.add("accountId", tagGroup.account.getId());
-                record.add("account", tagGroup.account.getIceName());
-            }
+
+            // required fields
+            record.add("costType", tagGroup.costType.name);
+            record.add("org", String.join("/", tagGroup.account.getParents()));
+            record.add("accountId", tagGroup.account.getId());
+            record.add("account", tagGroup.account.getIceName());
+
+            // optional fields
             if (tagGroup.region != null) {
                 record.add("region", tagGroup.region.name);
             }
@@ -233,12 +247,11 @@ public class DataParquetWriter {
             }
 
             if (tagGroup.resourceGroup != null) {
-                Group tags = record.addGroup("tags");
                 UserTag[] userTags = tagGroup.resourceGroup.getUserTags();
                 for (int i = 0; i < userTags.length; i++) {
                     if (userTags[i] == null || userTags[i].name.isEmpty())
                         continue;
-                    tags.add(tagKeys.get(i).name, userTags[i].name);
+                    record.add(tagKeys.get(i).name, userTags[i].name);
                 }
             }
 
