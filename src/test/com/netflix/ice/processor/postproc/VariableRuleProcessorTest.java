@@ -65,6 +65,7 @@ public class VariableRuleProcessorTest {
     protected Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final String resourceDir = "src/test/resources/";
+	private static final String tmpDir = "src/test/tmp/";
 
     static private ProductService ps;
 	static private AccountService as;
@@ -1330,7 +1331,7 @@ public class VariableRuleProcessorTest {
 		Set<String> unprocessedAtgs = Sets.newHashSet();
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
 		AllocationReport ar = vrp.generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
-		ar.writeFile(start, new File(file.getParent(), "ar-" + file.getName()), false);
+		ar.writeFile(start, new File(tmpDir, "ar-" + file.getName()), false);
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		vrp.process(data);
 
@@ -1418,7 +1419,7 @@ public class VariableRuleProcessorTest {
 		Set<String> unprocessedAtgs = Sets.newHashSet();
 		VariableRuleProcessor vrp = new TestVariableRuleProcessor(rule, null, null, rs);
 		AllocationReport ar = vrp.generateAllocationReport(kr, data, unprocessedClusters, unprocessedAtgs);
-		ar.writeFile(start, new File(file.getParent(), "ar-" + file.getName()), false);
+		ar.writeFile(start, new File(tmpDir, "ar-" + file.getName()), false);
 		vrp = new TestVariableRuleProcessor(rule, null, ar, rs);
 		vrp.process(data);
 
