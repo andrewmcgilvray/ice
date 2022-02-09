@@ -96,6 +96,11 @@ public class CostAndUsageReport extends MonthlyReport {
 		public String name;
 	}
 	
+	public class AdditionalArtifact {
+		public String artifactType;
+		public String name;
+	}
+	
 	public class BillingPeriod {
 		public String start;
 		public String end;
@@ -113,7 +118,7 @@ public class CostAndUsageReport extends MonthlyReport {
 		public BillingPeriod billingPeriod;
 		public String bucket;
 		public String[] reportKeys;
-		public String[] additionalArtifactKeys;
+		public AdditionalArtifact[] additionalArtifactKeys;
 		
 		public boolean hasTags() {
 			for (Column column: columns) {
